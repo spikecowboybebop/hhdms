@@ -62,6 +62,7 @@ export function Hero() {
                 alt="Doctor consulting with a patient via an online telemedicine meeting"
                 width={1280}
                 height={720}
+                priority
                 className="w-full h-full object-cover aspect-video" // Removed rounded-t-3xl here
             />
             </div>
