@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  dashboardPathForRole,
+  decodeJwt,
+  persistSession,
+  type StoredSession,
+} from "@/lib/auth";
 
 export default function SignInPage() {
+  const router = useRouter();
   // 1. Setup state for email, password, and feedback messages
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,12 +39,40 @@ export default function SignInPage() {
         throw new Error(data.message || "Something went wrong during sign-in.");
       }
 
-      // Success logic (e.g., Save token, redirect user to dashboard)
-      console.log("Login successful:", data);
-      alert("Login successful!"); 
-      
-    } catch (err: any) {
-      setError(err.message || "Failed to connect to the server.");
+      // 3. Normalise the API response into our session shape.
+      const accessToken: string | undefined = data?.access_token;
+      const userRole: string | undefined = data?.user?.role;
+      const userEmail: string | undefined = data?.user?.email;
+      const firstNameEn: string | undefined = data?.user?.first_name_en;
+
+      if (!accessToken) {
+        throw new Error("Authentication server returned no access token.");
+      }
+
+      // 4. Decode the JWT to verify role is present, then persist.
+      const decoded = decodeJwt(accessToken);
+      const effectiveRole = userRole ?? decoded?.role;
+
+      if (!effectiveRole) {
+        throw new Error("Authentication token is missing role information.");
+      }
+
+      const session: StoredSession = {
+        token: accessToken,
+        user: {
+          email: userEmail ?? email,
+          first_name_en: firstNameEn,
+          role: effectiveRole,
+        },
+      };
+      persistSession(session);
+
+      // 5. Route the user to the dashboard that matches their role.
+      router.replace(dashboardPathForRole(effectiveRole));
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to connect to the server.";
+      setError(message);
     } finally {
       setLoading(false);
     }
