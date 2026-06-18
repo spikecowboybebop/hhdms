@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   DashboardShell,
   type DashboardNavItem,
@@ -15,78 +16,7 @@ import {
   loadSession,
   type StoredSession,
 } from "@/lib/auth";
-
-interface TriagePatient {
-  id: string;
-  name: string;
-  age: number;
-  sex: "M" | "F";
-  complaint: string;
-  bp: string;
-  hr: number;
-  spo2: number;
-  temp: string;
-  icdCode?: string;
-  status: "WAITING" | "IN_TRIAGE" | "REFERRED";
-  assignedAt: string;
-}
-
-const mockPatients: TriagePatient[] = [
-  {
-    id: "PT-00981",
-    name: "Rezaul Karim",
-    age: 54,
-    sex: "M",
-    complaint: "Chest tightness, radiating to left arm",
-    bp: "158/96",
-    hr: 102,
-    spo2: 94,
-    temp: "37.8°C",
-    status: "IN_TRIAGE",
-    assignedAt: "10:08",
-  },
-  {
-    id: "PT-00982",
-    name: "Mahmuda Khatun",
-    age: 32,
-    sex: "F",
-    complaint: "Persistent high fever with productive cough",
-    bp: "118/74",
-    hr: 96,
-    spo2: 97,
-    temp: "39.4°C",
-    icdCode: "J18.9",
-    status: "IN_TRIAGE",
-    assignedAt: "10:14",
-  },
-  {
-    id: "PT-00983",
-    name: "Sabbir Ahmed",
-    age: 19,
-    sex: "M",
-    complaint: "Severe abdominal pain, nausea",
-    bp: "108/70",
-    hr: 88,
-    spo2: 99,
-    temp: "37.0°C",
-    status: "WAITING",
-    assignedAt: "10:19",
-  },
-  {
-    id: "PT-00984",
-    name: "Ferdousi Begum",
-    age: 67,
-    sex: "F",
-    complaint: "Dizziness and intermittent palpitations",
-    bp: "142/88",
-    hr: 76,
-    spo2: 96,
-    temp: "36.8°C",
-    icdCode: "I49.9",
-    status: "WAITING",
-    assignedAt: "10:24",
-  },
-];
+import { mbbsApi, type Patient, type VitalSigns } from "@/lib/mbbs-api";
 
 const navItems: DashboardNavItem[] = [
   {
@@ -148,9 +78,9 @@ export default function MbbsDashboardPage() {
   const router = useRouter();
   const [session, setSession] = useState<StoredSession | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [selected, setSelected] = useState<TriagePatient | null>(
-    mockPatients[0] ?? null,
-  );
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [selected, setSelected] = useState<Patient | null>(null);
   const [icdQuery, setIcdQuery] = useState("");
 
   useEffect(() => {
@@ -165,6 +95,27 @@ export default function MbbsDashboardPage() {
       router.replace(dashboardPathForRole(s.user.role));
     }
   }, [router]);
+
+  // Load patients from API when hydrated
+  useEffect(() => {
+    if (!hydrated || !session) return;
+    const load = async () => {
+      setPatientsLoading(true);
+      try {
+        const data = await mbbsApi.getMyPatients();
+        setPatients(data);
+        if (data.length > 0 && !selected) setSelected(data[0] ?? null);
+      } catch {
+        // Fallback: remain on empty state
+      } finally {
+        setPatientsLoading(false);
+      }
+    };
+    load();
+  }, [hydrated, session]);
+
+  const waitingCount = useMemo(() => patients.filter((p) => !p.has_emergency_flag).length, [patients]);
+  const emergencyCount = useMemo(() => patients.filter((p) => p.has_emergency_flag).length, [patients]);
 
   if (!hydrated) {
     return (
@@ -192,30 +143,30 @@ export default function MbbsDashboardPage() {
       {/* Stat row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="In My Queue"
-          value={mockPatients.filter((p) => p.status === "WAITING").length}
-          delta="2 escalated in last 10m"
-          trend="down"
+          label="My Patients"
+          value={patientsLoading ? '…' : patients.length}
+          delta={`${emergencyCount} emergency`}
+          trend={emergencyCount > 0 ? 'up' : 'flat'}
           accent="navy"
         />
         <StatCard
-          label="In Triage"
-          value={mockPatients.filter((p) => p.status === "IN_TRIAGE").length}
-          delta="Avg 6m 12s"
+          label="Stable"
+          value={patientsLoading ? '…' : waitingCount}
+          delta="Awaiting triage"
           trend="flat"
           accent="teal"
         />
         <StatCard
-          label="Referred Today"
-          value="14"
-          delta="3 to Cardiology"
-          trend="up"
+          label="Emergency"
+          value={patientsLoading ? '…' : emergencyCount}
+          delta="Requires immediate attention"
+          trend={emergencyCount > 0 ? 'up' : 'flat'}
           accent="amber"
         />
         <StatCard
           label="BMDC Verified"
-          value="A-12984"
-          delta="Signature active"
+          value="Active"
+          delta="Digital signature ready"
           trend="flat"
           accent="slate"
         />
@@ -224,86 +175,103 @@ export default function MbbsDashboardPage() {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Patient list */}
         <SectionCard
-          title="Awaiting Triage"
-          description="Sorted by intake time"
+          title="Assigned Patients"
+          description={patientsLoading ? 'Loading...' : 'Sorted by last update'}
           className="lg:col-span-2"
           action={
             <span className="rounded-full bg-[#0A2540] px-2.5 py-1 text-[10px] font-semibold text-[#00D4B2]">
-              {mockPatients.length} cases
+              {patients.length} patients
             </span>
           }
         >
-          <ul className="flex flex-col gap-2">
-            {mockPatients.map((p) => (
-              <li key={p.id}>
-                <button
-                  onClick={() => setSelected(p)}
-                  className={`flex w-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition-all ${
-                    selected?.id === p.id
-                      ? "border-[#0A2540] bg-[#0A2540] text-white shadow-sm"
-                      : "border-slate-200/60 bg-white hover:border-[#0A2540]/40 hover:bg-[#F8F9FA]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[10px] uppercase tracking-widest opacity-70">
-                      {p.id} • {p.assignedAt}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
-                        p.status === "WAITING"
-                          ? selected?.id === p.id
-                            ? "bg-white/20 text-white"
-                            : "bg-[#FF9900]/10 text-[#FF9900]"
-                          : selected?.id === p.id
-                            ? "bg-[#00D4B2] text-[#0A2540]"
-                            : "bg-[#00D4B2]/10 text-[#00D4B2]"
-                      }`}
-                    >
-                      {p.status.replace("_", " ")}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-bold tracking-tight">
-                      {p.name}
-                    </span>
-                    <span className="text-[11px] opacity-70">
-                      {p.age}{p.sex === "M" ? "M" : "F"}
-                    </span>
-                  </div>
-                  <span
-                    className={`text-xs leading-snug ${selected?.id === p.id ? "text-white/80" : "text-[#2D3A4A]"}`}
+          {patientsLoading ? (
+            <div className="flex items-center gap-2 py-4">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#00D4B2]" />
+              <span className="text-xs text-[#2D3A4A]">Loading patients...</span>
+            </div>
+          ) : patients.length === 0 ? (
+            <p className="text-xs text-[#2D3A4A] italic py-4">
+              No patients assigned yet. Patients will appear here once you record vital signs for them.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {patients.map((p) => (
+                <li key={p.id}>
+                  <button
+                    onClick={() => setSelected(p)}
+                    className={`flex w-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition-all ${
+                      selected?.id === p.id
+                        ? "border-[#0A2540] bg-[#0A2540] text-white shadow-sm"
+                        : "border-slate-200/60 bg-white hover:border-[#0A2540]/40 hover:bg-[#F8F9FA]"
+                    }`}
                   >
-                    {p.complaint}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-widest opacity-70">
+                        {p.mrn}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+                          p.has_emergency_flag
+                            ? selected?.id === p.id
+                              ? "bg-white/20 text-white"
+                              : "bg-[#FF9900]/10 text-[#FF9900]"
+                            : selected?.id === p.id
+                              ? "bg-[#00D4B2] text-[#0A2540]"
+                              : "bg-[#00D4B2]/10 text-[#00D4B2]"
+                        }`}
+                      >
+                        {p.has_emergency_flag ? 'EMERGENCY' : 'STABLE'}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm font-bold tracking-tight">
+                        {p.first_name_en} {p.last_name_en}
+                      </span>
+                      <span className="text-[11px] opacity-70">
+                        {p.sex}, {p.blood_group || 'N/A'}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-xs leading-snug ${selected?.id === p.id ? "text-white/80" : "text-[#2D3A4A]"}`}
+                    >
+                      {p.known_allergies ? `Allergies: ${p.known_allergies}` : 'No known allergies'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </SectionCard>
 
-        {/* Detail + vitals */}
+        {/* Detail + Actions */}
         <div className="flex flex-col gap-6 lg:col-span-3">
           {selected && (
             <SectionCard
-              title={`Triage Dossier — ${selected.name}`}
-              description={`${selected.age}-year-old ${selected.sex === "M" ? "male" : "female"} • ${selected.id}`}
+              title={`Patient — ${selected.first_name_en} ${selected.last_name_en}`}
+              description={`MRN: ${selected.mrn} • ${selected.sex === 'M' ? 'Male' : 'Female'} • ${selected.blood_group || 'N/A'}`}
               action={
                 <div className="flex gap-2">
-                  <button className="rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-[#2D3A4A] transition-all hover:border-[#0A2540] hover:text-[#0A2540]">
-                    Save Draft
-                  </button>
-                  <button className="rounded-lg bg-[#00D4B2] px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:shadow-md">
-                    Sign & Refer →
-                  </button>
+                  <Link
+                    href={`/dashboard/mbbs/patients/${selected.id}`}
+                    className="rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-[#2D3A4A] transition-all hover:border-[#0A2540] hover:text-[#0A2540]"
+                  >
+                    Full Record →
+                  </Link>
+                  <Link
+                    href={`/dashboard/mbbs/patients/${selected.id}`}
+                    className="rounded-lg bg-[#00D4B2] px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:shadow-md"
+                  >
+                    Start Consult
+                  </Link>
                 </div>
               }
             >
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
-                  { label: "Blood Pressure", value: selected.bp, unit: "mmHg" },
-                  { label: "Heart Rate", value: String(selected.hr), unit: "bpm" },
-                  { label: "SpO₂", value: String(selected.spo2), unit: "%" },
-                  { label: "Temperature", value: selected.temp, unit: "" },
+                  { label: "Phone", value: selected.phone_number || 'N/A' },
+                  { label: "Emergency Contact", value: selected.emergency_contact || 'N/A' },
+                  { label: "District", value: selected.district || 'N/A' },
+                  { label: "Blood Group", value: selected.blood_group || 'N/A' },
                 ].map((v) => (
                   <div
                     key={v.label}
@@ -312,104 +280,85 @@ export default function MbbsDashboardPage() {
                     <span className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]">
                       {v.label}
                     </span>
-                    <span className="mt-1 flex items-baseline gap-1">
-                      <span className="text-xl font-bold tracking-tight text-[#0A2540]">
-                        {v.value}
-                      </span>
-                      <span className="text-[10px] text-[#2D3A4A]">{v.unit}</span>
+                    <span className="mt-1 text-sm font-bold tracking-tight text-[#0A2540]">
+                      {v.value}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-col gap-2">
-                <label
-                  htmlFor="icd"
-                  className="text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]"
-                >
-                  ICD-10 Diagnostic Catalog
-                </label>
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200/60 bg-white px-3 py-2 focus-within:border-[#0A2540] focus-within:ring-2 focus-within:ring-[#00D4B2]/20">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#2D3A4A]">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    id="icd"
-                    placeholder="Search ICD-10 (e.g., I10, J18.9, R07.9)…"
-                    value={icdQuery}
-                    onChange={(e) => setIcdQuery(e.target.value)}
-                    className="w-full bg-transparent text-sm text-[#0A2540] placeholder:text-slate-400 outline-none"
-                  />
-                  {selected.icdCode && (
-                    <span className="rounded-full bg-[#00D4B2]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#00D4B2]">
-                      {selected.icdCode}
-                    </span>
-                  )}
+              {selected.known_allergies && (
+                <div className="mt-4 rounded-xl border border-[#FF9900]/30 bg-[#FF9900]/5 px-4 py-3">
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-[#FF9900] mb-1">
+                    Known Allergies
+                  </span>
+                  <p className="text-xs text-[#2D3A4A]">{selected.known_allergies}</p>
                 </div>
-              </div>
+              )}
 
-              <div className="mt-5 flex flex-col gap-2">
-                <label
-                  htmlFor="notes"
-                  className="text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]"
+              {selected.current_medications && (
+                <div className="mt-4 rounded-xl border border-[#00D4B2]/30 bg-[#00D4B2]/5 px-4 py-3">
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-[#00D4B2] mb-1">
+                    Current Medications
+                  </span>
+                  <p className="text-xs text-[#2D3A4A]">{selected.current_medications}</p>
+                </div>
+              )}
+            </SectionCard>
+          )}
+
+          {!selected && (
+            <SectionCard title="Clinical Triage Gateway" description="Select a patient from the list to begin">
+              <div className="flex flex-col items-center gap-4 py-6">
+                <span className="text-4xl">🏥</span>
+                <p className="text-sm text-[#2D3A4A] text-center max-w-xs">
+                  Select a patient from the list on the left to view their details and start a clinical consultation.
+                </p>
+                <Link
+                  href="/dashboard/mbbs"
+                  className="rounded-xl bg-[#0A2540] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0A2540]/90 transition-all"
                 >
-                  Clinical Notes
-                </label>
-                <textarea
-                  id="notes"
-                  rows={4}
-                  placeholder="Document subjective findings, assessment, and plan…"
-                  className="w-full resize-none rounded-xl border border-slate-200/60 bg-white px-3 py-2 text-sm text-[#0A2540] placeholder:text-slate-400 outline-none transition-all focus:border-[#0A2540] focus:ring-2 focus:ring-[#00D4B2]/20"
-                />
+                  Refresh Patient List
+                </Link>
               </div>
             </SectionCard>
           )}
 
-          <SectionCard
-            title="Recent Referrals"
-            description="Patients handed off to specialists"
-          >
-            <ul className="flex flex-col gap-3">
-              {[
-                {
-                  name: "Md. Jubayer Hossain",
-                  to: "Cardiology",
-                  icd: "I20.9",
-                  when: "08:42",
-                },
-                {
-                  name: "Ayesha Siddika",
-                  to: "Pulmonology",
-                  icd: "J45.901",
-                  when: "09:11",
-                },
-                {
-                  name: "Tareq Aziz",
-                  to: "Gastroenterology",
-                  icd: "K29.70",
-                  when: "09:55",
-                },
-              ].map((r) => (
-                <li
-                  key={r.name}
-                  className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3"
+          {/* Quick Actions */}
+          {selected && (
+            <SectionCard title="Quick Actions" description="Common workflows for this patient">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Link
+                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
                 >
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-sm font-semibold text-[#0A2540]">
-                      {r.name}
-                    </span>
-                    <span className="text-[11px] text-[#2D3A4A]">
-                      Referred to {r.to} • ICD-10 {r.icd}
-                    </span>
-                  </div>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-[#2D3A4A]">
-                    {r.when}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
+                  <span className="text-lg">🩺</span>
+                  <span className="text-[10px] font-semibold text-[#0A2540]">Vital Signs</span>
+                </Link>
+                <Link
+                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                >
+                  <span className="text-lg">📋</span>
+                  <span className="text-[10px] font-semibold text-[#0A2540]">Diagnosis</span>
+                </Link>
+                <Link
+                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                >
+                  <span className="text-lg">💊</span>
+                  <span className="text-[10px] font-semibold text-[#0A2540]">Prescription</span>
+                </Link>
+                <Link
+                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                >
+                  <span className="text-lg">🏥</span>
+                  <span className="text-[10px] font-semibold text-[#0A2540]">Referral</span>
+                </Link>
+              </div>
+            </SectionCard>
+          )}
         </div>
       </div>
     </DashboardShell>
