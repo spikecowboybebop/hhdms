@@ -170,14 +170,16 @@ export function DashboardShell({
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                       active
-                        ? "bg-[#0A2540] text-white shadow-sm"
-                        : "text-white hover:bg-[#F8F9FA] hover:text-white active:text-white"
+                        ? "bg-[#0A2540] shadow-sm"
+                        : "text-[#2D3A4A] hover:bg-[#F8F9FA] hover:text-[#0A2540]"
                     }`}
                   >
-                    <span className={active ? "text-white" : ""}>
+                    <span style={{ color: active ? '#ffffff' : undefined }}>
                       {item.icon}
                     </span>
-                    {item.label}
+                    <span style={{ color: active ? '#ffffff' : undefined }}>
+                      {item.label}
+                    </span>
                   </Link>
                 </li>
               );
