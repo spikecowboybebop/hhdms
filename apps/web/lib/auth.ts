@@ -20,8 +20,10 @@ export interface DecodedJwt {
 export interface StoredSession {
   token: string;
   user: {
+    id: string;
     email: string;
     first_name_en?: string;
+    last_name_en?: string;
     role: AppRole | string;
   };
 }

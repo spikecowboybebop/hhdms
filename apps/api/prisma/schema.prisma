@@ -96,6 +96,7 @@ model specialist_profiles {
   updated_at         DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   user               User     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  assigned_referrals  specialist_referrals[]
 
   @@map("specialist_profiles")
 }
@@ -276,7 +277,7 @@ model specialist_referrals {
 
   patient             patients              @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   referring_doctor    mbbs_doctor_profiles  @relation(fields: [referring_doctor_id], references: [user_id], onUpdate: NoAction)
-  // TODO: Add relation to specialist_profiles when specialist_id is populated
+  specialist          specialist_profiles? @relation(fields: [specialist_id], references: [user_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@map("specialist_referrals")
 }
