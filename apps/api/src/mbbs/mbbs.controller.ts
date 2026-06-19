@@ -89,6 +89,11 @@ export class MbbsController {
   // Diagnostic Test Orders (MB-005)
   // ============================================================
 
+  @Get('tests/catalog')
+  async getTestCatalog(@Query('category') category?: string) {
+    return this.mbbsService.getTestCatalog(category);
+  }
+
   @Post('patients/:id/test-orders')
   @HttpCode(HttpStatus.CREATED)
   async orderTests(

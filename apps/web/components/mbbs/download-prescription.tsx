@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { mbbsApi, type Patient, type Prescription } from "@/lib/mbbs-api";
@@ -12,17 +12,14 @@ interface Props {
 
 export default function DownloadPrescriptionBtn({ patient, prescription }: Props) {
   const [busy, setBusy] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const doctorRef = useRef<any>(null);
 
   const handleDownload = useCallback(async () => {
     setBusy(true);
+    const container = document.createElement("div");
+    container.style.cssText = "position:fixed;left:-9999px;top:0;z-index:-1";
+    document.body.appendChild(container);
     try {
       const doc = await mbbsApi.getDoctorProfile();
-      doctorRef.current = doc;
-
-      const el = contentRef.current;
-      if (!el) return;
 
       const sigHtml = doc.signature_url
         ? `<img src="${doc.signature_url}" alt="Signature" style="height:36px;object-fit:contain" crossorigin="anonymous" />`
@@ -44,7 +41,7 @@ export default function DownloadPrescriptionBtn({ patient, prescription }: Props
             </td>
           </tr>`;
 
-      el.innerHTML = `
+      container.innerHTML = `
         <div style="width:595px;padding:32px 36px;font-family:serif;color:#1a1a1a;line-height:1.5;background:#fff">
           <div style="text-align:center;border-bottom:2px solid #0A2540;padding-bottom:16px;margin-bottom:20px">
             <h1 style="font-size:22px;font-weight:bold;color:#0A2540;margin:0;letter-spacing:1px">
@@ -112,7 +109,7 @@ export default function DownloadPrescriptionBtn({ patient, prescription }: Props
 
       await new Promise((r) => setTimeout(r, 300));
 
-      const canvas = await html2canvas(el, {
+      const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true,
         logging: false,
@@ -130,23 +127,21 @@ export default function DownloadPrescriptionBtn({ patient, prescription }: Props
     } catch (e) {
       console.error("PDF generation failed", e);
     } finally {
+      document.body.removeChild(container);
       setBusy(false);
     }
   }, [patient, prescription]);
 
   return (
-    <>
-      <button
-        onClick={handleDownload}
-        disabled={busy}
-        className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
-      >
-        <span className="text-lg">💊</span>
-        <span className="text-[10px] font-semibold text-[#0A2540]">
-          {busy ? "Generating..." : "Download Rx"}
-        </span>
-      </button>
-      <div ref={contentRef} className="fixed -left-[9999px] top-0" />
-    </>
+    <button
+      onClick={handleDownload}
+      disabled={busy}
+      className="flex items-center gap-1.5 rounded-lg border border-slate-200/60 bg-[#F8F9FA] px-2.5 py-1.5 text-center hover:border-[#0A2540]/40 transition-all"
+    >
+      <span className="text-[13px]">💊</span>
+      <span className="text-[9px] font-semibold text-[#0A2540]">
+        {busy ? "..." : "Download Rx"}
+      </span>
+    </button>
   );
 }
