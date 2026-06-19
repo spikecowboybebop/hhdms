@@ -97,6 +97,7 @@ export class MbbsService implements OnModuleInit {
       emergencyFlags,
       chainEvents,
       testOrders,
+      prevAppointments,
     ] = await Promise.all([
       this.prisma.patient_vital_signs.findMany({
         where: { patient_id: patientId },
@@ -130,6 +131,17 @@ export class MbbsService implements OnModuleInit {
         orderBy: { ordered_at: 'desc' },
         include: { test: true, results: true },
       }),
+      this.prisma.doctor_patient_assignments.findMany({
+        where: { patient_id: patientId, appointment_activity: 'done' },
+        orderBy: { assigned_at: 'desc' },
+        include: {
+          doctor: {
+            include: {
+              user: { select: { firstNameEn: true, lastNameEn: true } },
+            },
+          },
+        },
+      }),
     ]);
 
     return {
@@ -141,6 +153,7 @@ export class MbbsService implements OnModuleInit {
       emergency_flags: emergencyFlags,
       referral_chain: chainEvents,
       test_orders: testOrders,
+      previous_appointments: prevAppointments,
     };
   }
 

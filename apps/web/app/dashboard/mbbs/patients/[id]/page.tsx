@@ -68,16 +68,6 @@ const navItems: DashboardNavItem[] = [
     ),
   },
   {
-    label: "ICD-10 Catalog",
-    href: "/dashboard/mbbs",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-    ),
-  },
-  {
     label: "My Schedule",
     href: "/dashboard/mbbs",
     icon: (
@@ -91,7 +81,7 @@ const navItems: DashboardNavItem[] = [
   },
 ];
 
-type Tab = 'vitals' | 'diagnosis' | 'tests' | 'prescriptions' | 'referral' | 'timeline';
+type Tab = 'vitals' | 'diagnosis' | 'tests' | 'prescriptions' | 'referral' | 'timeline' | 'previous';
 
 export default function MbbsPatientDetailPage() {
   const router = useRouter();
@@ -162,6 +152,7 @@ export default function MbbsPatientDetailPage() {
         prescription: 'prescriptions',
         referral: 'referral',
         timeline: 'timeline',
+        previous: 'previous',
       };
       const tab = map[key];
       if (tab) {
@@ -363,6 +354,7 @@ export default function MbbsPatientDetailPage() {
     { key: 'tests', label: 'Tests & Results', icon: '🧪' },
     { key: 'prescriptions', label: 'Prescriptions', icon: '💊' },
     { key: 'referral', label: 'Referral', icon: '🏥' },
+    { key: 'previous', label: 'Previous Appointment', icon: '📁' },
     { key: 'timeline', label: 'Care Timeline', icon: '📅' },
   ];
 
@@ -633,43 +625,8 @@ export default function MbbsPatientDetailPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="Test Orders & Results" description={`${profile.test_orders?.length || 0} orders`} className="lg:col-span-2">
-              {profile.test_orders && profile.test_orders.length > 0 ? (
-                <ul className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1">
-                  {profile.test_orders.map((order) => (
-                    <li key={order.id} className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[#0A2540]">{order.test?.test_name || order.test_id}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
-                          order.status === 'ORDERED' ? 'bg-[#FF9900]/10 text-[#FF9900]' :
-                          order.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-600' :
-                          order.status === 'COMPLETED' ? 'bg-[#00D4B2]/10 text-[#00D4B2]' :
-                          'bg-slate-100 text-[#2D3A4A]'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </div>
-                      <span className="mt-1 block text-[10px] text-[#2D3A4A]">
-                        Code: {order.test?.test_code} • {order.test?.category}
-                      </span>
-                      {order.results && order.results.length > 0 && (
-                        <div className="mt-2 border-t border-slate-200/60 pt-2">
-                          {order.results.map((r) => (
-                            <p key={r.id} className={`text-[11px] ${r.is_abnormal ? 'text-[#FF9900] font-semibold' : 'text-[#2D3A4A]'}`}>
-                              {r.result_value}{r.is_critical ? ' 🚨 CRITICAL' : ''}{r.is_abnormal ? ' ⚠️' : ''}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                      <span className="mt-1 block text-[9px] text-slate-400">
-                        {new Date(order.ordered_at).toLocaleString()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-[#2D3A4A] italic">No test orders yet.</p>
-              )}
+            <SectionCard title="Test Orders & Results" description="Status overview (MB-008)" className="lg:col-span-2">
+              <p className="text-xs text-[#2D3A4A] italic">No test orders yet.</p>
             </SectionCard>
           </div>
         )}
@@ -922,6 +879,35 @@ export default function MbbsPatientDetailPage() {
                 </ul>
               ) : (
                 <p className="text-xs text-[#2D3A4A] italic">No referrals yet.</p>
+              )}
+            </SectionCard>
+          </div>
+        )}
+
+        {/* ---- PREVIOUS APPOINTMENT TAB ---- */}
+        {activeTab === 'previous' && (
+          <div id="previous">
+            <SectionCard title="Previous Appointments" description={`${profile.previous_appointments?.length || 0} completed`}>
+              {profile.previous_appointments && profile.previous_appointments.length > 0 ? (
+                <ul className="flex flex-col gap-3">
+                  {profile.previous_appointments.map((appt) => (
+                    <li key={appt.id} className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-[#0A2540]">
+                          Dr. {appt.doctor.user.firstNameEn} {appt.doctor.user.lastNameEn}
+                        </span>
+                        <span className="rounded-full bg-[#00D4B2]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#00D4B2]">
+                          {appt.appointment_activity}
+                        </span>
+                      </div>
+                      <span className="mt-1 block text-[11px] text-[#2D3A4A]">
+                        {new Date(appt.assigned_at).toLocaleDateString()} at {new Date(appt.assigned_at).toLocaleTimeString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[#2D3A4A] italic">No previous appointments found.</p>
               )}
             </SectionCard>
           </div>

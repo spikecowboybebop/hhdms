@@ -308,7 +308,7 @@ async function main() {
   await prisma.doctor_patient_assignments.upsert({
     where: { doctor_id_patient_id: { doctor_id: arif.id, patient_id: patient1.id } },
     update: {},
-    create: { doctor_id: arif.id, patient_id: patient1.id },
+    create: { doctor_id: arif.id, patient_id: patient1.id, appointment_activity: 'done' },
   });
   await prisma.doctor_patient_assignments.upsert({
     where: { doctor_id_patient_id: { doctor_id: arif.id, patient_id: patient2.id } },

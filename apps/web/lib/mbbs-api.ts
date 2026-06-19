@@ -54,6 +54,20 @@ export interface Patient {
   updated_at?: string;
 }
 
+export interface PreviousAppointment {
+  id: string;
+  doctor_id: string;
+  patient_id: string;
+  assigned_at: string;
+  appointment_activity: string;
+  doctor: {
+    user: {
+      firstNameEn: string;
+      lastNameEn: string;
+    };
+  };
+}
+
 export interface PatientProfile {
   patient: Patient;
   vitals: VitalSigns[];
@@ -63,6 +77,7 @@ export interface PatientProfile {
   emergency_flags: EmergencyFlag[];
   referral_chain: ReferralChainEvent[];
   test_orders: TestOrder[];
+  previous_appointments: PreviousAppointment[];
 }
 
 export interface VitalSigns {
