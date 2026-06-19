@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -18,6 +19,7 @@ import { CreateTestOrderDto } from './dto/create-test-order.dto';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { CreateEmergencyFlagDto } from './dto/create-emergency-flag.dto';
+import { UpdateSignatureDto } from './dto/update-signature.dto';
 
 @Controller('mbbs')
 @UseGuards(AuthGuard('jwt'))
@@ -161,6 +163,25 @@ export class MbbsController {
   @Get('patients/:id/emergency')
   async getEmergencyFlags(@Param('id') patientId: string) {
     return this.mbbsService.getEmergencyFlags(patientId);
+  }
+
+  // ============================================================
+  // Digital Signature
+  // ============================================================
+
+  @Get('signature')
+  async getSignature(@Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.getSignature(doctorUserId);
+  }
+
+  @Patch('signature')
+  async updateSignature(
+    @Body() dto: UpdateSignatureDto,
+    @Req() req: any,
+  ) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.updateSignature(doctorUserId, dto.signature_url);
   }
 
   // ============================================================

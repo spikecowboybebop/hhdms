@@ -18,18 +18,7 @@ import {
   type StoredSession,
 } from "@/lib/auth";
 import { mbbsApi, type Patient, type VitalSigns } from "@/lib/mbbs-api";
-
-const userMenuItems: DashboardUserMenuItem[] = [
-  {
-    label: "Add Digital Signature",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-      </svg>
-    ),
-  },
-];
+import SignatureUploadModal from "@/components/dashboard/signature-modal";
 
 const navItems: DashboardNavItem[] = [
   {
@@ -82,7 +71,21 @@ export default function MbbsDashboardPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [patientsError, setPatientsError] = useState<string | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null | undefined>(undefined);
   const [selected, setSelected] = useState<Patient | null>(null);
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const userMenuItems: DashboardUserMenuItem[] = useMemo(() => [
+    {
+      label: "Add Digital Signature",
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </svg>
+      ),
+      onClick: () => setSignatureModalOpen(true),
+    },
+  ], []);
   const [icdQuery, setIcdQuery] = useState("");
 
   useEffect(() => {
@@ -105,8 +108,12 @@ export default function MbbsDashboardPage() {
       setPatientsLoading(true);
       setPatientsError(null);
       try {
-        const data = await mbbsApi.getMyPatients();
+        const [data, sig] = await Promise.all([
+          mbbsApi.getMyPatients(),
+          mbbsApi.getSignature().catch(() => ({ signature_url: null })),
+        ]);
         setPatients(data);
+        setSignatureUrl(sig.signature_url);
         if (data.length > 0 && !selected) setSelected(data[0] ?? null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to load patients';
@@ -169,11 +176,11 @@ export default function MbbsDashboardPage() {
           accent="amber"
         />
         <StatCard
-          label="BMDC Verified"
-          value="Active"
-          delta="Digital signature ready"
-          trend="flat"
-          accent="slate"
+          label="Digital Signature"
+          value={signatureUrl === undefined ? '…' : signatureUrl ? 'Ready' : 'Not Ready'}
+          delta={signatureUrl ? 'Signature on file' : 'Upload required'}
+          trend={signatureUrl ? 'up' : 'down'}
+          accent={signatureUrl ? 'teal' : 'amber'}
         />
       </div>
 
@@ -370,6 +377,11 @@ export default function MbbsDashboardPage() {
           )}
         </div>
       </div>
+
+      <SignatureUploadModal
+        open={signatureModalOpen}
+        onClose={() => setSignatureModalOpen(false)}
+      />
     </DashboardShell>
   );
 }

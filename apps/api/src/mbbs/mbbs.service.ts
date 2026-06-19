@@ -726,6 +726,38 @@ export class MbbsService {
   }
 
   // ============================================================
+  // Digital Signature
+  // ============================================================
+
+  /**
+   * Get the digital signature URL for the logged-in MBBS doctor.
+   */
+  async getSignature(doctorUserId: string) {
+    const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
+      where: { user_id: doctorUserId },
+      select: { signature_url: true },
+    });
+    return { signature_url: doctor?.signature_url ?? null };
+  }
+
+  /**
+   * Update the digital signature URL for the logged-in MBBS doctor.
+   */
+  async updateSignature(doctorUserId: string, signatureUrl: string) {
+    const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
+      where: { user_id: doctorUserId },
+    });
+    if (!doctor) {
+      throw new ForbiddenException('MBBS doctor profile not found.');
+    }
+
+    return this.prisma.mbbs_doctor_profiles.update({
+      where: { user_id: doctorUserId },
+      data: { signature_url: signatureUrl },
+    });
+  }
+
+  // ============================================================
   // Doctor Schedule (Helper)
   // ============================================================
 

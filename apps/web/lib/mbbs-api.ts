@@ -315,6 +315,14 @@ export const mbbsApi = {
   // Schedule
   getSchedule: () => apiFetch<any[]>('/mbbs/schedule'),
 
+  // Signature
+  getSignature: () => apiFetch<{ signature_url: string | null }>('/mbbs/signature'),
+  updateSignature: (signatureUrl: string) =>
+    apiFetch<any>('/mbbs/signature', {
+      method: 'PATCH',
+      body: JSON.stringify({ signature_url: signatureUrl }),
+    }),
+
   // Differential Diagnosis (stub)
   getDifferentialDiagnosis: (patientId: string) =>
     apiFetch<any>(`/mbbs/patients/${patientId}/differential-diagnosis`),

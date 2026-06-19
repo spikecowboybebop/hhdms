@@ -66,6 +66,32 @@ async function main() {
   );
   console.log('  Done: dr.farzana (MBBS)');
 
+  // --- Dr. Sajid (MBBS) ---
+  console.log('Creating dr.sajid@hhdms.com (MBBS)...');
+  const sajid = await prisma.user.upsert({
+    where: { email: 'dr.sajid@hhdms.com' },
+    update: { passwordHash, roleId: mbbsRole.id, phoneNumber: '+8801700000005', firstNameEn: 'Sajid', lastNameEn: 'Islam', firstNameBn: 'সাজিদ', status: 'ACTIVE' },
+    create: { email: 'dr.sajid@hhdms.com', passwordHash, phoneNumber: '+8801700000005', firstNameEn: 'Sajid', lastNameEn: 'Islam', firstNameBn: 'সাজিদ', roleId: mbbsRole.id, status: 'ACTIVE' },
+  });
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO mbbs_doctor_profiles (user_id, license_number, bmdc_registration, specialization, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, bmdc_registration=$3, specialization=$4, qualification=$5, years_of_experience=$6, consultation_fee=$7, is_available=$8`,
+    sajid.id, 'BMDC-2024-003', 'BMDC-REG-2024-003', 'Pediatrics & Adolescent Health', 'MBBS (Dhaka Medical College), DCH (Pediatrics)', 5, 700.0, true
+  );
+  console.log('  Done: dr.sajid (MBBS)');
+
+  // --- Dr. Nasrin (MBBS) ---
+  console.log('Creating dr.nasrin@hhdms.com (MBBS)...');
+  const nasrin = await prisma.user.upsert({
+    where: { email: 'dr.nasrin@hhdms.com' },
+    update: { passwordHash, roleId: mbbsRole.id, phoneNumber: '+8801700000006', firstNameEn: 'Nasrin', lastNameEn: 'Akhter', firstNameBn: 'নাসরিন', status: 'ACTIVE' },
+    create: { email: 'dr.nasrin@hhdms.com', passwordHash, phoneNumber: '+8801700000006', firstNameEn: 'Nasrin', lastNameEn: 'Akhter', firstNameBn: 'নাসরিন', roleId: mbbsRole.id, status: 'ACTIVE' },
+  });
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO mbbs_doctor_profiles (user_id, license_number, bmdc_registration, specialization, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, bmdc_registration=$3, specialization=$4, qualification=$5, years_of_experience=$6, consultation_fee=$7, is_available=$8`,
+    nasrin.id, 'BMDC-2024-004', 'BMDC-REG-2024-004', 'Obstetrics & Gynecology', 'MBBS (Rajshahi Medical College), MCPS (OBGYN)', 9, 900.0, true
+  );
+  console.log('  Done: dr.nasrin (MBBS)');
+
   // --- Tanvir (Nutritionist) ---
   console.log('Creating nutritionist.tanvir@hhdms.com (Nutritionist)...');
   const tanvir = await prisma.user.upsert({
@@ -95,8 +121,10 @@ async function main() {
   // --- Verify ---
   const count = await prisma.user.count();
   console.log(`\nSeed complete! Total users: ${count}`);
-  console.log('  dr.arif@hhdms.com / Password2026! (MBBS Doctor)');
+  console.log('  dr.arif@hhdms.com / Password2026! (MBBS Doctor) — Assigned: Rahim, Fatema');
   console.log('  dr.farzana@hhdms.com / Password2026! (MBBS Doctor)');
+  console.log('  dr.sajid@hhdms.com / Password2026! (MBBS Doctor) — Assigned: Kabir');
+  console.log('  dr.nasrin@hhdms.com / Password2026! (MBBS Doctor) — Assigned: Shahnaz');
   console.log('  nutritionist.tanvir@hhdms.com / Password2026! (Nutritionist)');
   console.log('  dr.nusrat@hhdms.com / Password2026! (Specialist)');
 
@@ -154,6 +182,43 @@ async function main() {
       weight_kg: 65.0,
     }
   });
+  const patient3 = await prisma.patients.upsert({
+    where: { mrn: 'MRN-2024-0003' },
+    update: {},
+    create: {
+      mrn: 'MRN-2024-0003',
+      first_name_en: 'Kabir',
+      last_name_en: 'Hossain',
+      first_name_bn: 'কবির',
+      last_name_bn: 'হোসেন',
+      date_of_birth: new Date('1985-03-12'),
+      sex: 'M',
+      blood_group: 'A+',
+      phone_number: '+8801800000003',
+      district: 'Sylhet',
+      height_cm: 170,
+      weight_kg: 72.0,
+    }
+  });
+
+  const patient4 = await prisma.patients.upsert({
+    where: { mrn: 'MRN-2024-0004' },
+    update: {},
+    create: {
+      mrn: 'MRN-2024-0004',
+      first_name_en: 'Shahnaz',
+      last_name_en: 'Parvin',
+      first_name_bn: 'শাহনাজ',
+      last_name_bn: 'পারভিন',
+      date_of_birth: new Date('1990-11-05'),
+      sex: 'F',
+      blood_group: 'AB+',
+      phone_number: '+8801900000004',
+      district: 'Khulna',
+      height_cm: 158,
+      weight_kg: 58.0,
+    }
+  });
   console.log('  Done: Patient Data');
 
   // --- Assign Patients to Dr. Arif (MBBS) ---
@@ -169,6 +234,24 @@ async function main() {
     create: { doctor_id: arif.id, patient_id: patient2.id },
   });
   console.log('  Done: Patients assigned to Dr. Arif');
+
+  // --- Assign Patients to Dr. Sajid (MBBS) ---
+  console.log('Assigning patients to Dr. Sajid...');
+  await prisma.doctor_patient_assignments.upsert({
+    where: { doctor_id_patient_id: { doctor_id: sajid.id, patient_id: patient3.id } },
+    update: {},
+    create: { doctor_id: sajid.id, patient_id: patient3.id },
+  });
+  console.log('  Done: Patients assigned to Dr. Sajid');
+
+  // --- Assign Patients to Dr. Nasrin (MBBS) ---
+  console.log('Assigning patients to Dr. Nasrin...');
+  await prisma.doctor_patient_assignments.upsert({
+    where: { doctor_id_patient_id: { doctor_id: nasrin.id, patient_id: patient4.id } },
+    update: {},
+    create: { doctor_id: nasrin.id, patient_id: patient4.id },
+  });
+  console.log('  Done: Patients assigned to Dr. Nasrin');
 
   console.log('Assigning consultations for Dr. Arif...');
   
