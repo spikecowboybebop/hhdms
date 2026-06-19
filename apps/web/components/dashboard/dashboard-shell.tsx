@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearSession,
   loadSession,
@@ -16,11 +16,18 @@ export interface DashboardNavItem {
   icon: React.ReactNode;
 }
 
+export interface DashboardUserMenuItem {
+  label: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+}
+
 export interface DashboardShellProps {
   role: string;
   /** Role-specific accent (defaults to teal). */
   accent?: "teal" | "amber" | "navy" | "slate";
   navItems: DashboardNavItem[];
+  userMenuItems?: DashboardUserMenuItem[];
   pageTitle: string;
   pageSubtitle?: string;
   children: React.ReactNode;
@@ -62,6 +69,7 @@ export function DashboardShell({
   role,
   accent = "teal",
   navItems,
+  userMenuItems,
   pageTitle,
   pageSubtitle,
   children,
@@ -71,6 +79,21 @@ export function DashboardShell({
   const [session, setSession] = useState<StoredSession | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [userMenuOpen]);
 
   const colors = accentMap[accent];
 
@@ -151,7 +174,7 @@ export function DashboardShell({
                         : "text-[#2D3A4A] hover:bg-[#F8F9FA] hover:text-[#0A2540]"
                     }`}
                   >
-                    <span className={active ? "text-[#00D4B2]" : ""}>
+                    <span className={active ? "text-white" : ""}>
                       {item.icon}
                     </span>
                     {item.label}
@@ -214,20 +237,48 @@ export function DashboardShell({
             >
               <HomeIcon /> Home
             </Link>
-            <div className="flex items-center gap-2 rounded-full border border-slate-200/60 bg-white px-2 py-1 shadow-sm">
-              <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white ${colors.bar}`}>
-                {hydrated ? initials : "—"}
-              </span>
-              <div className="hidden flex-col leading-tight pr-2 sm:flex">
-                <span className="text-xs font-semibold text-[#0A2540]">
-                  {hydrated
-                    ? session?.user?.first_name_en || "Authenticated User"
-                    : "Loading…"}
+            <div ref={userMenuRef} className="relative">
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-full border border-slate-200/60 bg-white px-2 py-1 shadow-sm transition-all hover:shadow-md"
+              >
+                <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white ${colors.bar}`}>
+                  {hydrated ? initials : "—"}
                 </span>
-                <span className="text-[10px] text-[#2D3A4A]">
-                  {hydrated ? session?.user?.email : ""}
-                </span>
-              </div>
+                <div className="hidden flex-col leading-tight pr-2 sm:flex">
+                  <span className="text-xs font-semibold text-[#0A2540]">
+                    {hydrated
+                      ? session?.user?.first_name_en || "Authenticated User"
+                      : "Loading…"}
+                  </span>
+                  <span className="text-[10px] text-[#2D3A4A]">
+                    {hydrated ? session?.user?.email : ""}
+                  </span>
+                </div>
+              </button>
+
+              {userMenuOpen && userMenuItems && userMenuItems.length > 0 && (
+                <div className="absolute right-0 top-full mt-2 w-64 origin-top-right rounded-2xl border border-slate-200/60 bg-white shadow-xl ring-1 ring-slate-900/5">
+                  <nav className="p-2">
+                    <ul className="flex flex-col gap-1">
+                      {userMenuItems.map((item, idx) => (
+                        <li key={`user-menu-${idx}`}>
+                          <button
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              item.onClick?.();
+                            }}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#2D3A4A] transition-all hover:bg-[#F8F9FA] hover:text-[#0A2540]"
+                          >
+                            {item.icon}
+                            {item.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </nav>
+                </div>
+              )}
             </div>
           </div>
         </header>

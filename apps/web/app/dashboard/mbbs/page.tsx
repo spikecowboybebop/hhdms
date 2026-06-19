@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   DashboardShell,
   type DashboardNavItem,
+  type DashboardUserMenuItem,
 } from "@/components/dashboard/dashboard-shell";
 import {
   SectionCard,
@@ -17,6 +18,18 @@ import {
   type StoredSession,
 } from "@/lib/auth";
 import { mbbsApi, type Patient, type VitalSigns } from "@/lib/mbbs-api";
+
+const userMenuItems: DashboardUserMenuItem[] = [
+  {
+    label: "Add Digital Signature",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ),
+  },
+];
 
 const navItems: DashboardNavItem[] = [
   {
@@ -35,18 +48,6 @@ const navItems: DashboardNavItem[] = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: "Prescriptions",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="9" y1="13" x2="15" y2="13" />
-        <line x1="9" y1="17" x2="13" y2="17" />
       </svg>
     ),
   },
@@ -80,6 +81,7 @@ export default function MbbsDashboardPage() {
   const [hydrated, setHydrated] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [icdQuery, setIcdQuery] = useState("");
 
@@ -101,12 +103,14 @@ export default function MbbsDashboardPage() {
     if (!hydrated || !session) return;
     const load = async () => {
       setPatientsLoading(true);
+      setPatientsError(null);
       try {
         const data = await mbbsApi.getMyPatients();
         setPatients(data);
         if (data.length > 0 && !selected) setSelected(data[0] ?? null);
-      } catch {
-        // Fallback: remain on empty state
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to load patients';
+        setPatientsError(msg);
       } finally {
         setPatientsLoading(false);
       }
@@ -137,6 +141,7 @@ export default function MbbsDashboardPage() {
       role={session.user.role}
       accent="navy"
       navItems={navItems}
+      userMenuItems={userMenuItems}
       pageTitle="Clinical Triage Gateway"
       pageSubtitle="Rapid patient intake, vitals capture, and ICD-10 diagnostic mapping"
     >
@@ -189,9 +194,13 @@ export default function MbbsDashboardPage() {
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#00D4B2]" />
               <span className="text-xs text-[#2D3A4A]">Loading patients...</span>
             </div>
+          ) : patientsError ? (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+              <p className="text-xs font-medium text-red-600">{patientsError}</p>
+            </div>
           ) : patients.length === 0 ? (
             <p className="text-xs text-[#2D3A4A] italic py-4">
-              No patients assigned yet. Patients will appear here once you record vital signs for them.
+              No patients are currently assigned to you.
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -329,28 +338,28 @@ export default function MbbsDashboardPage() {
             <SectionCard title="Quick Actions" description="Common workflows for this patient">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  href={`/dashboard/mbbs/patients/${selected.id}#vitals`}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
                 >
                   <span className="text-lg">🩺</span>
                   <span className="text-[10px] font-semibold text-[#0A2540]">Vital Signs</span>
                 </Link>
                 <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  href={`/dashboard/mbbs/patients/${selected.id}#diagnosis`}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
                 >
                   <span className="text-lg">📋</span>
                   <span className="text-[10px] font-semibold text-[#0A2540]">Diagnosis</span>
                 </Link>
                 <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  href={`/dashboard/mbbs/patients/${selected.id}#prescriptions`}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
                 >
                   <span className="text-lg">💊</span>
                   <span className="text-[10px] font-semibold text-[#0A2540]">Prescription</span>
                 </Link>
                 <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}`}
+                  href={`/dashboard/mbbs/patients/${selected.id}#referral`}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
                 >
                   <span className="text-lg">🏥</span>

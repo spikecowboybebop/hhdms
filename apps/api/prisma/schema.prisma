@@ -61,6 +61,7 @@ model mbbs_doctor_profiles {
   prescriptions      prescriptions[]
   emergency_flags    emergency_flags[]
   referrals          specialist_referrals[]
+  patient_assignments doctor_patient_assignments[]
 
   @@map("mbbs_doctor_profiles")
 }
@@ -137,8 +138,22 @@ model patients {
   prescriptions         prescriptions[]
   emergency_flags       emergency_flags[]
   referral_chain_events referral_chain[]
+  doctor_assignments    doctor_patient_assignments[]
 
   @@map("patients")
+}
+
+model doctor_patient_assignments {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctor_id   String   @map("doctor_id") @db.Uuid
+  patient_id  String   @map("patient_id") @db.Uuid
+  assigned_at DateTime? @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  doctor  mbbs_doctor_profiles @relation(fields: [doctor_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([doctor_id, patient_id])
+  @@map("doctor_patient_assignments")
 }
 
 model patient_vital_signs {

@@ -53,6 +53,19 @@ async function main() {
   );
   console.log('  Done: dr.arif (MBBS)');
 
+  // --- Dr. Farzana (MBBS) ---
+  console.log('Creating dr.farzana@hhdms.com (MBBS)...');
+  const farzana = await prisma.user.upsert({
+    where: { email: 'dr.farzana@hhdms.com' },
+    update: { passwordHash, roleId: mbbsRole.id, phoneNumber: '+8801700000004', firstNameEn: 'Farzana', lastNameEn: 'Begum', firstNameBn: 'ফারজানা', status: 'ACTIVE' },
+    create: { email: 'dr.farzana@hhdms.com', passwordHash, phoneNumber: '+8801700000004', firstNameEn: 'Farzana', lastNameEn: 'Begum', firstNameBn: 'ফারজানা', roleId: mbbsRole.id, status: 'ACTIVE' },
+  });
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO mbbs_doctor_profiles (user_id, license_number, bmdc_registration, specialization, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, bmdc_registration=$3, specialization=$4, qualification=$5, years_of_experience=$6, consultation_fee=$7, is_available=$8`,
+    farzana.id, 'BMDC-2024-002', 'BMDC-REG-2024-002', 'General Medicine & Diabetes', 'MBBS (Sir Salimullah Medical College), BCS Health', 6, 750.0, true
+  );
+  console.log('  Done: dr.farzana (MBBS)');
+
   // --- Tanvir (Nutritionist) ---
   console.log('Creating nutritionist.tanvir@hhdms.com (Nutritionist)...');
   const tanvir = await prisma.user.upsert({
@@ -83,6 +96,7 @@ async function main() {
   const count = await prisma.user.count();
   console.log(`\nSeed complete! Total users: ${count}`);
   console.log('  dr.arif@hhdms.com / Password2026! (MBBS Doctor)');
+  console.log('  dr.farzana@hhdms.com / Password2026! (MBBS Doctor)');
   console.log('  nutritionist.tanvir@hhdms.com / Password2026! (Nutritionist)');
   console.log('  dr.nusrat@hhdms.com / Password2026! (Specialist)');
 
@@ -143,6 +157,19 @@ async function main() {
   console.log('  Done: Patient Data');
 
   // --- Assign Patients to Dr. Arif (MBBS) ---
+  console.log('Assigning patients to Dr. Arif...');
+  await prisma.doctor_patient_assignments.upsert({
+    where: { doctor_id_patient_id: { doctor_id: arif.id, patient_id: patient1.id } },
+    update: {},
+    create: { doctor_id: arif.id, patient_id: patient1.id },
+  });
+  await prisma.doctor_patient_assignments.upsert({
+    where: { doctor_id_patient_id: { doctor_id: arif.id, patient_id: patient2.id } },
+    update: {},
+    create: { doctor_id: arif.id, patient_id: patient2.id },
+  });
+  console.log('  Done: Patients assigned to Dr. Arif');
+
   console.log('Assigning consultations for Dr. Arif...');
   
   // Clean up old assignments so upserts could work gracefully, or just rely on the IDs.

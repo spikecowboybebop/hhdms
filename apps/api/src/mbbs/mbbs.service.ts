@@ -35,29 +35,24 @@ export class MbbsService {
       );
     }
 
-    // Fetch patients who have at least one vital sign or diagnosis from this doctor
-    // In production, this would be filtered by active appointments
-    const patientIds = await this.prisma.patient_vital_signs.findMany({
+    // Fetch patients explicitly assigned to this doctor via the join table
+    const assignments = await this.prisma.doctor_patient_assignments.findMany({
       where: { doctor_id: doctorUserId },
-      select: { patient_id: true },
-      distinct: ['patient_id'],
+      include: { patient: true },
     });
 
-    const ids = patientIds.map((p) => p.patient_id);
-
-    if (ids.length === 0) {
-      // If no vitals yet, return all patients (for demo)
-      return this.prisma.patients.findMany({
-        orderBy: { updated_at: 'desc' },
-        take: 50,
-      });
+    if (assignments.length === 0) {
+      return [];
     }
 
-    return this.prisma.patients.findMany({
-      where: { id: { in: ids } },
-      orderBy: { updated_at: 'desc' },
-      take: 50,
-    });
+    return assignments
+      .map((a) => a.patient)
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at ?? 0).getTime() -
+          new Date(a.updated_at ?? 0).getTime(),
+      )
+      .slice(0, 50);
   }
 
   /**

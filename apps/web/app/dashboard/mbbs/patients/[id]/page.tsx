@@ -154,6 +154,37 @@ export default function MbbsPatientDetailPage() {
     loadProfile();
   }, [patientId]);
 
+  // Read URL hash (fragment) to select the appropriate tab and scroll
+  useEffect(() => {
+    const applyHash = () => {
+      if (typeof window === 'undefined') return;
+      const raw = window.location.hash || '';
+      const key = raw.replace('#', '');
+      if (!key) return;
+      const map: Record<string, Tab> = {
+        vitals: 'vitals',
+        diagnosis: 'diagnosis',
+        tests: 'tests',
+        prescriptions: 'prescriptions',
+        prescription: 'prescriptions',
+        referral: 'referral',
+        timeline: 'timeline',
+      };
+      const tab = map[key];
+      if (tab) {
+        setActiveTab(tab);
+        setTimeout(() => {
+          const el = document.getElementById(key);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      }
+    };
+
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, [patientId]);
+
   const loadProfile = async () => {
     setLoading(true);
     setError(null);
@@ -404,7 +435,7 @@ export default function MbbsPatientDetailPage() {
       <div className="mt-6">
         {/* ---- VITALS TAB ---- */}
         {activeTab === 'vitals' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div id="vitals" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <SectionCard title="Record Vital Signs" description="Enter current measurements (MB-003)">
               <VitalsForm
                 onSubmit={handleVitalsSubmit}
@@ -448,7 +479,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- DIAGNOSIS TAB ---- */}
         {activeTab === 'diagnosis' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="diagnosis" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard title="New Diagnosis" description="ICD-10 coded clinical assessment (MB-004)" className="lg:col-span-3">
               <form onSubmit={handleDiagnosisSubmit} className="flex flex-col gap-4">
                 <Icd10Search
@@ -547,7 +578,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- TESTS TAB ---- */}
         {activeTab === 'tests' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="tests" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard
               title="Order Diagnostic Tests"
               description="Select from catalog (MB-005)"
@@ -629,7 +660,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- PRESCRIPTIONS TAB ---- */}
         {activeTab === 'prescriptions' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="prescriptions" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard title="Generate Prescription" description="Digital Rx with signature (MB-011, MB-012)" className="lg:col-span-3">
               <form onSubmit={handlePrescriptionSubmit} className="flex flex-col gap-4">
                 {prescriptionMeds.map((med, idx) => (
@@ -787,7 +818,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- REFERRAL TAB ---- */}
         {activeTab === 'referral' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="referral" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard title="Create Specialist Referral" description="Refer to specialist care (MB-009)" className="lg:col-span-3">
               <form onSubmit={handleReferralSubmit} className="flex flex-col gap-4">
                 <div>
@@ -879,9 +910,11 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- TIMELINE TAB ---- */}
         {activeTab === 'timeline' && (
-          <SectionCard title="Care Journey Timeline" description="Complete referral chain (MB-010)">
-            <ReferralChainTimeline events={profile.referral_chain || []} />
-          </SectionCard>
+          <div id="timeline">
+            <SectionCard title="Care Journey Timeline" description="Complete referral chain (MB-010)">
+              <ReferralChainTimeline events={profile.referral_chain || []} />
+            </SectionCard>
+          </div>
         )}
       </div>
     </DashboardShell>
