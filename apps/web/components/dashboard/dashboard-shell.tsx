@@ -161,27 +161,29 @@ export function DashboardShell({
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <li key={`${item.label}::${item.href}`}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                      active
-                        ? "bg-[#0A2540] text-white shadow-sm"
-                        : "text-[#2D3A4A] hover:bg-[#F8F9FA] hover:text-[#0A2540]"
-                    }`}
-                  >
-                    <span className={active ? "text-white" : ""}>
-                      {item.icon}
-                    </span>
+          {navItems.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <li key={`${item.label}::${item.href}`}>
+                <Link
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
+                    active
+                      ? "bg-[#0A2540] text-[#00D4B2] shadow-md" 
+                      : "text-[#2D3A4A] font-medium hover:bg-[#F8F9FA] hover:text-[#0A2540]"
+                  }`}
+                >
+                  <span className={active ? "text-[#FFFFF0]" : "text-[#2D3A4A]/70"}>
+                    {item.icon}
+                  </span>
+                  <span className={active ? "text-[#FFFFF0]" : ""}>
                     {item.label}
-                  </Link>
-                </li>
-              );
-            })}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
           </ul>
         </nav>
 
