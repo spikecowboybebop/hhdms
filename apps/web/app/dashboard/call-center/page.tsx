@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 import {
   DashboardShell,
   type DashboardNavItem,
@@ -59,36 +60,6 @@ const mockTickets: CallTicket[] = [
     receivedAt: "10:03",
     status: "QUEUED",
   },
-  {
-    id: "TKT-2026-00424",
-    caller: "Mohammad Faruk",
-    phone: "+880 1532 908 220",
-    district: "Khulna — Sonadanga",
-    urgency: "URGENT",
-    channel: "PHONE",
-    receivedAt: "10:11",
-    status: "ROUTED",
-  },
-  {
-    id: "TKT-2026-00425",
-    caller: "Nazia Tabassum",
-    phone: "+880 1700 442 113",
-    district: "Rajshahi — Boalia",
-    urgency: "ROUTINE",
-    channel: "WEB",
-    receivedAt: "10:18",
-    status: "QUEUED",
-  },
-  {
-    id: "TKT-2026-00426",
-    caller: "Ibrahim Khalil",
-    phone: "+880 1822 700 991",
-    district: "Rangpur — Kotbari",
-    urgency: "EMERGENCY",
-    channel: "PHONE",
-    receivedAt: "10:24",
-    status: "ROUTED",
-  },
 ];
 
 const navItems: DashboardNavItem[] = [
@@ -98,51 +69,6 @@ const navItems: DashboardNavItem[] = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
-      </svg>
-    ),
-  },
-  {
-    label: "Dispatch Board",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="3" width="15" height="13" rx="2" />
-        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-        <circle cx="5.5" cy="18.5" r="2.5" />
-        <circle cx="18.5" cy="18.5" r="2.5" />
-      </svg>
-    ),
-  },
-  {
-    label: "Caller History",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-        <path d="M3 3v5h5" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    ),
-  },
-  {
-    label: "Agent Roster",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-  },
-  {
-    label: "Field Units",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-7 8-13a8 8 0 1 0-16 0c0 6 8 13 8 13z" />
-        <circle cx="12" cy="9" r="3" />
       </svg>
     ),
   },
@@ -167,7 +93,24 @@ export default function CallCenterDashboardPage() {
   const [hydrated, setHydrated] = useState(false);
   const [filter, setFilter] = useState<"ALL" | CallTicket["urgency"]>("ALL");
 
-  // Guard the route: if no session or wrong role → bounce.
+  // WebRTC State Containers
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [callConnected, setCallConnected] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{
+    patientEmail: string;
+    patientSocketId: string;
+    sdpOffer: any;
+  } | null>(null);
+
+  const peerConnection = useRef<RTCPeerConnection | null>(null);
+  const localStream = useRef<MediaStream | null>(null);
+  
+  // Track dynamic current call state across async triggers inside a clean React ref
+  const currentIncomingCallRef = useRef<any>(null);
+  useEffect(() => {
+    currentIncomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+
   useEffect(() => {
     const s = loadSession();
     setSession(s);
@@ -179,8 +122,136 @@ export default function CallCenterDashboardPage() {
     }
     if (s.user.role !== "CALL_CENTER_AGENT") {
       router.replace(dashboardPathForRole(s.user.role));
+      return;
     }
+
+    const socketClient = io("http://localhost:3001");
+
+    socketClient.on("connect", () => {
+      console.log("⚡ Agent Dashboard successfully connected to NestJS signaling gateway!");
+    });
+
+    // 🚀 ROUTING FIX & ROBUST VISUALIZER Normalizes variations in field names coming from NestJS server
+    socketClient.on("call-center-dial", (data) => {
+      console.log("📞 Raw Incoming WebRTC payload arriving on browser via [call-center-dial]:", data);
+      
+      const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
+      if (!resolvedSocketId) {
+        console.error("⚠️ CRITICAL: Call packet received but missing identifier tracking properties!", data);
+      }
+
+      setIncomingCall({
+        patientEmail: data.patientEmail || "Unknown Patient",
+        patientSocketId: resolvedSocketId,
+        sdpOffer: data.sdpOffer
+      });
+    });
+
+    // 🕵️ EXTRA SAFETY NET: Listens for transformed alternate event name variants
+    socketClient.on("agent-incoming-call", (data) => {
+      console.log("📞 Alternate event channel caught incoming request [agent-incoming-call]:", data);
+      const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
+      setIncomingCall({
+        patientEmail: data.patientEmail || "Unknown Patient",
+        patientSocketId: resolvedSocketId,
+        sdpOffer: data.sdpOffer
+      });
+    });
+
+    // Capture incoming ICE network candidate configurations
+    socketClient.on("remote-ice-candidate", async (data) => {
+      if (peerConnection.current) {
+        try {
+          console.log("🛰️ Appending remote framework ICE candidate pathway...");
+          await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } catch (e) {
+          console.error("Error setting incoming candidate:", e);
+        }
+      }
+    });
+
+    setSocket(socketClient);
+
+    return () => {
+      socketClient.disconnect();
+    };
   }, [router]);
+
+  // ACTION: Click "Pick Up / Answer" on Modal Trigger
+  const handleAnswerCall = async () => {
+    if (!incomingCall || !socket) return;
+
+    try {
+      // 1. Gain local authorization to capture the browser microphone stream
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStream.current = stream;
+
+      // 2. Setup standard Google RTC Peer connection architecture configuration
+      peerConnection.current = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
+
+      // 3. Mount the hardware microphone stream tracks straight inside the connection line
+      stream.getTracks().forEach((track) => {
+        peerConnection.current?.addTrack(track, stream);
+      });
+      
+      // 4. Connect the remote microphone stream track directly into the local desktop audio driver element
+      peerConnection.current.ontrack = (event) => {
+        console.log("🎵 Remote network audio track captured successfully!");
+        const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
+        if (audioNode && event.streams && event.streams[0]) {
+          audioNode.srcObject = event.streams[0];
+          audioNode.play().catch((err) => console.log("Audio Playback interaction constraint:", err));
+        }
+      };
+
+      // 5. Build framework callback to intercept and relay local ICE connection channels
+      peerConnection.current.onicecandidate = (event) => {
+        const activeCall = currentIncomingCallRef.current;
+        if (event.candidate && activeCall) {
+          socket.emit("relay-ice-candidate", {
+            targetSocketId: activeCall.patientSocketId,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      // 6. Process and accept the phone's cryptographic SDP incoming Offer
+      await peerConnection.current.setRemoteDescription(
+        new RTCSessionDescription(incomingCall.sdpOffer)
+      );
+
+      // 7. Formulate a symmetrical WebRTC local Answer profile package
+      const answer = await peerConnection.current.createAnswer();
+      await peerConnection.current.setLocalDescription(answer);
+
+      // 8. Fire the acceptance payload across the line wire to answer the phone
+      socket.emit("agent-accept-call", {
+        patientSocketId: incomingCall.patientSocketId,
+        sdpAnswer: answer,
+      });
+
+      setCallConnected(true);
+      setIncomingCall(null);
+    } catch (err) {
+      console.error("WebRTC pipeline crash:", err);
+      alert("Failed to initialize system microphone hardware. Confirm localhost or SSL rules apply.");
+    }
+  };
+
+  const handleHangUp = () => {
+    if (peerConnection.current) {
+      peerConnection.current.close();
+      peerConnection.current = null;
+    }
+    if (localStream.current) {
+      localStream.current.getTracks().forEach((t) => t.stop());
+      localStream.current = null;
+    }
+    setIncomingCall(null);
+    setCallConnected(false);
+  };
 
   const filteredTickets = useMemo(() => {
     if (filter === "ALL") return mockTickets;
@@ -210,7 +281,29 @@ export default function CallCenterDashboardPage() {
       pageTitle="Call Intake & Routing Hub"
       pageSubtitle="Real-time emergency triage queue and clinician dispatch console"
     >
-      {/* Stat row */}
+      {/* HTML5 Core audio tag pipeline engine to handle active phone voice decoding */}
+      <audio id="patientAudioDriver" autoPlay playsInline />
+
+      {callConnected && (
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-6 py-4 animate-bounce">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <p className="text-sm font-bold text-emerald-900">
+              🎙️ Live Audio Peer-to-Peer Connection Stream Active with Patient
+            </p>
+          </div>
+          <button
+            onClick={handleHangUp}
+            className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
+          >
+            Disconnect Line
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Calls Today"
@@ -268,7 +361,6 @@ export default function CallCenterDashboardPage() {
         />
       </div>
 
-      {/* Live call queue */}
       <div className="mt-6">
         <SectionCard
           title="Live Triage Queue"
@@ -356,23 +448,12 @@ export default function CallCenterDashboardPage() {
                     </td>
                   </tr>
                 ))}
-                {filteredTickets.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={8}
-                      className="py-8 text-center text-xs text-[#2D3A4A]"
-                    >
-                      No tickets match the selected filter.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         </SectionCard>
       </div>
 
-      {/* Bottom row: emergency ribbon + agents */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard
           title="Emergency Ribbon"
@@ -402,9 +483,6 @@ export default function CallCenterDashboardPage() {
                       <span className="text-xs text-[#2D3A4A]">
                         {t.district} • {t.phone}
                       </span>
-                      <span className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[#FF9900]">
-                        {t.id} • received {t.receivedAt}
-                      </span>
                     </div>
                   </div>
                   <button
@@ -423,8 +501,6 @@ export default function CallCenterDashboardPage() {
             {[
               { name: "Tania Sultana", calls: 24, status: "ON CALL" },
               { name: "Arif Mahmud", calls: 19, status: "AVAILABLE" },
-              { name: "Sadia Rahman", calls: 31, status: "ON CALL" },
-              { name: "Riyad Khan", calls: 12, status: "BREAK" },
             ].map((a) => (
               <li
                 key={a.name}
@@ -432,30 +508,15 @@ export default function CallCenterDashboardPage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="grid h-9 w-9 place-items-center rounded-full bg-[#0A2540] text-xs font-bold text-[#00D4B2]">
-                    {a.name
-                      .split(" ")
-                      .map((p) => p[0])
-                      .slice(0, 2)
-                      .join("")}
+                    {a.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
                   </span>
                   <div className="flex flex-col leading-tight">
                     <span className="text-xs font-semibold text-[#0A2540]">
                       {a.name}
                     </span>
-                    <span className="text-[10px] text-[#2D3A4A]">
-                      {a.calls} calls today
-                    </span>
                   </div>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
-                    a.status === "ON CALL"
-                      ? "bg-[#00D4B2]/10 text-[#00D4B2]"
-                      : a.status === "AVAILABLE"
-                        ? "bg-[#0A2540]/10 text-[#0A2540]"
-                        : "bg-[#FF9900]/10 text-[#FF9900]"
-                  }`}
-                >
+                <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest bg-[#00D4B2]/10 text-[#00D4B2]">
                   {a.status}
                 </span>
               </li>
@@ -463,6 +524,36 @@ export default function CallCenterDashboardPage() {
           </ul>
         </SectionCard>
       </div>
+
+      {incomingCall && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-2xl animate-bounce">
+              🚨
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Incoming Mobile Call</h3>
+            <p className="mt-1 text-xs text-slate-500">A patient is requesting a voice triage channel:</p>
+            <p className="mt-2 text-md font-extrabold text-teal-600 font-mono bg-slate-50 py-1.5 rounded-lg border border-slate-100">
+              {incomingCall.patientEmail}
+            </p>
+            
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleAnswerCall}
+                className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 active:scale-[0.98] transition"
+              >
+                Pick Up / Answer
+              </button>
+              <button
+                onClick={handleHangUp}
+                className="flex-1 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200 active:scale-[0.98] transition"
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }

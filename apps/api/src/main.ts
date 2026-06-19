@@ -25,8 +25,10 @@ async function bootstrap() {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
   // Force NestJS to listen on IPv4 localhost explicitly
-  await app.listen(port, '127.0.0.1');
+  await app.listen(port, '0.0.0.0');
   
-  console.log(`🚀 Nest application is running on: http://127.0.0.1:${port}`);
+  console.log(`🚀 Nest application is running on all network interfaces on port: ${port}`);
+  console.log(`🏠 Local Machine access: http://127.0.0.1:${port}`);
+  console.log(`📱 Physical Phone access: http://192.168.0.105:${port}`);
 }
 bootstrap();
