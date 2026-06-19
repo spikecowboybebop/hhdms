@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVitalsDto } from './dto/create-vitals.dto';
@@ -11,10 +12,30 @@ import { CreateTestOrderDto } from './dto/create-test-order.dto';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { CreateEmergencyFlagDto } from './dto/create-emergency-flag.dto';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface Icd10Entry {
+  code: string;
+  desc: string;
+}
 
 @Injectable()
-export class MbbsService {
+export class MbbsService implements OnModuleInit {
+  private icd10Codes: Icd10Entry[] = [];
+
   constructor(private readonly prisma: PrismaService) {}
+
+  onModuleInit() {
+    const jsonPath = path.resolve(__dirname, '../../prisma/icd10_codes.json');
+    try {
+      const raw = fs.readFileSync(jsonPath, 'utf-8');
+      this.icd10Codes = JSON.parse(raw);
+      console.log(`Loaded ${this.icd10Codes.length} ICD-10 codes into memory`);
+    } catch (err) {
+      console.warn('Could not load icd10_codes.json, falling back to DB search:', (err as Error).message);
+    }
+  }
 
   // ============================================================
   // Patient Profile (MB-002)
@@ -75,6 +96,7 @@ export class MbbsService {
       referrals,
       emergencyFlags,
       chainEvents,
+      testOrders,
     ] = await Promise.all([
       this.prisma.patient_vital_signs.findMany({
         where: { patient_id: patientId },
@@ -103,6 +125,11 @@ export class MbbsService {
         where: { patient_id: patientId },
         orderBy: { created_at: 'asc' },
       }),
+      this.prisma.diagnostic_test_orders.findMany({
+        where: { patient_id: patientId },
+        orderBy: { ordered_at: 'desc' },
+        include: { test: true, results: true },
+      }),
     ]);
 
     return {
@@ -113,6 +140,7 @@ export class MbbsService {
       referrals,
       emergency_flags: emergencyFlags,
       referral_chain: chainEvents,
+      test_orders: testOrders,
     };
   }
 
@@ -235,10 +263,30 @@ export class MbbsService {
 
   /**
    * Search ICD-10 codes (MB-004)
+   * Uses in-memory cache loaded from icd10_codes.json for fast search.
    */
   async searchIcd10Codes(query: string) {
     if (!query || query.length < 2) {
       return [];
+    }
+
+    const lowerQuery = query.toLowerCase();
+
+    if (this.icd10Codes.length > 0) {
+      const results = this.icd10Codes
+        .filter(
+          (entry) =>
+            entry.code.toLowerCase().includes(lowerQuery) ||
+            entry.desc.toLowerCase().includes(lowerQuery),
+        )
+        .slice(0, 20)
+        .map((entry) => ({
+          code: entry.code,
+          description: entry.desc,
+          category: null,
+        }));
+
+      return results;
     }
 
     const results = await this.prisma.icd10_codes.findMany({

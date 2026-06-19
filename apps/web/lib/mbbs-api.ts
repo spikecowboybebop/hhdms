@@ -62,6 +62,7 @@ export interface PatientProfile {
   referrals: Referral[];
   emergency_flags: EmergencyFlag[];
   referral_chain: ReferralChainEvent[];
+  test_orders: TestOrder[];
 }
 
 export interface VitalSigns {

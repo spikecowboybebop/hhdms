@@ -171,7 +171,7 @@ export function DashboardShell({
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                       active
                         ? "bg-[#0A2540] text-white shadow-sm"
-                        : "text-[#2D3A4A] hover:bg-[#F8F9FA] hover:text-[#0A2540]"
+                        : "text-white hover:bg-[#F8F9FA] hover:text-white active:text-white"
                     }`}
                   >
                     <span className={active ? "text-white" : ""}>

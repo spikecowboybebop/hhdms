@@ -143,6 +143,88 @@ async function main() {
   });
   console.log('  Done: ICD10 Codes');
 
+  // --- Seed Diagnostic Test Catalog ---
+  console.log('Seeding Diagnostic Test Catalog...');
+  const testCatalogData = [
+    // Hematology
+    { test_name: 'Complete Blood Count', test_code: 'CBC', category: 'Hematology', description: 'Hb, WBC, RBC, Platelet count with differential', normal_range: 'Hb: M 13-17, F 12-16 g/dL', unit: '-', turnaround_hours: 4 },
+    { test_name: 'Hemoglobin', test_code: 'HB', category: 'Hematology', description: 'Hemoglobin level', normal_range: 'M: 13-17, F: 12-16 g/dL', unit: 'g/dL', turnaround_hours: 2 },
+    { test_name: 'ESR', test_code: 'ESR', category: 'Hematology', description: 'Erythrocyte Sedimentation Rate', normal_range: 'M: 0-15, F: 0-20 mm/hr', unit: 'mm/hr', turnaround_hours: 2 },
+    { test_name: 'Peripheral Blood Film', test_code: 'PBF', category: 'Hematology', description: 'Peripheral blood smear examination', normal_range: 'Normocytic normochromic cells', unit: '-', turnaround_hours: 6 },
+    { test_name: 'Blood Group & Rh Type', test_code: 'BGRP', category: 'Hematology', description: 'ABO and RhD blood grouping', normal_range: 'A/B/AB/O +ve/-ve', unit: '-', turnaround_hours: 2 },
+    { test_name: 'Platelet Count', test_code: 'PLT', category: 'Hematology', description: 'Platelet count', normal_range: '150-450 x10^9/L', unit: 'x10^9/L', turnaround_hours: 2 },
+    { test_name: 'PT / INR', test_code: 'PTINR', category: 'Hematology', description: 'Prothrombin Time / INR', normal_range: 'INR: 0.8-1.2', unit: '-', turnaround_hours: 4 },
+    { test_name: 'APTT', test_code: 'APTT', category: 'Hematology', description: 'Activated Partial Thromboplastin Time', normal_range: '25-35 sec', unit: 'sec', turnaround_hours: 4 },
+    { test_name: 'HbA1c', test_code: 'HBA1C', category: 'Hematology', description: 'Glycated hemoglobin for diabetes monitoring', normal_range: '<5.7% normal, 5.7-6.4% prediabetes', unit: '%', turnaround_hours: 6 },
+    // Biochemistry
+    { test_name: 'Fasting Blood Glucose', test_code: 'FBG', category: 'Biochemistry', description: 'Fasting blood sugar', normal_range: '70-110 mg/dL', unit: 'mg/dL', turnaround_hours: 2 },
+    { test_name: 'Blood Glucose Random', test_code: 'RBG', category: 'Biochemistry', description: 'Random blood sugar', normal_range: '<140 mg/dL', unit: 'mg/dL', turnaround_hours: 2 },
+    { test_name: 'Serum Creatinine', test_code: 'CREAT', category: 'Biochemistry', description: 'Kidney function test', normal_range: '0.6-1.2 mg/dL', unit: 'mg/dL', turnaround_hours: 4 },
+    { test_name: 'Blood Urea Nitrogen', test_code: 'BUN', category: 'Biochemistry', description: 'Blood urea nitrogen', normal_range: '7-20 mg/dL', unit: 'mg/dL', turnaround_hours: 4 },
+    { test_name: 'Serum Uric Acid', test_code: 'URIC', category: 'Biochemistry', description: 'Uric acid level', normal_range: 'M: 3.4-7.0, F: 2.4-6.0 mg/dL', unit: 'mg/dL', turnaround_hours: 4 },
+    { test_name: 'SGPT / ALT', test_code: 'SGPT', category: 'Biochemistry', description: 'Alanine Aminotransferase - liver enzyme', normal_range: '10-40 U/L', unit: 'U/L', turnaround_hours: 4 },
+    { test_name: 'SGOT / AST', test_code: 'SGOT', category: 'Biochemistry', description: 'Aspartate Aminotransferase - liver enzyme', normal_range: '10-40 U/L', unit: 'U/L', turnaround_hours: 4 },
+    { test_name: 'Alkaline Phosphatase', test_code: 'ALP', category: 'Biochemistry', description: 'ALP - liver/bone enzyme', normal_range: '44-147 U/L', unit: 'U/L', turnaround_hours: 4 },
+    { test_name: 'Serum Bilirubin Total', test_code: 'BILIT', category: 'Biochemistry', description: 'Total bilirubin', normal_range: '0.3-1.2 mg/dL', unit: 'mg/dL', turnaround_hours: 4 },
+    { test_name: 'Serum Bilirubin Direct', test_code: 'BILID', category: 'Biochemistry', description: 'Direct bilirubin', normal_range: '0.0-0.3 mg/dL', unit: 'mg/dL', turnaround_hours: 4 },
+    { test_name: 'Total Protein', test_code: 'TPRO', category: 'Biochemistry', description: 'Total serum protein', normal_range: '6.0-8.0 g/dL', unit: 'g/dL', turnaround_hours: 4 },
+    { test_name: 'Serum Albumin', test_code: 'ALB', category: 'Biochemistry', description: 'Serum albumin level', normal_range: '3.5-5.0 g/dL', unit: 'g/dL', turnaround_hours: 4 },
+    // Lipid Profile
+    { test_name: 'Total Cholesterol', test_code: 'CHOL', category: 'Lipid Profile', description: 'Total cholesterol', normal_range: '<200 mg/dL desirable', unit: 'mg/dL', turnaround_hours: 6 },
+    { test_name: 'Triglycerides', test_code: 'TG', category: 'Lipid Profile', description: 'Serum triglycerides', normal_range: '<150 mg/dL', unit: 'mg/dL', turnaround_hours: 6 },
+    { test_name: 'HDL Cholesterol', test_code: 'HDL', category: 'Lipid Profile', description: 'High-density lipoprotein', normal_range: 'M: >40, F: >50 mg/dL', unit: 'mg/dL', turnaround_hours: 6 },
+    { test_name: 'LDL Cholesterol', test_code: 'LDL', category: 'Lipid Profile', description: 'Low-density lipoprotein', normal_range: '<100 mg/dL optimal', unit: 'mg/dL', turnaround_hours: 6 },
+    { test_name: 'VLDL', test_code: 'VLDL', category: 'Lipid Profile', description: 'Very low-density lipoprotein', normal_range: '5-40 mg/dL', unit: 'mg/dL', turnaround_hours: 6 },
+    // Electrolytes
+    { test_name: 'Serum Sodium', test_code: 'NA', category: 'Electrolytes', description: 'Serum sodium level', normal_range: '136-145 mEq/L', unit: 'mEq/L', turnaround_hours: 4 },
+    { test_name: 'Serum Potassium', test_code: 'K', category: 'Electrolytes', description: 'Serum potassium level', normal_range: '3.5-5.1 mEq/L', unit: 'mEq/L', turnaround_hours: 4 },
+    { test_name: 'Serum Chloride', test_code: 'CL', category: 'Electrolytes', description: 'Serum chloride level', normal_range: '98-107 mEq/L', unit: 'mEq/L', turnaround_hours: 4 },
+    // Microbiology & Serology
+    { test_name: 'Urine R/M/E', test_code: 'URINE', category: 'Microbiology', description: 'Urine routine, microscopy & examination', normal_range: 'Color: pale yellow, pH: 4.5-8.0', unit: '-', turnaround_hours: 4 },
+    { test_name: 'Urine Culture & Sensitivity', test_code: 'UCS', category: 'Microbiology', description: 'Urine C/S with organism identification', normal_range: 'No significant growth', unit: '-', turnaround_hours: 48 },
+    { test_name: 'Widal Test', test_code: 'WIDAL', category: 'Microbiology', description: 'Typhoid serology', normal_range: 'TO <1:80, TH <1:160', unit: 'titer', turnaround_hours: 24 },
+    { test_name: 'Dengue NS1 Antigen', test_code: 'DENNS1', category: 'Microbiology', description: 'Dengue NS1 antigen detection', normal_range: 'Negative', unit: '-', turnaround_hours: 6 },
+    { test_name: 'Dengue IgM/IgG', test_code: 'DENIG', category: 'Microbiology', description: 'Dengue antibody serology', normal_range: 'Negative', unit: '-', turnaround_hours: 12 },
+    { test_name: 'Malaria Antigen (MP)', test_code: 'MP', category: 'Microbiology', description: 'Malaria parasite antigen test', normal_range: 'Negative', unit: '-', turnaround_hours: 4 },
+    { test_name: 'HBsAg', test_code: 'HBSAG', category: 'Serology', description: 'Hepatitis B surface antigen', normal_range: 'Non-reactive', unit: '-', turnaround_hours: 6 },
+    { test_name: 'Anti-HCV', test_code: 'HCV', category: 'Serology', description: 'Hepatitis C antibody', normal_range: 'Non-reactive', unit: '-', turnaround_hours: 6 },
+    { test_name: 'Anti-HIV I/II', test_code: 'HIV', category: 'Serology', description: 'HIV antibody screening', normal_range: 'Non-reactive', unit: '-', turnaround_hours: 12 },
+    { test_name: 'VDRL / RPR', test_code: 'VDRL', category: 'Serology', description: 'Syphilis screening', normal_range: 'Non-reactive', unit: '-', turnaround_hours: 6 },
+    { test_name: 'ASO Titre', test_code: 'ASO', category: 'Serology', description: 'Anti-streptolysin O titre', normal_range: '<200 IU/mL', unit: 'IU/mL', turnaround_hours: 12 },
+    { test_name: 'CRP', test_code: 'CRP', category: 'Serology', description: 'C-Reactive Protein', normal_range: '<6 mg/L', unit: 'mg/L', turnaround_hours: 4 },
+    { test_name: 'Rheumatoid Factor', test_code: 'RF', category: 'Serology', description: 'Rheumatoid factor', normal_range: '<14 IU/mL', unit: 'IU/mL', turnaround_hours: 12 },
+    // Thyroid
+    { test_name: 'TSH', test_code: 'TSH', category: 'Thyroid', description: 'Thyroid Stimulating Hormone', normal_range: '0.4-4.0 mIU/L', unit: 'mIU/L', turnaround_hours: 8 },
+    { test_name: 'Free T3', test_code: 'FT3', category: 'Thyroid', description: 'Free Triiodothyronine', normal_range: '2.3-4.2 pg/mL', unit: 'pg/mL', turnaround_hours: 8 },
+    { test_name: 'Free T4', test_code: 'FT4', category: 'Thyroid', description: 'Free Thyroxine', normal_range: '0.8-1.8 ng/dL', unit: 'ng/dL', turnaround_hours: 8 },
+    // Imaging
+    { test_name: 'Chest X-Ray PA', test_code: 'CXRPA', category: 'Radiology', description: 'Chest X-ray posteroanterior view', normal_range: 'Normal lung fields', unit: '-', turnaround_hours: 4 },
+    { test_name: 'Chest X-Ray Lateral', test_code: 'CXRLAT', category: 'Radiology', description: 'Chest X-ray lateral view', normal_range: 'Normal findings', unit: '-', turnaround_hours: 4 },
+    { test_name: 'X-Ray Abdomen Erect', test_code: 'XRAYABDO', category: 'Radiology', description: 'Abdomen X-ray erect view', normal_range: 'Normal bowel gas pattern', unit: '-', turnaround_hours: 4 },
+    { test_name: 'USG Whole Abdomen', test_code: 'USGABDO', category: 'Radiology', description: 'Ultrasonogram of whole abdomen', normal_range: 'Normal study', unit: '-', turnaround_hours: 12 },
+    { test_name: 'USG Pelvis', test_code: 'USGPELV', category: 'Radiology', description: 'Pelvic ultrasound', normal_range: 'Normal study', unit: '-', turnaround_hours: 12 },
+    { test_name: 'Echocardiogram', test_code: 'ECHO', category: 'Radiology', description: '2D Echo with Doppler', normal_range: 'Normal LV function, EF >55%', unit: '-', turnaround_hours: 24 },
+    { test_name: 'ECG (12 Lead)', test_code: 'ECG', category: 'Radiology', description: '12-lead electrocardiogram', normal_range: 'Normal sinus rhythm', unit: '-', turnaround_hours: 2 },
+    // Special
+    { test_name: 'D-Dimer', test_code: 'DDIMER', category: 'Hematology', description: 'D-dimer for thrombosis assessment', normal_range: '<0.5 mg/L FEU', unit: 'mg/L', turnaround_hours: 6 },
+    { test_name: 'Troponin I', test_code: 'TROPI', category: 'Biochemistry', description: 'Cardiac troponin I', normal_range: '<0.04 ng/mL', unit: 'ng/mL', turnaround_hours: 4 },
+    { test_name: 'Blood Culture', test_code: 'BCULT', category: 'Microbiology', description: 'Blood culture with sensitivity', normal_range: 'No growth', unit: '-', turnaround_hours: 72 },
+    { test_name: 'Sputum C/S', test_code: 'SPUTUM', category: 'Microbiology', description: 'Sputum culture and sensitivity', normal_range: 'Normal respiratory flora', unit: '-', turnaround_hours: 48 },
+    { test_name: 'Stool R/E', test_code: 'STOOL', category: 'Microbiology', description: 'Stool routine examination', normal_range: 'No ova/cyst/parasite seen', unit: '-', turnaround_hours: 6 },
+    { test_name: 'Vitamin D (25-OH)', test_code: 'VITD', category: 'Biochemistry', description: '25-hydroxy vitamin D level', normal_range: '30-100 ng/mL', unit: 'ng/mL', turnaround_hours: 24 },
+    { test_name: 'Vitamin B12', test_code: 'VB12', category: 'Biochemistry', description: 'Vitamin B12 level', normal_range: '200-900 pg/mL', unit: 'pg/mL', turnaround_hours: 24 },
+    { test_name: 'Serum Ferritin', test_code: 'FERRITIN', category: 'Hematology', description: 'Iron storage marker', normal_range: 'M: 30-300, F: 15-200 ng/mL', unit: 'ng/mL', turnaround_hours: 8 },
+  ];
+
+  for (const test of testCatalogData) {
+    await prisma.diagnostic_test_catalog.upsert({
+      where: { test_code: test.test_code },
+      update: {},
+      create: test,
+    });
+  }
+  console.log(`  Done: ${testCatalogData.length} Diagnostic Tests`);
+
   // --- Seed Patient Data ---
   console.log('Seeding Patient Data...');
   const patient1 = await prisma.patients.upsert({
@@ -373,6 +455,35 @@ async function main() {
     }
   });
   console.log('  Done: Consultations assigned');
+
+  // --- Seed Test Orders for Patient 1 ---
+  console.log('Seeding test orders for Patient 1 (Rahim)...');
+  const cbcTest = await prisma.diagnostic_test_catalog.findUnique({ where: { test_code: 'CBC' } });
+  const fbgTest = await prisma.diagnostic_test_catalog.findUnique({ where: { test_code: 'FBG' } });
+  const lipidTest = await prisma.diagnostic_test_catalog.findUnique({ where: { test_code: 'CHOL' } });
+  const ecgTest = await prisma.diagnostic_test_catalog.findUnique({ where: { test_code: 'ECG' } });
+
+  if (cbcTest) {
+    await prisma.diagnostic_test_orders.create({
+      data: { patient_id: patient1.id, doctor_id: arif.id, test_id: cbcTest.id, status: 'COMPLETED', clinical_notes: 'Routine check for hypertension patient' },
+    });
+  }
+  if (fbgTest) {
+    await prisma.diagnostic_test_orders.create({
+      data: { patient_id: patient1.id, doctor_id: arif.id, test_id: fbgTest.id, status: 'ORDERED', clinical_notes: 'Fasting sample needed' },
+    });
+  }
+  if (lipidTest) {
+    await prisma.diagnostic_test_orders.create({
+      data: { patient_id: patient1.id, doctor_id: arif.id, test_id: lipidTest.id, status: 'IN_PROGRESS', clinical_notes: 'Lipid profile fasting' },
+    });
+  }
+  if (ecgTest) {
+    await prisma.diagnostic_test_orders.create({
+      data: { patient_id: patient1.id, doctor_id: arif.id, test_id: ecgTest.id, status: 'ORDERED', clinical_notes: 'Chest pain evaluation' },
+    });
+  }
+  console.log('  Done: Test orders seeded');
 }
 
 main()
