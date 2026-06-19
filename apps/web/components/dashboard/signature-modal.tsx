@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { mbbsApi } from "@/lib/mbbs-api";
 
-const IMGBB_API_KEY = "a6ff5c63541cad880f7b03aeca9060be";
+const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY || "a6ff5c63541cad880f7b03aeca9060be";
 const MAX_WIDTH = 450;
 const MAX_HEIGHT = 150;
 

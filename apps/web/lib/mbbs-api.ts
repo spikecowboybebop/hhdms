@@ -315,6 +315,16 @@ export const mbbsApi = {
   // Schedule
   getSchedule: () => apiFetch<any[]>('/mbbs/schedule'),
 
+  // Doctor Profile
+  getDoctorProfile: () => apiFetch<{
+    first_name_en: string;
+    last_name_en: string;
+    bmdc_registration?: string;
+    specialization?: string;
+    qualification?: string;
+    signature_url?: string | null;
+  }>('/mbbs/doctor-profile'),
+
   // Signature
   getSignature: () => apiFetch<{ signature_url: string | null }>('/mbbs/signature'),
   updateSignature: (signatureUrl: string) =>

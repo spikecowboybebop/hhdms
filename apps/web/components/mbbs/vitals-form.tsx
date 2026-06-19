@@ -83,9 +83,9 @@ export function VitalsForm({ onSubmit, loading, existingVitals }: Props) {
                 <input
                   type="number"
                   step="0.1"
-                  min={range.min}
-                  max={range.max}
-                  placeholder={range.unit}
+                  min={range!.min}
+                  max={range!.max}
+                  placeholder={range!.unit}
                   value={value ?? ''}
                   onChange={(e) => handleChange(field as keyof CreateVitalsPayload, e.target.value)}
                   className={`w-full rounded-xl border px-3 py-2 text-sm text-[#0A2540] placeholder:text-slate-400 outline-none transition-all focus:ring-2 ${
@@ -95,7 +95,7 @@ export function VitalsForm({ onSubmit, loading, existingVitals }: Props) {
                   }`}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
-                  {range.unit}
+                  {range!.unit}
                 </span>
               </div>
               {abnormal && (

@@ -758,6 +758,35 @@ export class MbbsService {
   }
 
   // ============================================================
+  // Doctor Profile
+  // ============================================================
+
+  /**
+   * Get the logged-in MBBS doctor's full profile info.
+   */
+  async getDoctorProfile(doctorUserId: string) {
+    const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
+      where: { user_id: doctorUserId },
+      include: {
+        user: {
+          select: { firstNameEn: true, lastNameEn: true },
+        },
+      },
+    });
+    if (!doctor) {
+      throw new ForbiddenException('MBBS doctor profile not found.');
+    }
+    return {
+      first_name_en: doctor.user.firstNameEn,
+      last_name_en: doctor.user.lastNameEn,
+      bmdc_registration: doctor.bmdc_registration,
+      specialization: doctor.specialization,
+      qualification: doctor.qualification,
+      signature_url: doctor.signature_url,
+    };
+  }
+
+  // ============================================================
   // Doctor Schedule (Helper)
   // ============================================================
 

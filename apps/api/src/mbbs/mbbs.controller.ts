@@ -185,6 +185,16 @@ export class MbbsController {
   }
 
   // ============================================================
+  // Doctor Profile
+  // ============================================================
+
+  @Get('doctor-profile')
+  async getDoctorProfile(@Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.getDoctorProfile(doctorUserId);
+  }
+
+  // ============================================================
   // ICD-10 Catalog  (MB-009)
   // ============================================================
 

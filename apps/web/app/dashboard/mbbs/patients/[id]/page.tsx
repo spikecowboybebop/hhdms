@@ -12,6 +12,7 @@ import { VitalsForm } from "@/components/mbbs/vitals-form";
 import { VitalsDisplay } from "@/components/mbbs/vitals-display";
 import { Icd10Search } from "@/components/mbbs/icd10-search";
 import { ReferralChainTimeline } from "@/components/mbbs/referral-chain-timeline";
+import dynamic from "next/dynamic";
 import {
   loadSession,
   dashboardPathForRole,
@@ -27,6 +28,10 @@ import {
   type Prescription,
   type Referral,
 } from "@/lib/mbbs-api";
+const DownloadPrescriptionBtn = dynamic(
+  () => import("@/components/mbbs/download-prescription"),
+  { ssr: false }
+);
 
 const SPECIALTIES = [
   { code: 'CARDIOLOGY', label: 'Cardiology' },
@@ -629,19 +634,7 @@ export default function MbbsPatientDetailPage() {
             </SectionCard>
 
             <SectionCard title="Test Orders & Results" description="Status overview (MB-008)" className="lg:col-span-2">
-              {profile.test_orders && profile.test_orders.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {/* We show test orders from the profile; in production this would come from getTestOrders */}
-                  {/* For now, show a placeholder */}
-                  <li className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-                    <p className="text-xs text-[#2D3A4A] italic">
-                      Test orders will appear here. Use the "Load Catalog" button to order tests.
-                    </p>
-                  </li>
-                </ul>
-              ) : (
-                <p className="text-xs text-[#2D3A4A] italic">No test orders yet.</p>
-              )}
+              <p className="text-xs text-[#2D3A4A] italic">No test orders yet.</p>
             </SectionCard>
           </div>
         )}
@@ -778,11 +771,14 @@ export default function MbbsPatientDetailPage() {
                         <span className="text-xs font-semibold text-[#0A2540]">
                           {new Date(p.issued_at).toLocaleDateString()}
                         </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
-                          p.status === 'ACTIVE' ? 'bg-[#00D4B2]/10 text-[#00D4B2]' : 'bg-slate-100 text-[#2D3A4A]'
-                        }`}>
-                          {p.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <DownloadPrescriptionBtn patient={profile.patient} prescription={p} />
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                            p.status === 'ACTIVE' ? 'bg-[#00D4B2]/10 text-[#00D4B2]' : 'bg-slate-100 text-[#2D3A4A]'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
                       </div>
                       <ul className="mt-2 flex flex-col gap-1">
                         {p.medications?.map((m) => (
