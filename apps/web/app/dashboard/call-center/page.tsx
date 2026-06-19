@@ -131,7 +131,6 @@ export default function CallCenterDashboardPage() {
       console.log("⚡ Agent Dashboard successfully connected to NestJS signaling gateway!");
     });
 
-    // 🚀 ROUTING FIX & ROBUST VISUALIZER Normalizes variations in field names coming from NestJS server
     socketClient.on("call-center-dial", (data) => {
       console.log("📞 Raw Incoming WebRTC payload arriving on browser via [call-center-dial]:", data);
       
@@ -147,7 +146,6 @@ export default function CallCenterDashboardPage() {
       });
     });
 
-    // 🕵️ EXTRA SAFETY NET: Listens for transformed alternate event name variants
     socketClient.on("agent-incoming-call", (data) => {
       console.log("📞 Alternate event channel caught incoming request [agent-incoming-call]:", data);
       const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
@@ -158,17 +156,34 @@ export default function CallCenterDashboardPage() {
       });
     });
 
-    // Capture incoming ICE network candidate configurations
-    socketClient.on("remote-ice-candidate", async (data) => {
+    // Robust ICE payload parser matching the nested structure from Android
+    const handleIncomingIce = async (data: any) => {
       if (peerConnection.current) {
         try {
-          console.log("🛰️ Appending remote framework ICE candidate pathway...");
-          await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          const rawCandidate = data?.candidate?.candidate || data?.candidate;
+          const sdpMid = data?.candidate?.sdpMid ?? data?.sdpMid;
+          const sdpMLineIndex = data?.candidate?.sdpMLineIndex ?? data?.sdpMLineIndex;
+
+          if (rawCandidate) {
+            console.log("🛰️ Appending remote framework ICE candidate pathway...");
+            await peerConnection.current.addIceCandidate(
+              new RTCIceCandidate({
+                candidate: rawCandidate,
+                sdpMid: sdpMid,
+                sdpMLineIndex: sdpMLineIndex,
+              })
+            );
+          }
         } catch (e) {
           console.error("Error setting incoming candidate:", e);
         }
       }
-    });
+    };
+
+    // Subscribing to all possible signaling server event name variants
+    socketClient.on("remote-ice-candidate", handleIncomingIce);
+    socketClient.on("ice-candidate", handleIncomingIce);
+    socketClient.on("relay-ice-candidate", handleIncomingIce);
 
     setSocket(socketClient);
 
@@ -196,13 +211,31 @@ export default function CallCenterDashboardPage() {
         peerConnection.current?.addTrack(track, stream);
       });
       
-      // 4. Connect the remote microphone stream track directly into the local desktop audio driver element
+      // 4. Fixed: Explicit un-muting of audio engine target nodes
       peerConnection.current.ontrack = (event) => {
-        console.log("🎵 Remote network audio track captured successfully!");
+        console.log("🎵 Remote network audio track captured successfully!", event);
         const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
-        if (audioNode && event.streams && event.streams[0]) {
-          audioNode.srcObject = event.streams[0];
-          audioNode.play().catch((err) => console.log("Audio Playback interaction constraint:", err));
+        if (audioNode) {
+          audioNode.muted = false; 
+          audioNode.volume = 1.0;
+
+          if (event.streams && event.streams[0]) {
+            audioNode.srcObject = event.streams[0];
+          } else {
+            console.log("⚙️ Stream wrapper absent. Bundling dynamic tracking stream wrapper container...");
+            audioNode.srcObject = new MediaStream([event.track]);
+          }
+
+          audioNode.load(); // Forces media pipeline thread reconfiguration
+          const playPromise = audioNode.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((error) => {
+              console.warn("⚠️ Browser blocked immediate autoplay! Attaching tap-to-listen user listener fallback.", error);
+              window.addEventListener('click', () => {
+                audioNode.play().catch(e => console.error("Final audio unblock attempt failed:", e));
+              }, { once: true });
+            });
+          }
         }
       };
 
@@ -222,8 +255,10 @@ export default function CallCenterDashboardPage() {
         new RTCSessionDescription(incomingCall.sdpOffer)
       );
 
-      // 7. Formulate a symmetrical WebRTC local Answer profile package
-      const answer = await peerConnection.current.createAnswer();
+      // 7. 🔥 FIXED: Explicitly declare inbound channels are active during negotiation response
+      const answer = await peerConnection.current.createAnswer({
+        offerToReceiveAudio: true
+      });
       await peerConnection.current.setLocalDescription(answer);
 
       // 8. Fire the acceptance payload across the line wire to answer the phone
@@ -240,6 +275,7 @@ export default function CallCenterDashboardPage() {
     }
   };
 
+  // 🔥 FIXED: Complete clean reset across native browser components & audio components
   const handleHangUp = () => {
     if (peerConnection.current) {
       peerConnection.current.close();
@@ -249,6 +285,14 @@ export default function CallCenterDashboardPage() {
       localStream.current.getTracks().forEach((t) => t.stop());
       localStream.current = null;
     }
+
+    // Clean out the DOM layout audio element completely to reset the hardware interface
+    const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
+    if (audioNode) {
+      audioNode.pause();
+      audioNode.srcObject = null;
+    }
+
     setIncomingCall(null);
     setCallConnected(false);
   };
@@ -281,7 +325,6 @@ export default function CallCenterDashboardPage() {
       pageTitle="Call Intake & Routing Hub"
       pageSubtitle="Real-time emergency triage queue and clinician dispatch console"
     >
-      {/* HTML5 Core audio tag pipeline engine to handle active phone voice decoding */}
       <audio id="patientAudioDriver" autoPlay playsInline />
 
       {callConnected && (
@@ -326,6 +369,7 @@ export default function CallCenterDashboardPage() {
           icon={
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
