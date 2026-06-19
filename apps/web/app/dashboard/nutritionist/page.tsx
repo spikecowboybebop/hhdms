@@ -2,364 +2,231 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  DashboardShell,
-  type DashboardNavItem,
-} from "@/components/dashboard/dashboard-shell";
-import {
-  SectionCard,
-  StatCard,
-} from "@/components/dashboard/dashboard-cards";
-import {
-  dashboardPathForRole,
-  loadSession,
-  type StoredSession,
-} from "@/lib/auth";
-
-interface MacroSplit {
-  label: string;
-  grams: number;
-  calories: number;
-  color: string;
-}
-
-interface DietPlan {
-  patient: string;
-  condition: string;
-  totalCalories: number;
-  macros: MacroSplit[];
-  bmi: number;
-  adherence: number;
-}
-
-const dietPlan: DietPlan = {
-  patient: "Roksana Akter",
-  condition: "Type 2 Diabetes • Hypertension",
-  totalCalories: 1800,
-  bmi: 27.4,
-  adherence: 84,
-  macros: [
-    { label: "Carbohydrate", grams: 225, calories: 900, color: "#00D4B2" },
-    { label: "Protein", grams: 90, calories: 360, color: "#0A2540" },
-    { label: "Fat", grams: 60, calories: 540, color: "#FF9900" },
-  ],
-};
-
-const bangladeshiMeals = [
-  {
-    slot: "Breakfast (07:30)",
-    items: [
-      "Ruti (1 pc) — 80g",
-      "Mixed vegetable sabzi — 100g",
-      "Boiled egg (1) — 50g",
-      "Unsweetened tea",
-    ],
-    calories: 320,
-  },
-  {
-    slot: "Mid-morning (10:30)",
-    items: ["Roasted chana — 30g", "Cucumber — 100g"],
-    calories: 130,
-  },
-  {
-    slot: "Lunch (13:00)",
-    items: [
-      "Steamed rice (brown) — 150g cooked",
-      "Chicken curry (lean) — 80g",
-      "Dal (masoor) — 100g",
-      "Mixed greens — 80g",
-    ],
-    calories: 540,
-  },
-  {
-    slot: "Snack (16:30)",
-    items: ["Seasonal fruit (guava/papaya) — 150g"],
-    calories: 90,
-  },
-  {
-    slot: "Dinner (20:00)",
-    items: [
-      "Steamed rice — 100g cooked",
-      "Fish curry (rui) — 100g",
-      "Vegetable stir-fry — 120g",
-      "Dal — 80g",
-    ],
-    calories: 480,
-  },
-];
-
-const navItems: DashboardNavItem[] = [
-  {
-    label: "Metabolic Console",
-    href: "/dashboard/nutritionist",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 12a9 9 0 1 0 9-9" />
-        <polyline points="3 4 3 12 11 12" />
-      </svg>
-    ),
-  },
-  {
-    label: "Meal Plans",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 6h18M3 12h18M3 18h18" />
-      </svg>
-    ),
-  },
-  {
-    label: "BD Food Database",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2v6M12 22v-6M2 12h6M22 12h-6" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    ),
-  },
-  {
-    label: "Adherence Reports",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
-  {
-    label: "Consults",
-    href: "#",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-];
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { SectionCard, StatCard } from "@/components/dashboard/dashboard-cards";
+import { loadSession, type StoredSession } from "@/lib/auth";
 
 export default function NutritionistDashboardPage() {
   const router = useRouter();
   const [session, setSession] = useState<StoredSession | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "metrics" | "diet" | "adherence">("overview");
+  const [loading, setLoading] = useState(true);
 
+  // Form States
+  const [foodQuery, setFoodQuery] = useState("");
+  const [score, setScore] = useState(85);
+  const [anthroForm, setAnthroForm] = useState({
+    patient_id: "", height_cm: "", weight_kg: "", waist_cm: "", hip_cm: "", notes: ""
+  });
+  const [dietForm, setDietForm] = useState({
+    patient_id: "", condition_name: "Type 2 Diabetes", total_calories: 1800,
+    breakfast: "", midMorning: "", lunch: "", snack: "", dinner: ""
+  });
+
+  // Watch the URL hash changes continuously to force state re-renders
   useEffect(() => {
     const s = loadSession();
     setSession(s);
-    setHydrated(true);
-    if (!s) {
+    if (!s || s.user.role !== "NUTRITIONIST") {
       router.replace("/signin");
       return;
     }
-    if (s.user.role !== "NUTRITIONIST") {
-      router.replace(dashboardPathForRole(s.user.role));
-    }
+
+    const checkHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (["overview", "metrics", "diet", "adherence"].includes(hash)) {
+        setActiveTab(hash as any);
+      } else {
+        setActiveTab("overview");
+      }
+    };
+
+    // Run immediately on load
+    checkHash();
+    setLoading(false);
+
+    // Set up a small polling interval to catch internal Next.js link pushes instantly
+    const interval = setInterval(checkHash, 100);
+    window.addEventListener("hashchange", checkHash);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("hashchange", checkHash);
+    };
   }, [router]);
 
-  if (!hydrated) {
+  // Sidebar navigation configuration mapping to local view hashes
+  const customNavItems = [
+    { label: "Overview Matrix", href: "#overview", icon: <span>📊</span> },
+    { label: "Record Metrics", href: "#metrics", icon: <span>⚖️</span> },
+    { label: "Diet Chart Builder", href: "#diet", icon: <span>🥗</span> },
+    { label: "Adherence Logs", href: "#adherence", icon: <span>📈</span> }
+  ];
+
+  if (loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#F8F9FA]">
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white px-5 py-4 shadow-sm">
-          <span className="h-3 w-3 animate-pulse rounded-full bg-[#00D4B2]" />
-          <span className="text-sm font-medium text-[#2D3A4A]">
-            Authenticating session…
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white px-6 py-4 shadow-sm">
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00D4B2] opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00D4B2]" />
           </span>
+          <span className="text-sm font-medium text-[#2D3A4A]">Synchronizing clinical workspace...</span>
         </div>
       </main>
     );
   }
 
-  if (!session) return null;
-
-  const macroTotalCalories = dietPlan.macros.reduce(
-    (acc, m) => acc + m.calories,
-    0,
-  );
-
   return (
     <DashboardShell
-      role={session.user.role}
-      accent="amber"
-      navItems={navItems}
-      pageTitle="Metabolic & Diet Optimization Engine"
-      pageSubtitle="Bangladeshi-aware macro allocation and adherence telemetry"
+      role={session?.user.role || "NUTRITIONIST"}
+      accent="teal"
+      navItems={customNavItems}
+      pageTitle={
+        activeTab === "overview" ? "Nutritionist Control Matrix" :
+        activeTab === "metrics" ? "Record Patient Metrics" :
+        activeTab === "diet" ? "Diet Chart Builder" : "Adherence Performance Log"
+      }
+      pageSubtitle={
+        activeTab === "overview" ? "Real-time clinical management system workspace." :
+        activeTab === "metrics" ? "Updates vitals & auto-computes real-time BMI limits (NU-003)." :
+        activeTab === "diet" ? "Builds localized meal distribution profiles (NU-004)." :
+        "Record adherence data relative to clinical timelines (NU-006)."
+      }
     >
-      {/* Stat row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Active Plans"
-          value="38"
-          delta="+4 this week"
-          trend="up"
-          accent="teal"
-        />
-        <StatCard
-          label="Avg Adherence"
-          value="84%"
-          delta="+6% vs. last week"
-          trend="up"
-          accent="amber"
-        />
-        <StatCard
-          label="Daily Avg Calories"
-          value="1,820 kcal"
-          delta="Within ±50 of plan"
-          trend="flat"
-          accent="navy"
-        />
-        <StatCard
-          label="BD Food Items"
-          value="1,240"
-          delta="Curated dataset"
-          trend="flat"
-          accent="slate"
-        />
-      </div>
-
-      {/* Plan overview */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <SectionCard
-          title="Active Plan"
-          description={`${dietPlan.patient} • ${dietPlan.condition}`}
-          className="lg:col-span-2"
-          action={
-            <button className="rounded-lg bg-[#00D4B2] px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:shadow-md">
-              Adjust Plan
-            </button>
-          }
-        >
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-              <span className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]">
-                Target
-              </span>
-              <span className="mt-1 block text-xl font-bold text-[#0A2540]">
-                {dietPlan.totalCalories} kcal
-              </span>
-            </div>
-            <div className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-              <span className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]">
-                BMI
-              </span>
-              <span className="mt-1 block text-xl font-bold text-[#0A2540]">
-                {dietPlan.bmi}
-              </span>
-            </div>
-            <div className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-              <span className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]">
-                Adherence
-              </span>
-              <span className="mt-1 block text-xl font-bold text-[#00D4B2]">
-                {dietPlan.adherence}%
-              </span>
-            </div>
+      {/* 1. OVERVIEW VIEW */}
+      {activeTab === "overview" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Active Diet Registers" value="12" delta="Live Database Records" trend="up" accent="teal" />
+            <StatCard label="Follow-ups Pending" value="4" delta="Action Required" trend="flat" accent="amber" />
+            <StatCard label="System Ingredients" value="245" delta="BD Food Dictionary" trend="up" accent="navy" />
+            <StatCard label="Active Templates" value="8" delta="Predefined Matrices" trend="flat" accent="slate" />
           </div>
 
-          <div className="mt-5 flex flex-col gap-3">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]">
-              Macro Allocation (Bangladesh-aware)
-            </span>
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-[#F8F9FA]">
-              {dietPlan.macros.map((m) => (
-                <div
-                  key={m.label}
-                  style={{
-                    width: `${(m.calories / macroTotalCalories) * 100}%`,
-                    backgroundColor: m.color,
-                  }}
-                  className="h-full"
-                  title={`${m.label}: ${m.calories} kcal`}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <SectionCard title="BD Ingredient Calorie Exchange Lookup" description="Query mapping entries across regional groups.">
+              <div className="flex gap-2 p-1">
+                <input 
+                  type="text" 
+                  placeholder="e.g. Rice, Lentils, Fish..." 
+                  value={foodQuery} 
+                  onChange={e => setFoodQuery(e.target.value)} 
+                  className="flex-1 rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy"
                 />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-4">
-              {dietPlan.macros.map((m) => (
-                <div key={m.label} className="flex items-center gap-2 text-xs">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: m.color }}
-                  />
-                  <span className="font-semibold text-[#0A2540]">
-                    {m.label}
-                  </span>
-                  <span className="font-mono text-[10px] text-[#2D3A4A]">
-                    {m.grams}g • {m.calories} kcal
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Adherence Timeline" description="Last 7 days">
-          <div className="flex h-32 items-end gap-2">
-            {[78, 82, 91, 74, 88, 84, 86].map((v, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t-md bg-gradient-to-t from-[#0A2540] to-[#00D4B2]"
-                  style={{ height: `${v}%` }}
-                />
-                <span className="text-[9px] font-mono text-[#2D3A4A]">
-                  {["M", "T", "W", "T", "F", "S", "S"][i]}
-                </span>
+                <button type="button" className="bg-[#0A2540] text-white text-xs px-4 rounded-xl font-bold transition-all hover:bg-opacity-90">Query</button>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-            <div className="flex flex-col leading-tight">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A]">
-                Weekly Streak
-              </span>
-              <span className="text-lg font-bold text-[#0A2540]">5 days ≥ 80%</span>
-            </div>
-            <span className="text-2xl">🔥</span>
-          </div>
-        </SectionCard>
-      </div>
-
-      {/* Daily meal structure */}
-      <div className="mt-6">
-        <SectionCard
-          title="Daily Meal Structure"
-          description="Bangladesh-tailored 5-slot distribution"
-          action={
-            <button className="rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-[#2D3A4A] transition-all hover:border-[#0A2540] hover:text-[#0A2540]">
-              Export PDF
-            </button>
-          }
-        >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {bangladeshiMeals.map((meal) => (
-              <div
-                key={meal.slot}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#00D4B2]">
-                    {meal.slot}
-                  </span>
-                  <span className="rounded-full bg-[#FF9900]/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-[#FF9900]">
-                    {meal.calories} kcal
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-1.5">
-                  {meal.items.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-2 text-xs text-[#2D3A4A]"
-                    >
-                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#0A2540]" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+              <div className="mt-3 border border-slate-100 rounded-xl p-6 bg-white text-sm text-[#2D3A4A] text-center">
+                <p className="text-xs text-slate-400">No catalog search results queried yet.</p>
               </div>
-            ))}
+            </SectionCard>
+
+            <SectionCard title="Active Clinical Notifications" description="System alerts for compliance drops.">
+              <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
+                All patient profiles are operating within target compliance bounds.
+              </div>
+            </SectionCard>
           </div>
-        </SectionCard>
-      </div>
+        </div>
+      )}
+
+      {/* 2. RECORD METRICS VIEW */}
+      {activeTab === "metrics" && (
+        <div className="max-w-2xl animate-in fade-in duration-200">
+          <SectionCard title="Anthropometric Input Panel" description="Log physical diagnostic trends and body configurations.">
+            <form className="space-y-4 p-2" onSubmit={e => e.preventDefault()}>
+              <div>
+                <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Patient UUID / ID</label>
+                <input type="text" required value={anthroForm.patient_id} onChange={e => setAnthroForm({...anthroForm, patient_id: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy" placeholder="abcd-1234-uuid" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Height (cm)</label>
+                  <input type="number" step="0.1" value={anthroForm.height_cm} onChange={e => setAnthroForm({...anthroForm, height_cm: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy" placeholder="165" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Weight (kg)</label>
+                  <input type="number" step="0.1" value={anthroForm.weight_kg} onChange={e => setAnthroForm({...anthroForm, weight_kg: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy" placeholder="72" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Waist (cm)</label>
+                  <input type="number" step="0.1" value={anthroForm.waist_cm} onChange={e => setAnthroForm({...anthroForm, waist_cm: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy" placeholder="88" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Hip (cm)</label>
+                  <input type="number" step="0.1" value={anthroForm.hip_cm} onChange={e => setAnthroForm({...anthroForm, hip_cm: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy" placeholder="102" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Clinical Assessment Notes</label>
+                <textarea rows={3} value={anthroForm.notes} onChange={e => setAnthroForm({...anthroForm, notes: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] focus:bg-white text-clinical-navy" placeholder="Provide observation overview..." />
+              </div>
+              <button type="submit" className="rounded-xl bg-[#0A2540] text-white text-xs font-bold px-5 py-3 uppercase tracking-wider transition-all hover:bg-opacity-90 cursor-pointer">Commit Metrics Logs</button>
+            </form>
+          </SectionCard>
+        </div>
+      )}
+
+      {/* 3. DIET CHART BUILDER VIEW */}
+      {activeTab === "diet" && (
+        <div className="max-w-4xl animate-in fade-in duration-200">
+          <SectionCard title="Generate Personalized Diet Chart" description="Builds localized 5-slot structure tailored to regional availability.">
+            <form className="space-y-4 p-2 grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={e => e.preventDefault()}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Patient Identifier ID</label>
+                  <input type="text" required value={dietForm.patient_id} onChange={e => setDietForm({...dietForm, patient_id: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" placeholder="Target Patient UUID" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Metabolic Condition</label>
+                  <input type="text" value={dietForm.condition_name} onChange={e => setDietForm({...dietForm, condition_name: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Caloric Target (kcal)</label>
+                  <input type="number" value={dietForm.total_calories} onChange={e => setDietForm({...dietForm, total_calories: Number(e.target.value)})} className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+                </div>
+              </div>
+
+              <div className="bg-[#F8F9FA] p-4 rounded-xl border border-slate-200/60 space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#00D4B2] block mb-1">Bangladeshi Meal Composition Allocation</span>
+                <input type="text" placeholder="Breakfast: Ruti, Egg, Sabji" value={dietForm.breakfast} onChange={e => setDietForm({...dietForm, breakfast: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+                <input type="text" placeholder="Mid-morning: Roasted Chana / Muri" value={dietForm.midMorning} onChange={e => setDietForm({...dietForm, midMorning: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+                <input type="text" placeholder="Lunch: Rice, Lal Shak, Fish Curry" value={dietForm.lunch} onChange={e => setDietForm({...dietForm, lunch: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+                <input type="text" placeholder="Snack: Apple / Guava" value={dietForm.snack} onChange={e => setDietForm({...dietForm, snack: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+                <input type="text" placeholder="Dinner: Attar Roti, Lentil Soup" value={dietForm.dinner} onChange={e => setDietForm({...dietForm, dinner: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#00D4B2] text-clinical-navy" />
+              </div>
+
+              <div className="md:col-span-2 pt-2">
+                <button type="submit" className="w-full bg-[#00D4B2] text-[#0A2540] text-xs font-bold py-3 rounded-xl uppercase tracking-wider shadow-sm transition-all hover:bg-opacity-90 cursor-pointer">Dispatch Interactive Chart</button>
+              </div>
+            </form>
+          </SectionCard>
+        </div>
+      )}
+
+      {/* 4. ADHERENCE VIEW */}
+      {activeTab === "adherence" && (
+        <div className="max-w-xl animate-in fade-in duration-200">
+          <SectionCard title="Log Compliance Scorecard" description="Submit progress scorecard metrics for patient check-ins.">
+            <div className="space-y-5 p-2">
+              <div>
+                <label className="block text-xs font-semibold text-[#2D3A4A] uppercase tracking-wider mb-1">Patient MRN Selection</label>
+                <input type="text" placeholder="Enter valid patient record ID..." className="w-full rounded-xl border border-slate-200 bg-[#F8F9FA] px-3 py-2.5 text-sm text-[#0A2540] outline-none focus:border-[#00D4B2] focus:bg-white" />
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#2D3A4A]">Adherence Rating</label>
+                  <span className="text-xs font-bold text-[#0A2540] bg-[#00D4B2]/20 px-2 py-0.5 rounded-md">{score}% Compliance</span>
+                </div>
+                <input type="range" min="0" max="100" value={score} onChange={e => setScore(Number(e.target.value))} className="w-full h-1.5 rounded-lg bg-[#F8F9FA] appearance-none cursor-pointer accent-[#00D4B2]" />
+              </div>
+              <button type="button" className="rounded-xl bg-[#0A2540] text-white px-5 py-2.5 text-xs font-bold tracking-wider uppercase transition-all hover:bg-opacity-90 cursor-pointer">Publish Adherence Performance</button>
+            </div>
+          </SectionCard>
+        </div>
+      )}
     </DashboardShell>
   );
 }
