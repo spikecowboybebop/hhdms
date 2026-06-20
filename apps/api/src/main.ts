@@ -11,7 +11,10 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  app.enableCors();
+  app.enableCors({
+    origin: 'http://localhost:3000', // URL of your Next.js frontend
+    credentials: true,               // Essential if you pass cookies/auth headers
+  });
   
   app.useGlobalPipes(
     new ValidationPipe({

@@ -54,6 +54,20 @@ export interface Patient {
   updated_at?: string;
 }
 
+export interface PreviousAppointment {
+  id: string;
+  doctor_id: string;
+  patient_id: string;
+  assigned_at: string;
+  appointment_activity: string;
+  doctor: {
+    user: {
+      firstNameEn: string;
+      lastNameEn: string;
+    };
+  };
+}
+
 export interface PatientProfile {
   patient: Patient;
   vitals: VitalSigns[];
@@ -62,6 +76,8 @@ export interface PatientProfile {
   referrals: Referral[];
   emergency_flags: EmergencyFlag[];
   referral_chain: ReferralChainEvent[];
+  test_orders: TestOrder[];
+  previous_appointments: PreviousAppointment[];
 }
 
 export interface VitalSigns {
@@ -314,6 +330,24 @@ export const mbbsApi = {
 
   // Schedule
   getSchedule: () => apiFetch<any[]>('/mbbs/schedule'),
+
+  // Doctor Profile
+  getDoctorProfile: () => apiFetch<{
+    first_name_en: string;
+    last_name_en: string;
+    bmdc_registration?: string;
+    specialization?: string;
+    qualification?: string;
+    signature_url?: string | null;
+  }>('/mbbs/doctor-profile'),
+
+  // Signature
+  getSignature: () => apiFetch<{ signature_url: string | null }>('/mbbs/signature'),
+  updateSignature: (signatureUrl: string) =>
+    apiFetch<any>('/mbbs/signature', {
+      method: 'PATCH',
+      body: JSON.stringify({ signature_url: signatureUrl }),
+    }),
 
   // Differential Diagnosis (stub)
   getDifferentialDiagnosis: (patientId: string) =>

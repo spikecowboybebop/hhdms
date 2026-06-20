@@ -13,7 +13,7 @@ export function VitalsDisplay({ vitals }: Props) {
     );
   }
 
-  const latest = vitals[0];
+  const latest = vitals[0]!;
 
   const vitalCards = [
     { label: 'Blood Pressure', value: latest.systolic_bp && latest.diastolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : 'N/A', unit: 'mmHg', abnormal: latest.is_abnormal && (latest.systolic_bp ? latest.systolic_bp > 140 || latest.systolic_bp < 90 : false) },

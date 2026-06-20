@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   DashboardShell,
@@ -12,6 +12,7 @@ import { VitalsForm } from "@/components/mbbs/vitals-form";
 import { VitalsDisplay } from "@/components/mbbs/vitals-display";
 import { Icd10Search } from "@/components/mbbs/icd10-search";
 import { ReferralChainTimeline } from "@/components/mbbs/referral-chain-timeline";
+import dynamic from "next/dynamic";
 import {
   loadSession,
   dashboardPathForRole,
@@ -27,6 +28,10 @@ import {
   type Prescription,
   type Referral,
 } from "@/lib/mbbs-api";
+const DownloadPrescriptionBtn = dynamic(
+  () => import("@/components/mbbs/download-prescription"),
+  { ssr: false }
+);
 
 const SPECIALTIES = [
   { code: 'CARDIOLOGY', label: 'Cardiology' },
@@ -63,28 +68,6 @@ const navItems: DashboardNavItem[] = [
     ),
   },
   {
-    label: "Prescriptions",
-    href: "/dashboard/mbbs",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="9" y1="13" x2="15" y2="13" />
-        <line x1="9" y1="17" x2="13" y2="17" />
-      </svg>
-    ),
-  },
-  {
-    label: "ICD-10 Catalog",
-    href: "/dashboard/mbbs",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-    ),
-  },
-  {
     label: "My Schedule",
     href: "/dashboard/mbbs",
     icon: (
@@ -98,7 +81,7 @@ const navItems: DashboardNavItem[] = [
   },
 ];
 
-type Tab = 'vitals' | 'diagnosis' | 'tests' | 'prescriptions' | 'referral' | 'timeline';
+type Tab = 'vitals' | 'diagnosis' | 'tests' | 'prescriptions' | 'referral' | 'timeline' | 'previous';
 
 export default function MbbsPatientDetailPage() {
   const router = useRouter();
@@ -152,6 +135,38 @@ export default function MbbsPatientDetailPage() {
     if (!s) { router.replace("/signin"); return; }
     if (s.user.role !== "MBBS_DOCTOR") { router.replace(dashboardPathForRole(s.user.role)); return; }
     loadProfile();
+  }, [patientId]);
+
+  // Read URL hash (fragment) to select the appropriate tab and scroll
+  useEffect(() => {
+    const applyHash = () => {
+      if (typeof window === 'undefined') return;
+      const raw = window.location.hash || '';
+      const key = raw.replace('#', '');
+      if (!key) return;
+      const map: Record<string, Tab> = {
+        vitals: 'vitals',
+        diagnosis: 'diagnosis',
+        tests: 'tests',
+        prescriptions: 'prescriptions',
+        prescription: 'prescriptions',
+        referral: 'referral',
+        timeline: 'timeline',
+        previous: 'previous',
+      };
+      const tab = map[key];
+      if (tab) {
+        setActiveTab(tab);
+        setTimeout(() => {
+          const el = document.getElementById(key);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      }
+    };
+
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
   }, [patientId]);
 
   const loadProfile = async () => {
@@ -216,8 +231,21 @@ export default function MbbsPatientDetailPage() {
     try {
       const data = await mbbsApi.getTestCatalog();
       setTestCatalog(data);
-    } catch {}
+    } catch (err: any) {
+      setError(err.message || 'Failed to load test catalog.');
+    }
   };
+
+  const catalogLoadedRef = useRef(false);
+  useEffect(() => {
+    if (activeTab === 'tests' && !catalogLoadedRef.current) {
+      catalogLoadedRef.current = true;
+      loadTestCatalog();
+    }
+    if (activeTab !== 'tests') {
+      catalogLoadedRef.current = false;
+    }
+  }, [activeTab]);
 
   const toggleTest = (id: string) => {
     setSelectedTests((prev) => {
@@ -339,6 +367,7 @@ export default function MbbsPatientDetailPage() {
     { key: 'tests', label: 'Tests & Results', icon: '🧪' },
     { key: 'prescriptions', label: 'Prescriptions', icon: '💊' },
     { key: 'referral', label: 'Referral', icon: '🏥' },
+    { key: 'previous', label: 'Previous Appointment', icon: '📁' },
     { key: 'timeline', label: 'Care Timeline', icon: '📅' },
   ];
 
@@ -404,7 +433,7 @@ export default function MbbsPatientDetailPage() {
       <div className="mt-6">
         {/* ---- VITALS TAB ---- */}
         {activeTab === 'vitals' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div id="vitals" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <SectionCard title="Record Vital Signs" description="Enter current measurements (MB-003)">
               <VitalsForm
                 onSubmit={handleVitalsSubmit}
@@ -448,7 +477,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- DIAGNOSIS TAB ---- */}
         {activeTab === 'diagnosis' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="diagnosis" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard title="New Diagnosis" description="ICD-10 coded clinical assessment (MB-004)" className="lg:col-span-3">
               <form onSubmit={handleDiagnosisSubmit} className="flex flex-col gap-4">
                 <Icd10Search
@@ -547,7 +576,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- TESTS TAB ---- */}
         {activeTab === 'tests' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="tests" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard
               title="Order Diagnostic Tests"
               description="Select from catalog (MB-005)"
@@ -609,16 +638,39 @@ export default function MbbsPatientDetailPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="Test Orders & Results" description="Status overview (MB-008)" className="lg:col-span-2">
+            <SectionCard title="Test Orders & Results" description={`${profile.test_orders?.length || 0} orders`} className="lg:col-span-2">
               {profile.test_orders && profile.test_orders.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {/* We show test orders from the profile; in production this would come from getTestOrders */}
-                  {/* For now, show a placeholder */}
-                  <li className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
-                    <p className="text-xs text-[#2D3A4A] italic">
-                      Test orders will appear here. Use the "Load Catalog" button to order tests.
-                    </p>
-                  </li>
+                <ul className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1">
+                  {profile.test_orders.map((order) => (
+                    <li key={order.id} className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-[#0A2540]">{order.test?.test_name || order.test_id}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                          order.status === 'ORDERED' ? 'bg-[#FF9900]/10 text-[#FF9900]' :
+                          order.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-600' :
+                          order.status === 'COMPLETED' ? 'bg-[#00D4B2]/10 text-[#00D4B2]' :
+                          'bg-slate-100 text-[#2D3A4A]'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </div>
+                      <span className="mt-1 block text-[10px] text-[#2D3A4A]">
+                        Code: {order.test?.test_code} • {order.test?.category}
+                      </span>
+                      {order.results && order.results.length > 0 && (
+                        <div className="mt-2 border-t border-slate-200/60 pt-2">
+                          {order.results.map((r) => (
+                            <p key={r.id} className={`text-[11px] ${r.is_abnormal ? 'text-[#FF9900] font-semibold' : 'text-[#2D3A4A]'}`}>
+                              {r.result_value}{r.is_critical ? ' 🚨 CRITICAL' : ''}{r.is_abnormal ? ' ⚠️' : ''}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      <span className="mt-1 block text-[9px] text-slate-400">
+                        {new Date(order.ordered_at).toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               ) : (
                 <p className="text-xs text-[#2D3A4A] italic">No test orders yet.</p>
@@ -629,7 +681,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- PRESCRIPTIONS TAB ---- */}
         {activeTab === 'prescriptions' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="prescriptions" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard title="Generate Prescription" description="Digital Rx with signature (MB-011, MB-012)" className="lg:col-span-3">
               <form onSubmit={handlePrescriptionSubmit} className="flex flex-col gap-4">
                 {prescriptionMeds.map((med, idx) => (
@@ -752,18 +804,21 @@ export default function MbbsPatientDetailPage() {
 
             <SectionCard title="Prescription History" description={`${profile.prescriptions?.length || 0} records`} className="lg:col-span-2">
               {profile.prescriptions && profile.prescriptions.length > 0 ? (
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1">
                   {profile.prescriptions.map((p) => (
                     <li key={p.id} className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-[#0A2540]">
                           {new Date(p.issued_at).toLocaleDateString()}
                         </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
-                          p.status === 'ACTIVE' ? 'bg-[#00D4B2]/10 text-[#00D4B2]' : 'bg-slate-100 text-[#2D3A4A]'
-                        }`}>
-                          {p.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <DownloadPrescriptionBtn patient={profile.patient} prescription={p} />
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                            p.status === 'ACTIVE' ? 'bg-[#00D4B2]/10 text-[#00D4B2]' : 'bg-slate-100 text-[#2D3A4A]'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
                       </div>
                       <ul className="mt-2 flex flex-col gap-1">
                         {p.medications?.map((m) => (
@@ -787,7 +842,7 @@ export default function MbbsPatientDetailPage() {
 
         {/* ---- REFERRAL TAB ---- */}
         {activeTab === 'referral' && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div id="referral" className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <SectionCard title="Create Specialist Referral" description="Refer to specialist care (MB-009)" className="lg:col-span-3">
               <form onSubmit={handleReferralSubmit} className="flex flex-col gap-4">
                 <div>
@@ -877,11 +932,42 @@ export default function MbbsPatientDetailPage() {
           </div>
         )}
 
+        {/* ---- PREVIOUS APPOINTMENT TAB ---- */}
+        {activeTab === 'previous' && (
+          <div id="previous">
+            <SectionCard title="Previous Appointments" description={`${profile.previous_appointments?.length || 0} completed`}>
+              {profile.previous_appointments && profile.previous_appointments.length > 0 ? (
+                <ul className="flex flex-col gap-3">
+                  {profile.previous_appointments.map((appt) => (
+                    <li key={appt.id} className="rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-[#0A2540]">
+                          Dr. {appt.doctor.user.firstNameEn} {appt.doctor.user.lastNameEn}
+                        </span>
+                        <span className="rounded-full bg-[#00D4B2]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#00D4B2]">
+                          {appt.appointment_activity}
+                        </span>
+                      </div>
+                      <span className="mt-1 block text-[11px] text-[#2D3A4A]">
+                        {new Date(appt.assigned_at).toLocaleDateString()} at {new Date(appt.assigned_at).toLocaleTimeString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[#2D3A4A] italic">No previous appointments found.</p>
+              )}
+            </SectionCard>
+          </div>
+        )}
+
         {/* ---- TIMELINE TAB ---- */}
         {activeTab === 'timeline' && (
-          <SectionCard title="Care Journey Timeline" description="Complete referral chain (MB-010)">
-            <ReferralChainTimeline events={profile.referral_chain || []} />
-          </SectionCard>
+          <div id="timeline">
+            <SectionCard title="Care Journey Timeline" description="Complete referral chain (MB-010)">
+              <ReferralChainTimeline events={profile.referral_chain || []} />
+            </SectionCard>
+          </div>
         )}
       </div>
     </DashboardShell>

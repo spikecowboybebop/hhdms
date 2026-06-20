@@ -4,6 +4,21 @@ import { useState, useEffect, useRef } from "react";
 import type { Icd10Code } from "@/lib/mbbs-api";
 import { mbbsApi } from "@/lib/mbbs-api";
 
+const cache = new Map<string, Icd10Code[]>();
+const CACHE_SIZE = 50;
+
+function getCached(query: string): Icd10Code[] | undefined {
+  return cache.get(query.toLowerCase());
+}
+
+function setCache(query: string, data: Icd10Code[]) {
+  if (cache.size >= CACHE_SIZE) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey) cache.delete(firstKey);
+  }
+  cache.set(query.toLowerCase(), data);
+}
+
 interface Props {
   onSelect: (code: Icd10Code) => void;
   selectedCode?: string;
@@ -14,7 +29,7 @@ export function Icd10Search({ onSelect, selectedCode }: Props) {
   const [results, setResults] = useState<Icd10Code[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,10 +49,19 @@ export function Icd10Search({ onSelect, selectedCode }: Props) {
       setOpen(false);
       return;
     }
+
+    const cached = getCached(query);
+    if (cached) {
+      setResults(cached);
+      setOpen(cached.length > 0);
+      return;
+    }
+
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       try {
         const data = await mbbsApi.searchIcd10(query);
+        setCache(query, data);
         setResults(data);
         setOpen(data.length > 0);
       } catch {
@@ -45,7 +69,7 @@ export function Icd10Search({ onSelect, selectedCode }: Props) {
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 120);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

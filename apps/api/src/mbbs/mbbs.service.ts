@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVitalsDto } from './dto/create-vitals.dto';
@@ -11,10 +12,30 @@ import { CreateTestOrderDto } from './dto/create-test-order.dto';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { CreateEmergencyFlagDto } from './dto/create-emergency-flag.dto';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface Icd10Entry {
+  code: string;
+  desc: string;
+}
 
 @Injectable()
-export class MbbsService {
+export class MbbsService implements OnModuleInit {
+  private icd10Codes: Icd10Entry[] = [];
+
   constructor(private readonly prisma: PrismaService) {}
+
+  onModuleInit() {
+    const jsonPath = path.resolve(__dirname, '../../prisma/icd10_codes.json');
+    try {
+      const raw = fs.readFileSync(jsonPath, 'utf-8');
+      this.icd10Codes = JSON.parse(raw);
+      console.log(`Loaded ${this.icd10Codes.length} ICD-10 codes into memory`);
+    } catch (err) {
+      console.warn('Could not load icd10_codes.json, falling back to DB search:', (err as Error).message);
+    }
+  }
 
   // ============================================================
   // Patient Profile (MB-002)
@@ -35,29 +56,24 @@ export class MbbsService {
       );
     }
 
-    // Fetch patients who have at least one vital sign or diagnosis from this doctor
-    // In production, this would be filtered by active appointments
-    const patientIds = await this.prisma.patient_vital_signs.findMany({
+    // Fetch patients explicitly assigned to this doctor via the join table
+    const assignments = await this.prisma.doctor_patient_assignments.findMany({
       where: { doctor_id: doctorUserId },
-      select: { patient_id: true },
-      distinct: ['patient_id'],
+      include: { patient: true },
     });
 
-    const ids = patientIds.map((p) => p.patient_id);
-
-    if (ids.length === 0) {
-      // If no vitals yet, return all patients (for demo)
-      return this.prisma.patients.findMany({
-        orderBy: { updated_at: 'desc' },
-        take: 50,
-      });
+    if (assignments.length === 0) {
+      return [];
     }
 
-    return this.prisma.patients.findMany({
-      where: { id: { in: ids } },
-      orderBy: { updated_at: 'desc' },
-      take: 50,
-    });
+    return assignments
+      .map((a) => a.patient)
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at ?? 0).getTime() -
+          new Date(a.updated_at ?? 0).getTime(),
+      )
+      .slice(0, 50);
   }
 
   /**
@@ -80,6 +96,8 @@ export class MbbsService {
       referrals,
       emergencyFlags,
       chainEvents,
+      testOrders,
+      prevAppointments,
     ] = await Promise.all([
       this.prisma.patient_vital_signs.findMany({
         where: { patient_id: patientId },
@@ -108,6 +126,22 @@ export class MbbsService {
         where: { patient_id: patientId },
         orderBy: { created_at: 'asc' },
       }),
+      this.prisma.diagnostic_test_orders.findMany({
+        where: { patient_id: patientId },
+        orderBy: { ordered_at: 'desc' },
+        include: { test: true, results: true },
+      }),
+      this.prisma.doctor_patient_assignments.findMany({
+        where: { patient_id: patientId, appointment_activity: 'done' },
+        orderBy: { assigned_at: 'desc' },
+        include: {
+          doctor: {
+            include: {
+              user: { select: { firstNameEn: true, lastNameEn: true } },
+            },
+          },
+        },
+      }),
     ]);
 
     return {
@@ -118,6 +152,8 @@ export class MbbsService {
       referrals,
       emergency_flags: emergencyFlags,
       referral_chain: chainEvents,
+      test_orders: testOrders,
+      previous_appointments: prevAppointments,
     };
   }
 
@@ -240,10 +276,30 @@ export class MbbsService {
 
   /**
    * Search ICD-10 codes (MB-004)
+   * Uses in-memory cache loaded from icd10_codes.json for fast search.
    */
   async searchIcd10Codes(query: string) {
     if (!query || query.length < 2) {
       return [];
+    }
+
+    const lowerQuery = query.toLowerCase();
+
+    if (this.icd10Codes.length > 0) {
+      const results = this.icd10Codes
+        .filter(
+          (entry) =>
+            entry.code.toLowerCase().includes(lowerQuery) ||
+            entry.desc.toLowerCase().includes(lowerQuery),
+        )
+        .slice(0, 20)
+        .map((entry) => ({
+          code: entry.code,
+          description: entry.desc,
+          category: null,
+        }));
+
+      return results;
     }
 
     const results = await this.prisma.icd10_codes.findMany({
@@ -728,6 +784,67 @@ export class MbbsService {
       where: { patient_id: patientId },
       orderBy: { created_at: 'desc' },
     });
+  }
+
+  // ============================================================
+  // Digital Signature
+  // ============================================================
+
+  /**
+   * Get the digital signature URL for the logged-in MBBS doctor.
+   */
+  async getSignature(doctorUserId: string) {
+    const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
+      where: { user_id: doctorUserId },
+      select: { signature_url: true },
+    });
+    return { signature_url: doctor?.signature_url ?? null };
+  }
+
+  /**
+   * Update the digital signature URL for the logged-in MBBS doctor.
+   */
+  async updateSignature(doctorUserId: string, signatureUrl: string) {
+    const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
+      where: { user_id: doctorUserId },
+    });
+    if (!doctor) {
+      throw new ForbiddenException('MBBS doctor profile not found.');
+    }
+
+    return this.prisma.mbbs_doctor_profiles.update({
+      where: { user_id: doctorUserId },
+      data: { signature_url: signatureUrl },
+    });
+  }
+
+  // ============================================================
+  // Doctor Profile
+  // ============================================================
+
+  /**
+   * Get the logged-in MBBS doctor's full profile info.
+   */
+  async getDoctorProfile(doctorUserId: string) {
+    const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
+      where: { user_id: doctorUserId },
+      include: {
+        user: {
+          select: { firstNameEn: true, lastNameEn: true },
+        },
+      },
+    });
+    if (!doctor) {
+      throw new ForbiddenException('MBBS doctor profile not found.');
+    }
+    return {
+      first_name_en: doctor.user.firstNameEn,
+      last_name_en: doctor.user.lastNameEn,
+      bmdc_registration: doctor.bmdc_registration,
+      specialization: doctor.specialization,
+      qualification: doctor.qualification,
+      signature_url: doctor.signature_url,
+    };
   }
 
   // ============================================================

@@ -2,13 +2,16 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
   Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { MbbsService } from './mbbs.service';
 import { CreateVitalsDto } from './dto/create-vitals.dto';
 import { CreateDiagnosisDto } from './dto/create-diagnosis.dto';
@@ -16,26 +19,15 @@ import { CreateTestOrderDto } from './dto/create-test-order.dto';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { CreateEmergencyFlagDto } from './dto/create-emergency-flag.dto';
-
-// TODO: Import JWT Auth Guard when it's built
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-// import { RolesGuard } from '../auth/guards/roles.guard';
-// import { Roles } from '../auth/decorators/roles.decorator';
+import { UpdateSignatureDto } from './dto/update-signature.dto';
 
 @Controller('mbbs')
-// @UseGuards(JwtAuthGuard, RolesGuard)  // TODO: Enable when auth guards are built
-// @Roles('MBBS_DOCTOR')                  // TODO: Enable role-based access
+@UseGuards(AuthGuard('jwt'))
 export class MbbsController {
   constructor(private readonly mbbsService: MbbsService) {}
 
-  // Helper for auth mock
-  private async getDoctorUserId(req: any): Promise<string> {
-    const userId = req.user?.sub;
-    if (userId) return userId;
-    
-    // For local dev, return the first MBBS doctor's ID if auth is not yet wired up
-    const firstDoctor = await this.mbbsService['prisma'].mbbs_doctor_profiles.findFirst();
-    return firstDoctor?.user_id || 'system';
+  private getDoctorUserId(req: any): string {
+    return req.user?.sub;
   }
 
   // ============================================================
@@ -44,7 +36,7 @@ export class MbbsController {
 
   @Get('patients')
   async getMyPatients(@Req() req: any) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.getMyPatients(doctorUserId);
   }
 
@@ -64,7 +56,7 @@ export class MbbsController {
     @Body() dto: CreateVitalsDto,
     @Req() req: any,
   ) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.recordVitalSigns(patientId, doctorUserId, dto);
   }
 
@@ -74,13 +66,8 @@ export class MbbsController {
   }
 
   // ============================================================
-  // Diagnosis & ICD-10 Endpoints (MB-004)
+  // Diagnosis Endpoints (MB-004)
   // ============================================================
-
-  @Get('icd10/search')
-  async searchIcd10Codes(@Query('q') query: string) {
-    return this.mbbsService.searchIcd10Codes(query);
-  }
 
   @Post('patients/:id/diagnoses')
   @HttpCode(HttpStatus.CREATED)
@@ -89,7 +76,7 @@ export class MbbsController {
     @Body() dto: CreateDiagnosisDto,
     @Req() req: any,
   ) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.createDiagnosis(patientId, doctorUserId, dto);
   }
 
@@ -99,7 +86,7 @@ export class MbbsController {
   }
 
   // ============================================================
-  // Diagnostic Test Endpoints (MB-005, MB-006)
+  // Diagnostic Test Orders (MB-005)
   // ============================================================
 
   @Get('tests/catalog')
@@ -114,7 +101,7 @@ export class MbbsController {
     @Body() dto: CreateTestOrderDto,
     @Req() req: any,
   ) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.orderTests(patientId, doctorUserId, dto);
   }
 
@@ -123,25 +110,8 @@ export class MbbsController {
     return this.mbbsService.getTestOrders(patientId);
   }
 
-  @Get('test-orders/:id/requisition')
-  async getRequisition(@Param('id') orderId: string, @Req() req: any) {
-    // For now, delegate to the test orders endpoint
-    // In production, this would generate a PDF
-    const patientId = req.query?.patient_id;
-    return this.mbbsService.getTestOrders(patientId || orderId);
-  }
-
   // ============================================================
-  // Test Results Endpoints (MB-008)
-  // ============================================================
-
-  @Get('patients/:id/test-results')
-  async getTestResults(@Param('id') patientId: string) {
-    return this.mbbsService.getTestResults(patientId);
-  }
-
-  // ============================================================
-  // Referral Endpoints (MB-009)
+  // Referral Endpoints (MB-006)
   // ============================================================
 
   @Post('patients/:id/referrals')
@@ -151,7 +121,7 @@ export class MbbsController {
     @Body() dto: CreateReferralDto,
     @Req() req: any,
   ) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.createReferral(patientId, doctorUserId, dto);
   }
 
@@ -161,16 +131,7 @@ export class MbbsController {
   }
 
   // ============================================================
-  // Referral Chain Endpoints (MB-010)
-  // ============================================================
-
-  @Get('patients/:id/referral-chain')
-  async getReferralChain(@Param('id') patientId: string) {
-    return this.mbbsService.getReferralChain(patientId);
-  }
-
-  // ============================================================
-  // Prescription Endpoints (MB-011, MB-012)
+  // Prescription Endpoints (MB-007)
   // ============================================================
 
   @Post('patients/:id/prescriptions')
@@ -180,7 +141,7 @@ export class MbbsController {
     @Body() dto: CreatePrescriptionDto,
     @Req() req: any,
   ) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.createPrescription(patientId, doctorUserId, dto);
   }
 
@@ -190,41 +151,60 @@ export class MbbsController {
   }
 
   // ============================================================
-  // Emergency Flag Endpoints (MB-014)
+  // Emergency Flag Endpoints (MB-008)
   // ============================================================
 
-  @Post('patients/:id/emergency-flag')
+  @Post('patients/:id/emergency')
   @HttpCode(HttpStatus.CREATED)
   async setEmergencyFlag(
     @Param('id') patientId: string,
     @Body() dto: CreateEmergencyFlagDto,
     @Req() req: any,
   ) {
-    const doctorUserId = await this.getDoctorUserId(req);
+    const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.setEmergencyFlag(patientId, doctorUserId, dto);
   }
 
-  @Get('patients/:id/emergency-flags')
+  @Get('patients/:id/emergency')
   async getEmergencyFlags(@Param('id') patientId: string) {
     return this.mbbsService.getEmergencyFlags(patientId);
   }
 
   // ============================================================
-  // Schedule Endpoints
+  // Digital Signature
   // ============================================================
 
-  @Get('schedule')
-  async getDoctorSchedule(@Req() req: any) {
-    const doctorUserId = await this.getDoctorUserId(req);
-    return this.mbbsService.getDoctorSchedule(doctorUserId);
+  @Get('signature')
+  async getSignature(@Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.getSignature(doctorUserId);
+  }
+
+  @Patch('signature')
+  async updateSignature(
+    @Body() dto: UpdateSignatureDto,
+    @Req() req: any,
+  ) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.updateSignature(doctorUserId, dto.signature_url);
   }
 
   // ============================================================
-  // Differential Diagnosis (MB-013) — Stub
+  // Doctor Profile
   // ============================================================
 
-  @Get('patients/:id/differential-diagnosis')
-  async getDifferentialDiagnosis(@Param('id') patientId: string) {
-    return this.mbbsService.getDifferentialDiagnosis(patientId);
+  @Get('doctor-profile')
+  async getDoctorProfile(@Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.getDoctorProfile(doctorUserId);
+  }
+
+  // ============================================================
+  // ICD-10 Catalog  (MB-009)
+  // ============================================================
+
+  @Get('icd10/search')
+  async searchIcd10Codes(@Query('q') query: string) {
+    return this.mbbsService.searchIcd10Codes(query);
   }
 }
