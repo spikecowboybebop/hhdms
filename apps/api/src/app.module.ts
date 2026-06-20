@@ -4,10 +4,14 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { MbbsModule } from './mbbs/mbbs.module';
+<<<<<<< HEAD
 import { CallGateway } from './gateway/call.gateway';
+=======
+import { SpecialistModule } from './specialist/specialist.module';
+>>>>>>> specialist-module
 
 @Module({
-  imports: [PrismaModule, AuthModule, MbbsModule],
+  imports: [PrismaModule, AuthModule, MbbsModule, SpecialistModule],
   controllers: [AppController],
   providers: [AppService, CallGateway],
 })

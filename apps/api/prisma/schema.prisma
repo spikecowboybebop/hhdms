@@ -81,18 +81,19 @@ model nutritionist_profiles {
 }
 
 model specialist_profiles {
-  user_id             String    @id @map("user_id") @db.Uuid
-  license_number      String    @unique @map("license_number") @db.VarChar(50)
-  bmdc_registration   String?   @unique @map("bmdc_registration") @db.VarChar(50)
-  specialty_code      String    @map("specialty_code") @db.VarChar(20)
-  qualification       String?   @map("qualification") @db.VarChar(255)
-  years_of_experience Int?      @map("years_of_experience")
-  consultation_fee    Decimal?  @map("consultation_fee") @db.Decimal(10, 2)
-  signature_url       String?   @map("signature_url") @db.VarChar(512)
-  is_available        Boolean   @default(true) @map("is_available")
-  created_at          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at          DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-  user                User      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  user_id            String   @id @map("user_id") @db.Uuid
+  license_number     String   @unique @map("license_number") @db.VarChar(50)
+  bmdc_registration  String?  @unique @map("bmdc_registration") @db.VarChar(50)
+  specialty_code     String   @map("specialty_code") @db.VarChar(20)
+  qualification      String?  @map("qualification") @db.VarChar(255)
+  years_of_experience Int?    @map("years_of_experience")
+  consultation_fee   Decimal? @map("consultation_fee") @db.Decimal(10, 2)
+  signature_url      String?  @map("signature_url") @db.VarChar(512)
+  is_available       Boolean  @default(true) @map("is_available")
+  created_at         DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user               User     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 
   @@map("specialist_profiles")
 }
@@ -246,20 +247,22 @@ model diagnostic_test_results {
 }
 
 model specialist_referrals {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id          String               @map("patient_id") @db.Uuid
-  referring_doctor_id String               @map("referring_doctor_id") @db.Uuid
-  specialty_code      String               @map("specialty_code") @db.VarChar(20)
-  referral_reason     String               @map("referral_reason")
-  clinical_summary    String?              @map("clinical_summary")
-  is_emergency        Boolean              @default(false) @map("is_emergency")
-  status              ReferralStatusEnum   @default(PENDING)
-  specialist_id       String?              @map("specialist_id") @db.Uuid
-  response_notes      String?              @map("response_notes")
-  created_at          DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at          DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
-  patient             patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  referring_doctor    mbbs_doctor_profiles @relation(fields: [referring_doctor_id], references: [user_id], onUpdate: NoAction)
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id      String    @map("patient_id") @db.Uuid
+  referring_doctor_id String @map("referring_doctor_id") @db.Uuid
+  specialty_code  String    @map("specialty_code") @db.VarChar(20)
+  referral_reason String    @map("referral_reason") @db.Text
+  clinical_summary String?  @map("clinical_summary") @db.Text
+  is_emergency    Boolean   @default(false) @map("is_emergency")
+  status          ReferralStatusEnum @default(PENDING)
+  specialist_id   String?   @map("specialist_id") @db.Uuid
+  response_notes  String?   @map("response_notes") @db.Text
+  created_at      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  patient             patients              @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  referring_doctor    mbbs_doctor_profiles  @relation(fields: [referring_doctor_id], references: [user_id], onUpdate: NoAction)
+  // TODO: Add relation to specialist_profiles when specialist_id is populated
 
   @@map("specialist_referrals")
 }
