@@ -1,26 +1,49 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, Logger, Query, BadRequestException } from '@nestjs/common';
+import { SpecialistService } from './specialist.service';
+import { CompleteReferralDto } from './dto/complete-referral.dto';
 
 @Controller('api/specialist')
 export class SpecialistController {
   private readonly logger = new Logger('SpecialistBackendSandbox');
 
+  constructor(private readonly specialistService: SpecialistService) {}
+
+  @Get('referrals')
+  async getIncomingReferrals(@Query('specialistId') specialistId?: string) {
+    if (!specialistId) {
+      throw new BadRequestException('specialistId is required');
+    }
+
+    return this.specialistService.getMyIncomingReferrals(specialistId);
+  }
+
+  @Get('dicom-studies')
+  async getDicomStudies(@Query('specialistId') specialistId?: string) {
+    if (!specialistId) {
+      throw new BadRequestException('specialistId is required');
+    }
+
+    return this.specialistService.getSpecialistDicomStudies(specialistId);
+  }
+
+  @Get('reports')
+  async getReports(@Query('specialistId') specialistId?: string) {
+    if (!specialistId) {
+      throw new BadRequestException('specialistId is required');
+    }
+
+    return this.specialistService.getSpecialistReports(specialistId);
+  }
+
   @Post('consultation/complete')
   @HttpCode(HttpStatus.OK)
-  async completeConsultation(@Body() body: { referralId: string; responseNotes: string; specialistId: string }) {
+  async completeConsultation(@Body() body: CompleteReferralDto) {
     const { referralId, responseNotes, specialistId } = body;
 
-    // 1. Dry-Run Intercept Logging to Server Terminal
-    this.logger.warn(`[DRY RUN ISOLATION ENGINE ACTIVATED]`);
-    this.logger.log(`Received Completion Sync for Referral ID: ${referralId}`);
-    this.logger.log(`Issued by Specialist ID: ${specialistId}`);
-    this.logger.log(`Payload Data Received:\n${responseNotes}`);
+    this.logger.log(`Received completion sync for referral ${referralId}`);
+    this.logger.log(`Issued by specialist ${specialistId}`);
+    this.logger.log(`Payload data received:\n${responseNotes}`);
 
-    // 2. Return production-compliant contract structure without touching Prisma/DB
-    return {
-      success: true,
-      message: "Simulation Successful: NestJS Gateway interceptor parsed data perfectly. Database skipped.",
-      isSimulated: true,
-      timestamp: new Date().toISOString(),
-    };
+    return this.specialistService.completeReferral(body);
   }
 }

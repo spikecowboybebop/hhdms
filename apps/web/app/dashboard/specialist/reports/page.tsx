@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { DashboardShell, type DashboardNavItem } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/dashboard-cards";
 
@@ -25,46 +25,45 @@ const navItems: (DashboardNavItem & { active?: boolean })[] = [
   },
 ];
 
-const mockReports = [
-  { 
-    id: "REP-2026-01", 
-    patient: "Abdur Rahman", 
-    mrn: "MRN-552140",
-    type: "Dermatological Mapping Assessment", 
-    status: "SIGNED", 
-    date: "June 19, 2026",
-    hash: "sha256:8f3c7b21...e9a1",
-    findings: "Clear margin delineation observed along peripheral boundaries. No explicit structural abnormalities noted across fallback test matrices."
-  },
-  { 
-    id: "REP-2026-02", 
-    patient: "Fatima Al-Sayed", 
-    mrn: "MRN-109224",
-    type: "Abdominal Ultrasound Analysis", 
-    status: "ARCHIVED", 
-    date: "June 14, 2026",
-    hash: "sha256:4a9e112d...7bc4",
-    findings: "Normal structural echogenicity throughout evaluated quadrants. Boundary tracking logged within reference parameters."
-  },
-  { 
-    id: "REP-2026-03", 
-    patient: "Amir Hossain", 
-    mrn: "MRN-902114",
-    type: "Chest Radiography Diagnostic Study", 
-    status: "SIGNED", 
-    date: "June 11, 2026",
-    hash: "sha256:d3b0f5e1...221b",
-    findings: "Lung volumes clear. Mediastinal contours remain sharp and well-positioned. No indicators of focal consolidations found."
-  }
-];
+type ReportItem = {
+  id: string;
+  patient: string;
+  mrn: string;
+  type: string;
+  status: "SIGNED" | "ARCHIVED";
+  date: string;
+  hash: string;
+  findings: string;
+};
 
 export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "SIGNED" | "ARCHIVED">("ALL");
   const [expandedLedgerId, setExpandedLedgerId] = useState<string | null>(null);
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const specialistId = "9a5b3c2d-1122-3344-5566-778899aabbcc";
+    const loadReports = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/reports?specialistId=${specialistId}`);
+        if (!res.ok) throw new Error("Failed to load reports");
+        const data = await res.json();
+        setReports(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.warn("Could not load specialist reports from API", err);
+        setReports([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReports();
+  }, []);
 
   const filteredReports = useMemo(() => {
-    return mockReports.filter((report) => {
+    return reports.filter((report) => {
       const matchesSearch = report.patient.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             report.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "ALL" || report.status === statusFilter;
@@ -72,7 +71,7 @@ export default function ReportsPage() {
     });
   }, [searchQuery, statusFilter]);
 
-  const handlePrint = (report: typeof mockReports[0]) => {
+  const handlePrint = (report: ReportItem) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
@@ -150,7 +149,11 @@ export default function ReportsPage() {
       </div>
 
       {/* Reports Grid */}
-      {filteredReports.length === 0 ? (
+      {loading ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center text-sm text-slate-400">
+          Loading completed reports from the database…
+        </div>
+      ) : filteredReports.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center text-sm text-slate-400">
           No reports match the current query criteria.
         </div>

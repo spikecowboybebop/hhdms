@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   DashboardShell,
   type DashboardNavItem,
@@ -82,59 +82,14 @@ const modalityLabels: Record<ViewMode, string> = {
   CT_SCAN: "CT Scan",
 };
 
-const localFallbackReferrals: IncomingReferral[] = [
-  {
-    id: "REF-2026-0081",
-    patient_id: "PT-99412",
-    specialty_code: "SP-SKIN",
-    status: "PENDING",
-    created_at: "10:14",
-    patient: {
-      mrn: "MRN-552140",
-      first_name_en: "Abdur",
-      last_name_en: "Rahman",
-      sex: "MALE",
-      known_allergies: "Penicillin",
-      vital_signs: [{
-        blood_pressure_systolic: 120,
-        blood_pressure_diastolic: 80,
-        pulse: 74,
-        temperature: 37,
-        spo2: 98
-      }]
-    }
-  },
-  {
-    id: "REF-2026-0082",
-    patient_id: "PT-10492",
-    specialty_code: "SP-SKIN",
-    status: "PENDING",
-    created_at: "11:05",
-    patient: {
-      mrn: "MRN-339104",
-      first_name_en: "Nusrat",
-      last_name_en: "Jahan",
-      sex: "FEMALE",
-      known_allergies: "None reported",
-      vital_signs: [{
-        blood_pressure_systolic: 135,
-        blood_pressure_diastolic: 88,
-        pulse: 82,
-        temperature: 38.2,
-        spo2: 96
-      }]
-    }
-  }
-];
 
 function SpecialistDashboardContent() {
   const searchParams = useSearchParams();
 
-  const specialistId = useMemo(() => {
-    return searchParams.get("specialistId") || "9a5b3c2d-1122-3344-5566-778899aabbcc";
-  }, [searchParams]);
-
   const [session, setSession] = useState<any | null>(null);
+  const specialistId = useMemo(() => {
+    return searchParams.get("specialistId") || session?.user?.id || "9a5b3c2d-1122-3344-5566-778899aabbcc";
+  }, [searchParams, session]);
   const [hydrated, setHydrated] = useState(false);
   
   const [referrals, setReferrals] = useState<IncomingReferral[]>([]);
@@ -163,25 +118,24 @@ function SpecialistDashboardContent() {
     setHydrated(true);
   }, [specialistId]);
 
-  // FIXED: Changed from POST to a pure data-loading query
   const fetchReferrals = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/referrals?specialistId=${specialistId}`);
 
       if (!res.ok) throw new Error("Network dispatch stream failure");
       const data = await res.json();
-      
+
       if (Array.isArray(data) && data.length > 0) {
         setReferrals(data);
         setActiveReferralId((prev) => prev || data[0]?.id || "");
       } else {
-        setReferrals(localFallbackReferrals);
-        setActiveReferralId((prev) => prev || localFallbackReferrals[0]?.id || "");
+        setReferrals([]);
+        setActiveReferralId("");
       }
     } catch (err) {
-      console.warn("Backend sandbox offline; mounting fallback database records.");
-      setReferrals(localFallbackReferrals);
-      setActiveReferralId((prev) => prev || localFallbackReferrals[0]?.id || "");
+      console.warn("Backend specialist endpoint unavailable; showing empty queue.", err);
+      setReferrals([]);
+      setActiveReferralId("");
     }
   };
 
@@ -195,7 +149,6 @@ function SpecialistDashboardContent() {
     return referrals.find((r) => r.id === activeReferralId);
   }, [referrals, activeReferralId]);
 
-  // FIXED: Points accurately to Port 3001 and posts correctly formatted fields
   const handleSignAndDispatch = async () => {
     if (!activeReferral) return;
     if (!findings.trim() || !impression.trim()) {
@@ -218,7 +171,6 @@ function SpecialistDashboardContent() {
       });
 
       if (!res.ok) {
-        // If NestJS gave us an error, safely try parsing it, otherwise handle gracefully
         let errorMessage = "Failed execution routine";
         try {
           const errPayload = await res.json();

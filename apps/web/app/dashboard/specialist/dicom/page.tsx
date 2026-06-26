@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { DashboardShell, type DashboardNavItem } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/dashboard-cards";
 
@@ -25,11 +25,16 @@ const navItems: (DashboardNavItem & { active?: boolean })[] = [
   },
 ];
 
-const mockDicomStudies = [
-  { id: "STU-8821", patient: "Abdur Rahman", mrn: "MRN-552140", modality: "X-RAY", instances: 4, size: "42.1 MB", date: "2026-06-18", imageUrl: "https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=600&auto=format&fit=crop" },
-  { id: "STU-4902", patient: "Nusrat Jahan", mrn: "MRN-339104", modality: "CT SCAN", instances: 142, size: "318.5 MB", date: "2026-06-19", imageUrl: "https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?q=80&w=600&auto=format&fit=crop" },
-  { id: "STU-1105", patient: "Amir Hossain", mrn: "MRN-902114", modality: "ULTRASOUND", instances: 18, size: "84.9 MB", date: "2026-06-15", imageUrl: "https://images.unsplash.com/photo-1516062423079-7ca13cca99a8?q=80&w=600&auto=format&fit=crop" },
-];
+type DicomStudy = {
+  id: string;
+  patient: string;
+  mrn: string;
+  modality: "X-RAY" | "CT SCAN" | "ULTRASOUND";
+  instances: number;
+  size: string;
+  date: string;
+  imageUrl: string;
+};
 
 export default function DicomLibraryPage() {
   const [modalityFilter, setModalityFilter] = useState<"ALL" | "X-RAY" | "CT SCAN" | "ULTRASOUND">("ALL");
@@ -37,11 +42,31 @@ export default function DicomLibraryPage() {
   const [brightness, setBrightness] = useState<number>(100);
   const [contrast, setContrast] = useState<number>(125);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeStudy, setActiveStudy] = useState<typeof mockDicomStudies[0] | null>(null);
+  const [studies, setStudies] = useState<DicomStudy[]>([]);
+  const [activeStudy, setActiveStudy] = useState<DicomStudy | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Combined calculation block handling text search and tag filtration cascades
+  useEffect(() => {
+    const specialistId = "9a5b3c2d-1122-3344-5566-778899aabbcc";
+    const loadStudies = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/dicom-studies?specialistId=${specialistId}`);
+        if (!res.ok) throw new Error("Failed to load studies");
+        const data = await res.json();
+        setStudies(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.warn("Could not load DICOM studies from API", err);
+        setStudies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStudies();
+  }, []);
+
   const filteredStudies = useMemo(() => {
-    return mockDicomStudies.filter((study) => {
+    return studies.filter((study) => {
       const matchesModality = modalityFilter === "ALL" || study.modality === modalityFilter;
       const matchesSearch = study.patient.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             study.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -96,7 +121,9 @@ export default function DicomLibraryPage() {
         description="Verify imaging metadata layer instances cached inside the sandbox ecosystem"
       >
         <div className="overflow-x-auto">
-          {filteredStudies.length === 0 ? (
+          {loading ? (
+            <div className="py-12 text-center text-sm text-slate-400">Loading studies from the database…</div>
+          ) : filteredStudies.length === 0 ? (
             <div className="py-12 text-center text-sm text-slate-400">
               No medical images match the specified search queries.
             </div>
