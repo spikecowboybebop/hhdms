@@ -36,6 +36,7 @@ model User {
   mbbs_doctor_profiles  mbbs_doctor_profiles?
   nutritionist_profiles nutritionist_profiles?
   specialist_profiles   specialist_profiles?
+  caregiver_profiles    caregiver_profiles?
   role                  Role                   @relation(fields: [roleId], references: [id], onUpdate: NoAction)
 
   @@map("users")
@@ -99,6 +100,72 @@ model specialist_profiles {
   @@map("specialist_profiles")
 }
 
+model caregiver_profiles {
+  user_id             String                       @id @map("user_id") @db.Uuid
+  gender              String?                      @map("gender") @db.VarChar(10)
+  experience_years    Int?                         @map("experience_years")
+  specializations     String?                      @map("specializations") @db.Text
+  verification_status String                       @default("PENDING") @map("verification_status") @db.VarChar(20)
+  training_certs      String?                      @map("training_certs") @db.Text
+  rating              Decimal?                     @map("rating") @db.Decimal(2, 1)
+  phone_number        String?                      @map("phone_number") @db.VarChar(20)
+  address             String?                      @map("address") @db.VarChar(255)
+  is_available        Boolean                      @default(true) @map("is_available")
+  created_at          DateTime?                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at          DateTime?                    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user                User                         @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  patient_assignments caregiver_patient_assignments[]
+  activity_logs       caregiver_activity_logs[]
+  condition_reports   caregiver_condition_reports[]
+
+  @@map("caregiver_profiles")
+}
+
+model caregiver_patient_assignments {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caregiver_id String    @map("caregiver_id") @db.Uuid
+  patient_id   String    @map("patient_id") @db.Uuid
+  service_type String?   @map("service_type") @db.VarChar(20)
+  patient_type String?   @map("patient_type") @db.VarChar(20)
+  assigned_at  DateTime? @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  status       String    @default("ACTIVE") @map("status") @db.VarChar(20)
+  caregiver    caregiver_profiles @relation(fields: [caregiver_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient      patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([caregiver_id, patient_id])
+  @@map("caregiver_patient_assignments")
+}
+
+model caregiver_activity_logs {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caregiver_id String    @map("caregiver_id") @db.Uuid
+  patient_id   String    @map("patient_id") @db.Uuid
+  shift_date   DateTime? @default(now()) @map("shift_date") @db.Date
+  activity_type String   @map("activity_type") @db.VarChar(30)
+  notes        String?   @map("notes")
+  created_at   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  caregiver    caregiver_profiles @relation(fields: [caregiver_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient      patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("caregiver_activity_logs")
+}
+
+model caregiver_condition_reports {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caregiver_id      String    @map("caregiver_id") @db.Uuid
+  patient_id        String    @map("patient_id") @db.Uuid
+  report_type       String    @map("report_type") @db.VarChar(30)
+  description       String    @map("description") @db.Text
+  severity          String    @default("MODERATE") @map("severity") @db.VarChar(20)
+  alert_sent_to_nurse   Boolean @default(false) @map("alert_sent_to_nurse")
+  alert_sent_to_doctor  Boolean @default(false) @map("alert_sent_to_doctor")
+  created_at        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  caregiver         caregiver_profiles @relation(fields: [caregiver_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient           patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("caregiver_condition_reports")
+}
+
 model patients {
   id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   mrn                   String                       @unique @map("mrn") @db.VarChar(50)
@@ -133,6 +200,9 @@ model patients {
   referral_chain_events referral_chain[]
   referrals             specialist_referrals[]
   documents             patient_documents[]
+  caregiver_assignments   caregiver_patient_assignments[]
+  caregiver_activity_logs caregiver_activity_logs[]
+  caregiver_condition_reports caregiver_condition_reports[]
 
   @@map("patients")
 }

@@ -6,9 +6,10 @@ import { AuthModule } from './auth/auth.module';
 import { MbbsModule } from './mbbs/mbbs.module';
 import { CallGateway } from './gateway/call.gateway';
 import { SpecialistModule } from './specialist/specialist.module';
+import { CaregiverModule } from './caregiver/caregiver.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, MbbsModule, SpecialistModule],
+  imports: [PrismaModule, AuthModule, MbbsModule, SpecialistModule, CaregiverModule],
   controllers: [AppController],
   providers: [AppService, CallGateway],
 })
