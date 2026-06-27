@@ -65,10 +65,10 @@ export class AuthService {
   }
 
   /**
-   * Native Mobile Signup specifically for Patients (Hardcoded role_id: 5)
+   * Native Mobile Signup specifically for Mobile Users (Hardcoded role_id: 7)
    */
   /**
-   * Native Mobile Signup specifically for Patients (Hardcoded role_id: 5)
+   * Native Mobile Signup specifically for Mobile Users (Hardcoded role_id: 7)
    */
   async mobileSignup(mobileSignupDto: MobileSignupDto) {
     const { email, phone_number, password, first_name_en, last_name_en } = mobileSignupDto;
@@ -92,14 +92,14 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // 3. Insert record matching your exact internal Prisma model field casing (camelCase)
-    const newPatient = await this.prisma.user.create({
+    const newMobileUser = await this.prisma.user.create({
       data: {
         email,
         passwordHash: hashedPassword,     // Maps to password_hash
         phoneNumber: phone_number,        // Maps to phone_number
         firstNameEn: first_name_en,       // Maps to first_name_en
         lastNameEn: last_name_en,         // Maps to last_name_en
-        roleId: 5,                        // Patient roleId statically assigned
+        roleId: 7,                        // Mobile User roleId statically assigned
         status: 'ACTIVE',                 // Maps to AccountStatusEnum.ACTIVE
         mfaEnabled: false,
       },
@@ -112,8 +112,8 @@ export class AuthService {
     });
 
     return {
-      message: 'Patient user registration completed successfully.',
-      patientId: newPatient.id,
+      message: 'Mobile user registration completed successfully.',
+      userId: newMobileUser.id,
     };
   }
 }

@@ -43,7 +43,12 @@ async function main() {
     update: {},
     create: { name: 'CAREGIVER', description: 'Caregiver' },
   });
-  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER');
+  // MOBILE_USER role must have id=7 — the auth service hardcodes roleId: 7 for mobile signups
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO roles (id, name, description) VALUES (7, 'MOBILE_USER', 'Mobile App User')
+     ON CONFLICT (name) DO UPDATE SET description = 'Mobile App User'`
+  );
+  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER, MOBILE_USER');
 
   // --- Caregiver (Shamima) ---
   console.log('Creating caregiver.shamima@hhdms.com (Caregiver)...');
