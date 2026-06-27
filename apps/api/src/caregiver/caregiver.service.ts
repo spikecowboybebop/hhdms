@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityLogDto, CreateConditionReportDto } from './dto';
 
@@ -59,24 +63,25 @@ export class CaregiverService {
 
   async getMyPatients(userId: string) {
     await this.verifyCaregiver(userId);
-    const assignments = await this.prisma.caregiver_patient_assignments.findMany({
-      where: { caregiver_id: userId, status: 'ACTIVE' },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            mrn: true,
-            first_name_en: true,
-            last_name_en: true,
-            sex: true,
-            blood_group: true,
-            phone_number: true,
-            address_line1: true,
-            district: true,
+    const assignments =
+      await this.prisma.caregiver_patient_assignments.findMany({
+        where: { caregiver_id: userId, status: 'ACTIVE' },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              mrn: true,
+              first_name_en: true,
+              last_name_en: true,
+              sex: true,
+              blood_group: true,
+              phone_number: true,
+              address_line1: true,
+              district: true,
+            },
           },
         },
-      },
-    });
+      });
     return assignments.map((a) => ({
       ...a.patient,
       service_type: a.service_type,
@@ -147,14 +152,20 @@ export class CaregiverService {
 
   // ===================== Send Alert (CG-007 - Dummy) =====================
 
-  async sendAlert(userId: string, reportId: string, target: 'nurse' | 'doctor') {
+  async sendAlert(
+    userId: string,
+    reportId: string,
+    target: 'nurse' | 'doctor',
+  ) {
     await this.verifyCaregiver(userId);
     const report = await this.prisma.caregiver_condition_reports.findUnique({
       where: { id: reportId },
     });
     if (!report) throw new NotFoundException('Condition report not found.');
     if (report.caregiver_id !== userId) {
-      throw new ForbiddenException('You can only send alerts for your own reports.');
+      throw new ForbiddenException(
+        'You can only send alerts for your own reports.',
+      );
     }
 
     if (target === 'nurse') {

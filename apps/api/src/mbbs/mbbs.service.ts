@@ -37,7 +37,10 @@ export class MbbsService implements OnModuleInit {
       this.icd10Codes = JSON.parse(raw);
       console.log(`Loaded ${this.icd10Codes.length} ICD-10 codes into memory`);
     } catch (err) {
-      console.warn('Could not load icd10_codes.json, falling back to DB search:', (err as Error).message);
+      console.warn(
+        'Could not load icd10_codes.json, falling back to DB search:',
+        (err as Error).message,
+      );
     }
   }
 
@@ -888,10 +891,7 @@ export class MbbsService implements OnModuleInit {
   /**
    * Upload a patient document to UploadCare CDN (no local storage)
    */
-  async uploadDocument(
-    patientId: string,
-    file: Express.Multer.File,
-  ) {
+  async uploadDocument(patientId: string, file: Express.Multer.File) {
     const patient = await this.prisma.patients.findUnique({
       where: { id: patientId },
     });
@@ -901,7 +901,9 @@ export class MbbsService implements OnModuleInit {
 
     const formData = new FormData();
     formData.append('UPLOADCARE_PUB_KEY', process.env.UPLOADCARE_PUB_KEY!);
-    const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
+    const blob = new Blob([new Uint8Array(file.buffer)], {
+      type: file.mimetype,
+    });
     formData.append('file', blob, file.originalname);
 
     const ucRes = await fetch('https://upload.uploadcare.com/base/', {
@@ -911,10 +913,12 @@ export class MbbsService implements OnModuleInit {
 
     if (!ucRes.ok) {
       const body = await ucRes.text().catch(() => '');
-      throw new BadRequestException(`UploadCare upload failed: ${ucRes.status} ${body}`);
+      throw new BadRequestException(
+        `UploadCare upload failed: ${ucRes.status} ${body}`,
+      );
     }
 
-    const ucData = await ucRes.json() as { file: string };
+    const ucData = (await ucRes.json()) as { file: string };
     const fileUrl = `${cdnBase}/${ucData.file}/${file.originalname}`;
 
     const document = await this.prisma.patient_documents.create({
@@ -942,7 +946,10 @@ export class MbbsService implements OnModuleInit {
   /**
    * Extract text on-demand — fetches file from UploadCare CDN
    */
-  async extractDocumentText(docId: string, patientId: string): Promise<string | null> {
+  async extractDocumentText(
+    docId: string,
+    patientId: string,
+  ): Promise<string | null> {
     const document = await this.prisma.patient_documents.findFirst({
       where: { id: docId, patient_id: patientId },
     });
@@ -966,7 +973,8 @@ export class MbbsService implements OnModuleInit {
 
     if (
       mimeType === 'application/msword' ||
-      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      mimeType ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ) {
       try {
         const result = await mammoth.extractRawText({ buffer });
@@ -1002,14 +1010,17 @@ export class MbbsService implements OnModuleInit {
     if (text.startsWith('[')) return text;
 
     // Split concatenated fields
-    let cleaned = text
+    const cleaned = text
       .replace(/([a-z])([A-Z][a-z]+ [A-Z][a-z]+:)/g, '$1\n$2') // "nDate Collected:" → "n\nDate Collected:"
-      .replace(/([a-z])([A-Z][a-z]+:)/g, '$1\n$2')             // "eOrdering MD:" → "e\nOrdering MD:"
-      .replace(/(\d)([A-Z][a-z]+ [A-Za-z]+:)/g, '$1\n$2')      // "2Ordering MD:" → "2\nOrdering MD:"
-      .replace(/(\d{2}-\w{3}-\d{4})([A-Z])/g, '$1\n$2')        // "26-Jun-2026P" → "26-Jun-2026\nP"
+      .replace(/([a-z])([A-Z][a-z]+:)/g, '$1\n$2') // "eOrdering MD:" → "e\nOrdering MD:"
+      .replace(/(\d)([A-Z][a-z]+ [A-Za-z]+:)/g, '$1\n$2') // "2Ordering MD:" → "2\nOrdering MD:"
+      .replace(/(\d{2}-\w{3}-\d{4})([A-Z])/g, '$1\n$2') // "26-Jun-2026P" → "26-Jun-2026\nP"
       .replace(/(\d{2}-\w{3}-\d{4})\s*([A-Z][a-z]+:)/g, '$1\n$2'); // date then field
 
-    const lines = cleaned.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(l => l.length > 0);
+    const lines = cleaned
+      .split('\n')
+      .map((l) => l.replace(/\s+/g, ' ').trim())
+      .filter((l) => l.length > 0);
 
     const result: string[] = [];
     for (let i = 0; i < lines.length; i++) {
@@ -1017,21 +1028,35 @@ export class MbbsService implements OnModuleInit {
       const prev = i > 0 ? lines[i - 1] : '';
 
       // Insert blank line before section headers
-      const isSectionHeader = /^[A-Z][A-Z\s()]+$/.test(line) || /^[A-Z][A-Za-z\s]+:$/.test(line);
-      if (isSectionHeader && prev.length > 0 && !prev.endsWith(':') && prev !== '') {
+      const isSectionHeader =
+        /^[A-Z][A-Z\s()]+$/.test(line) || /^[A-Z][A-Za-z\s]+:$/.test(line);
+      if (
+        isSectionHeader &&
+        prev.length > 0 &&
+        !prev.endsWith(':') &&
+        prev !== ''
+      ) {
         result.push('');
       }
 
       // Insert blank line before lab result lines
       const isResultLine = /^[A-Za-z][A-Za-z\s(%)]+[\d]+\.[\d]/.test(line);
-      if (isResultLine && prev.length > 0 && !prev.endsWith(':') && !/^[A-Z][A-Z\s]+$/.test(prev)) {
+      if (
+        isResultLine &&
+        prev.length > 0 &&
+        !prev.endsWith(':') &&
+        !/^[A-Z][A-Z\s]+$/.test(prev)
+      ) {
         result.push('');
       }
 
       // Add spaces in concatenated result lines: "WBC)11.8HIGH4.5" → "WBC)  11.8  HIGH  4.5"
-      let formatted = line
+      const formatted = line
         .replace(/([\d.]+)(HIGH|LOW|NORMAL|CRITICAL)/g, '$1  $2')
-        .replace(/(HIGH|LOW|NORMAL|CRITICAL)(\s*[\d.]+\s*-\s*[\d.]+)/g, '$1  $2')
+        .replace(
+          /(HIGH|LOW|NORMAL|CRITICAL)(\s*[\d.]+\s*-\s*[\d.]+)/g,
+          '$1  $2',
+        )
         .replace(/([\d.]+\s*-\s*[\d.]+)([a-zA-Z])/g, '$1  $2');
 
       result.push(formatted);

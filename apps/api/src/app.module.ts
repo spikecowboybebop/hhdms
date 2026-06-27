@@ -10,7 +10,14 @@ import { CaregiverModule } from './caregiver/caregiver.module';
 import { PatientsModule } from './patients/patients.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, MbbsModule, SpecialistModule, CaregiverModule, PatientsModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    MbbsModule,
+    SpecialistModule,
+    CaregiverModule,
+    PatientsModule,
+  ],
   controllers: [AppController],
   providers: [AppService, CallGateway],
 })

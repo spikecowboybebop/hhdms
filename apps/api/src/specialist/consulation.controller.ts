@@ -1,4 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 
 @Controller('api/specialist') // 1. Base path: http://localhost:3001/specialist
 export class ConsultationController {
@@ -10,7 +17,7 @@ export class ConsultationController {
     this.logger.log(`[DRY RUN] Received consultation submission successfully.`);
     return {
       success: true,
-      message: "NestJS captured the simulation successfully.",
+      message: 'NestJS captured the simulation successfully.',
       timestamp: new Date().toISOString(),
     };
   }

@@ -41,10 +41,7 @@ export class CaregiverController {
 
   @Post('activities')
   @HttpCode(HttpStatus.CREATED)
-  async createActivityLog(
-    @Body() dto: CreateActivityLogDto,
-    @Req() req: any,
-  ) {
+  async createActivityLog(@Body() dto: CreateActivityLogDto, @Req() req: any) {
     return this.caregiverService.createActivityLog(this.getUserId(req), dto);
   }
 
@@ -53,7 +50,10 @@ export class CaregiverController {
     @Req() req: any,
     @Query('patient_id') patientId?: string,
   ) {
-    return this.caregiverService.getActivityLogs(this.getUserId(req), patientId);
+    return this.caregiverService.getActivityLogs(
+      this.getUserId(req),
+      patientId,
+    );
   }
 
   // ===================== Condition Reports (CG-007) =====================
@@ -64,7 +64,10 @@ export class CaregiverController {
     @Body() dto: CreateConditionReportDto,
     @Req() req: any,
   ) {
-    return this.caregiverService.createConditionReport(this.getUserId(req), dto);
+    return this.caregiverService.createConditionReport(
+      this.getUserId(req),
+      dto,
+    );
   }
 
   @Get('condition-reports')
@@ -72,7 +75,10 @@ export class CaregiverController {
     @Req() req: any,
     @Query('patient_id') patientId?: string,
   ) {
-    return this.caregiverService.getConditionReports(this.getUserId(req), patientId);
+    return this.caregiverService.getConditionReports(
+      this.getUserId(req),
+      patientId,
+    );
   }
 
   // ===================== Send Alert (CG-007 - Dummy) =====================
@@ -84,6 +90,10 @@ export class CaregiverController {
     @Param('target') target: 'nurse' | 'doctor',
     @Req() req: any,
   ) {
-    return this.caregiverService.sendAlert(this.getUserId(req), reportId, target);
+    return this.caregiverService.sendAlert(
+      this.getUserId(req),
+      reportId,
+      target,
+    );
   }
 }

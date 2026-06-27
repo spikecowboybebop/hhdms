@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { loadSession } from "@/lib/auth";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
+import { callCenterApi } from "@/lib/call-center-api";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -91,6 +89,7 @@ interface FormData {
   thana: string;
   address_detail: string;
   agent_notes: string;
+  has_emergency_flag: boolean;
 }
 
 const initialForm: FormData = {
@@ -109,6 +108,7 @@ const initialForm: FormData = {
   thana: "",
   address_detail: "",
   agent_notes: "",
+  has_emergency_flag: false,
 };
 
 interface FieldError {
@@ -167,24 +167,7 @@ export default function PatientRegistrationModal({ open, patientPhone, onClose, 
     setServerError(null);
 
     try {
-      const session = loadSession();
-      const token = session?.token;
-
-      const res = await fetch(`${API_BASE}/patients/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || `Registration failed (${res.status})`);
-      }
-
-      const data = await res.json();
+      const data = await callCenterApi.registerPatient(form);
       onSuccess(data.id, data.mrn);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -476,6 +459,18 @@ export default function PatientRegistrationModal({ open, patientPhone, onClose, 
                 rows={3}
                 className={inputClass("agent_notes")}
               />
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="has_emergency_flag"
+                checked={form.has_emergency_flag}
+                onChange={(e) => setField("has_emergency_flag", e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#FF9900] accent-[#FF9900] focus:ring-2 focus:ring-[#FF9900]/20"
+              />
+              <label htmlFor="has_emergency_flag" className="text-xs font-semibold text-[#2D3A4A] cursor-pointer select-none">
+                Mark as Emergency — This patient requires immediate clinical attention
+              </label>
             </div>
           </section>
         </div>

@@ -1,4 +1,10 @@
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export enum FollowUpInterval {
   TWO_WEEKS = 'TWO_WEEKS',

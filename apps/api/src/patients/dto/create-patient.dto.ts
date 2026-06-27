@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn, IsDateString, Matches } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsIn,
+  IsDateString,
+  Matches,
+} from 'class-validator';
 
 export class CreatePatientDto {
   @IsString()
@@ -71,4 +79,8 @@ export class CreatePatientDto {
   @IsString()
   @IsOptional()
   agent_notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  has_emergency_flag?: boolean;
 }

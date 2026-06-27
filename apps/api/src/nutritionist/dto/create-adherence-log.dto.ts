@@ -1,4 +1,12 @@
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min, IsNumber } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  IsNumber,
+} from 'class-validator';
 
 export class CreateAdherenceLogDto {
   @IsUUID()

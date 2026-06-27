@@ -2,38 +2,59 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
+const SEX_MAP: Record<string, string> = {
+  Male: 'M',
+  Female: 'F',
+  Child: 'C',
+};
+
 @Injectable()
 export class PatientsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private generateMrn(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const rand = String(Math.floor(10000 + Math.random() * 90000));
+    return `HHDMS-${y}${m}${d}-${rand}`;
+  }
+
+  private splitName(full: string): [string, string] {
+    const parts = full.trim().split(/\s+/);
+    return [parts[0] ?? '', parts.slice(1).join(' ') || ''];
+  }
+
   async register(dto: CreatePatientDto) {
-    // Check for duplicate phone
     const existing = await this.prisma.patients.findFirst({
       where: { phone_number: dto.primary_phone },
     });
     if (existing) {
-      throw new ConflictException('A patient with this phone number already exists.');
+      throw new ConflictException(
+        'A patient with this phone number already exists.',
+      );
     }
 
-    // Split full name into first/last on first space
-    const namePartsEn = dto.full_name_en.trim().split(/\s+/);
-    const firstNameEn = namePartsEn[0] ?? '';
-    const lastNameEn = namePartsEn.slice(1).join(' ') || '';
+    const [firstNameEn, lastNameEn] = this.splitName(dto.full_name_en);
+    const [firstNameBn, lastNameBn] = this.splitName(dto.full_name_bn);
 
     const patient = await this.prisma.patients.create({
       data: {
-        mrn: `MRN-${Date.now()}`,
+        mrn: this.generateMrn(),
         first_name_en: firstNameEn,
         last_name_en: lastNameEn,
-        first_name_bn: dto.full_name_bn,
+        first_name_bn: firstNameBn || null,
+        last_name_bn: lastNameBn || null,
         date_of_birth: new Date(dto.date_of_birth),
-        sex: dto.sex === 'Child' ? 'M' : dto.sex === 'Male' ? 'M' : 'F',
-        blood_group: dto.blood_group ?? null,
+        sex: SEX_MAP[dto.sex] ?? 'M',
+        blood_group: dto.blood_group || null,
         phone_number: dto.primary_phone,
         address_line1: `Division: ${dto.division}, District: ${dto.district}, Thana: ${dto.thana}`,
         address_line2: dto.address_detail,
         district: dto.district,
         emergency_contact: dto.emergency_contact_phone,
+        has_emergency_flag: dto.has_emergency_flag ?? false,
       },
     });
 

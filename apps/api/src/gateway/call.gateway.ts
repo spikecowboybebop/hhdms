@@ -33,8 +33,12 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Notify the paired peer and clean up the call session
     const pairedId = this.activeCalls.get(client.id);
     if (pairedId) {
-      console.log(`📞 [END] ${client.id} disconnected — notifying peer ${pairedId}`);
-      this.server.to(pairedId).emit('call-ended', { reason: 'peer-disconnected' });
+      console.log(
+        `📞 [END] ${client.id} disconnected — notifying peer ${pairedId}`,
+      );
+      this.server
+        .to(pairedId)
+        .emit('call-ended', { reason: 'peer-disconnected' });
       this.activeCalls.delete(pairedId);
       this.activeCalls.delete(client.id);
     }
@@ -48,8 +52,10 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { patientEmail: string; sdpOffer: any },
     @ConnectedSocket() client: Socket,
   ) {
-    console.log(`📞 [DIAL] Patient ${data.patientEmail} is calling the agent help desk...`);
-    
+    console.log(
+      `📞 [DIAL] Patient ${data.patientEmail} is calling the agent help desk...`,
+    );
+
     // Pass this call alert straight over to the Next.js Web Agent app
     this.server.emit('agent-incoming-call', {
       patientEmail: data.patientEmail,
@@ -66,7 +72,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { patientSocketId: string; sdpAnswer: any },
     @ConnectedSocket() client: Socket, // 👈 ADDED: Capture the agent's web socket session details
   ) {
-    console.log(`🟢 [ANSWER] Agent [${client.id}] picked up the call for patient line: ${data.patientSocketId}`);
+    console.log(
+      `🟢 [ANSWER] Agent [${client.id}] picked up the call for patient line: ${data.patientSocketId}`,
+    );
 
     // Register the call pair for clean disconnection handling
     this.activeCalls.set(data.patientSocketId, client.id);
@@ -88,7 +96,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     if (!data || !data.targetSocketId) {
-      console.warn(`⚠️ Warning: Received candidate from [${client.id}] but missing targetSocketId.`);
+      console.warn(
+        `⚠️ Warning: Received candidate from [${client.id}] but missing targetSocketId.`,
+      );
       return;
     }
 
@@ -110,7 +120,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const pairedId = data?.targetSocketId || this.activeCalls.get(client.id);
-    console.log(`📞 [END-CALL] ${client.id} is ending the call. Notifying peer: ${pairedId}`);
+    console.log(
+      `📞 [END-CALL] ${client.id} is ending the call. Notifying peer: ${pairedId}`,
+    );
 
     if (pairedId) {
       this.server.to(pairedId).emit('call-ended', { reason: 'peer-hung-up' });

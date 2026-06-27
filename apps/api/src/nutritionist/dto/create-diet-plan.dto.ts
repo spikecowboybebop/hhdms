@@ -1,4 +1,10 @@
-import { IsArray, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export interface DietPlanFoodInput {
   name: string;
