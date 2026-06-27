@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import {
@@ -95,6 +95,7 @@ export default function CallCenterDashboardPage() {
 
   // WebRTC State Containers
   const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const [callConnected, setCallConnected] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{
     patientEmail: string;
@@ -104,12 +105,42 @@ export default function CallCenterDashboardPage() {
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
+  const patientSocketIdRef = useRef<string | null>(null);
   
   // Track dynamic current call state across async triggers inside a clean React ref
   const currentIncomingCallRef = useRef<any>(null);
   useEffect(() => {
     currentIncomingCallRef.current = incomingCall;
   }, [incomingCall]);
+
+  // Shared cleanup used by hangup, peer-disconnect, and connection-failure paths.
+  // Reads socket from a ref to avoid stale closures in async event handlers.
+  const cleanupCall = useCallback((emitHangup: boolean = false) => {
+    const socketId = patientSocketIdRef.current;
+
+    if (emitHangup && socketId && socketRef.current) {
+      socketRef.current.emit("end-call", { targetSocketId: socketId });
+    }
+
+    if (peerConnection.current) {
+      peerConnection.current.close();
+      peerConnection.current = null;
+    }
+    if (localStream.current) {
+      localStream.current.getTracks().forEach((t) => t.stop());
+      localStream.current = null;
+    }
+
+    const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
+    if (audioNode) {
+      audioNode.pause();
+      audioNode.srcObject = null;
+    }
+
+    patientSocketIdRef.current = null;
+    setIncomingCall(null);
+    setCallConnected(false);
+  }, []);
 
   useEffect(() => {
     const s = loadSession();
@@ -139,6 +170,7 @@ export default function CallCenterDashboardPage() {
         console.error("⚠️ CRITICAL: Call packet received but missing identifier tracking properties!", data);
       }
 
+      patientSocketIdRef.current = resolvedSocketId;
       setIncomingCall({
         patientEmail: data.patientEmail || "Unknown Patient",
         patientSocketId: resolvedSocketId,
@@ -149,11 +181,18 @@ export default function CallCenterDashboardPage() {
     socketClient.on("agent-incoming-call", (data) => {
       console.log("📞 Alternate event channel caught incoming request [agent-incoming-call]:", data);
       const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
+      patientSocketIdRef.current = resolvedSocketId;
       setIncomingCall({
         patientEmail: data.patientEmail || "Unknown Patient",
         patientSocketId: resolvedSocketId,
         sdpOffer: data.sdpOffer
       });
+    });
+
+    // When the remote peer hangs up or disconnects, clean up locally
+    socketClient.on("call-ended", (data: { reason: string }) => {
+      console.log(`📞 [CALL-ENDED] Remote peer ended the call. Reason: ${data.reason}`);
+      cleanupCall(false);
     });
 
     // Robust ICE payload parser matching the nested structure from Android
@@ -185,10 +224,12 @@ export default function CallCenterDashboardPage() {
     socketClient.on("ice-candidate", handleIncomingIce);
     socketClient.on("relay-ice-candidate", handleIncomingIce);
 
+    socketRef.current = socketClient;
     setSocket(socketClient);
 
     return () => {
       socketClient.disconnect();
+      socketRef.current = null;
     };
   }, [router]);
 
@@ -205,6 +246,22 @@ export default function CallCenterDashboardPage() {
       peerConnection.current = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
+
+      // Auto-cleanup when the remote peer drops abruptly (app close, network loss)
+      peerConnection.current.onconnectionstatechange = () => {
+        const state = peerConnection.current?.connectionState;
+        if (state === "disconnected" || state === "failed") {
+          console.log(`📞 [WEBRTC] Connection state changed to "${state}" — cleaning up`);
+          cleanupCall(false);
+        }
+      };
+      peerConnection.current.oniceconnectionstatechange = () => {
+        const state = peerConnection.current?.iceConnectionState;
+        if (state === "disconnected" || state === "failed") {
+          console.log(`📞 [ICE] ICE connection state changed to "${state}" — cleaning up`);
+          cleanupCall(false);
+        }
+      };
 
       // 3. Mount the hardware microphone stream tracks straight inside the connection line
       stream.getTracks().forEach((track) => {
@@ -277,24 +334,7 @@ export default function CallCenterDashboardPage() {
 
   // 🔥 FIXED: Complete clean reset across native browser components & audio components
   const handleHangUp = () => {
-    if (peerConnection.current) {
-      peerConnection.current.close();
-      peerConnection.current = null;
-    }
-    if (localStream.current) {
-      localStream.current.getTracks().forEach((t) => t.stop());
-      localStream.current = null;
-    }
-
-    // Clean out the DOM layout audio element completely to reset the hardware interface
-    const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
-    if (audioNode) {
-      audioNode.pause();
-      audioNode.srcObject = null;
-    }
-
-    setIncomingCall(null);
-    setCallConnected(false);
+    cleanupCall(true);
   };
 
   const filteredTickets = useMemo(() => {

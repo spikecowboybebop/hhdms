@@ -18,6 +18,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
+  // Track active call pairings: socketId → paired socketId
+  private activeCalls: Map<string, string> = new Map();
+
   // This fires automatically when the Android app or Web app logs into the socket channel
   handleConnection(client: Socket) {
     console.log(`⚡ Device connected to gateway socket id: ${client.id}`);
@@ -26,6 +29,15 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // This fires automatically when a device closes the app or leaves the page
   handleDisconnect(client: Socket) {
     console.log(`🔌 Device disconnected: ${client.id}`);
+
+    // Notify the paired peer and clean up the call session
+    const pairedId = this.activeCalls.get(client.id);
+    if (pairedId) {
+      console.log(`📞 [END] ${client.id} disconnected — notifying peer ${pairedId}`);
+      this.server.to(pairedId).emit('call-ended', { reason: 'peer-disconnected' });
+      this.activeCalls.delete(pairedId);
+      this.activeCalls.delete(client.id);
+    }
   }
 
   /**
@@ -56,6 +68,10 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     console.log(`🟢 [ANSWER] Agent [${client.id}] picked up the call for patient line: ${data.patientSocketId}`);
 
+    // Register the call pair for clean disconnection handling
+    this.activeCalls.set(data.patientSocketId, client.id);
+    this.activeCalls.set(client.id, data.patientSocketId);
+
     // Route the agent's response payload back directly to the waiting phone
     this.server.to(data.patientSocketId).emit('call-routing-connected', {
       sdpAnswer: data.sdpAnswer,
@@ -83,5 +99,23 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     console.log(`🛰️  [ICE RELAY] ${client.id} ➡️  ${data.targetSocketId}`);
+  }
+
+  /**
+   * ACTION 4: Either party hangs up intentionally
+   */
+  @SubscribeMessage('end-call')
+  handleEndCall(
+    @MessageBody() data: { targetSocketId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const pairedId = data?.targetSocketId || this.activeCalls.get(client.id);
+    console.log(`📞 [END-CALL] ${client.id} is ending the call. Notifying peer: ${pairedId}`);
+
+    if (pairedId) {
+      this.server.to(pairedId).emit('call-ended', { reason: 'peer-hung-up' });
+      this.activeCalls.delete(pairedId);
+    }
+    this.activeCalls.delete(client.id);
   }
 }
