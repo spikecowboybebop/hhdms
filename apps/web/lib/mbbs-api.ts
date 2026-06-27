@@ -68,6 +68,16 @@ export interface PreviousAppointment {
   };
 }
 
+export interface PatientDocument {
+  id: string;
+  patient_id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  file_url: string;
+  uploaded_at: string;
+}
+
 export interface PatientProfile {
   patient: Patient;
   vitals: VitalSigns[];
@@ -78,6 +88,7 @@ export interface PatientProfile {
   referral_chain: ReferralChainEvent[];
   test_orders: TestOrder[];
   previous_appointments: PreviousAppointment[];
+  documents: PatientDocument[];
 }
 
 export interface VitalSigns {
@@ -348,6 +359,14 @@ export const mbbsApi = {
       method: 'PATCH',
       body: JSON.stringify({ signature_url: signatureUrl }),
     }),
+
+  // Documents
+  getPatientDocuments: (patientId: string) =>
+    apiFetch<PatientDocument[]>(`/mbbs/patients/${patientId}/documents`),
+  getDocumentDetails: (patientId: string, docId: string) =>
+    apiFetch<PatientDocument>(`/mbbs/patients/${patientId}/documents/${docId}`),
+  getDocumentText: (patientId: string, docId: string) =>
+    apiFetch<{ text: string }>(`/mbbs/patients/${patientId}/documents/${docId}/text`),
 
   // Differential Diagnosis (stub)
   getDifferentialDiagnosis: (patientId: string) =>

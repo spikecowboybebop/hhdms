@@ -12,6 +12,7 @@ import { VitalsForm } from "@/components/mbbs/vitals-form";
 import { VitalsDisplay } from "@/components/mbbs/vitals-display";
 import { Icd10Search } from "@/components/mbbs/icd10-search";
 import { ReferralChainTimeline } from "@/components/mbbs/referral-chain-timeline";
+import { DocumentViewerModal } from "@/components/mbbs/document-viewer-modal";
 import dynamic from "next/dynamic";
 import {
   loadSession,
@@ -22,6 +23,7 @@ import {
   mbbsApi,
   type PatientProfile,
   type Icd10Code,
+  type PatientDocument,
   type CreateVitalsPayload,
   type TestCatalogItem,
   type Diagnosis,
@@ -81,7 +83,7 @@ const navItems: DashboardNavItem[] = [
   },
 ];
 
-type Tab = 'vitals' | 'diagnosis' | 'tests' | 'prescriptions' | 'referral' | 'timeline' | 'previous';
+type Tab = 'vitals' | 'diagnosis' | 'tests' | 'prescriptions' | 'referral' | 'reports' | 'timeline' | 'previous';
 
 export default function MbbsPatientDetailPage() {
   const router = useRouter();
@@ -127,6 +129,9 @@ export default function MbbsPatientDetailPage() {
     special_instructions: string;
   }[]>([]);
   const [prescriptionNotes, setPrescriptionNotes] = useState('');
+
+  // Document viewer state
+  const [selectedDocument, setSelectedDocument] = useState<PatientDocument | null>(null);
 
   useEffect(() => {
     const s = loadSession();
@@ -367,6 +372,7 @@ export default function MbbsPatientDetailPage() {
     { key: 'tests', label: 'Tests & Results', icon: '🧪' },
     { key: 'prescriptions', label: 'Prescriptions', icon: '💊' },
     { key: 'referral', label: 'Referral', icon: '🏥' },
+    { key: 'reports', label: 'Reports', icon: '📄' },
     { key: 'previous', label: 'Previous Appointment', icon: '📁' },
     { key: 'timeline', label: 'Care Timeline', icon: '📅' },
   ];
@@ -932,6 +938,84 @@ export default function MbbsPatientDetailPage() {
           </div>
         )}
 
+        {/* ---- REPORTS TAB ---- */}
+        {activeTab === 'reports' && (
+          <div id="reports">
+            <SectionCard
+              title="Patient Reports & Documents"
+              description={`${profile.documents?.length || 0} file(s)`}
+            >
+              {profile.documents && profile.documents.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {profile.documents.map((doc) => {
+                    const isImage = doc.file_type.startsWith("image/");
+                    const isPdf = doc.file_type === "application/pdf";
+                    const fileUrl = `http://127.0.0.1:3001${doc.file_url}`;
+                    return (
+                      <button
+                        key={doc.id}
+                        onClick={() => setSelectedDocument(doc)}
+                        className="group rounded-xl border border-slate-200/60 bg-[#F8F9FA] p-4 text-left transition-all hover:border-[#0A2540] hover:shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+                            {isImage ? (
+                              <img
+                                src={fileUrl}
+                                alt={doc.file_name}
+                                className="h-10 w-10 rounded object-cover"
+                              />
+                            ) : isPdf ? (
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                              </svg>
+                            ) : (
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A2540" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-[#0A2540] group-hover:text-[#0A2540]">
+                              {doc.file_name}
+                            </p>
+                            <p className="text-[10px] text-[#2D3A4A]">
+                              {(doc.file_size / 1024).toFixed(1)} KB
+                            </p>
+                            {doc.file_url && (
+                              <p className="mt-0.5 text-[9px] text-[#00D4B2]">✓ Uploaded</p>
+                            )}
+                          </div>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D3A4A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-[#2D3A4A]">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                  <p className="text-sm font-medium">No documents uploaded yet</p>
+                  <p className="text-xs">Patient documents will appear here once uploaded.</p>
+                </div>
+              )}
+            </SectionCard>
+          </div>
+        )}
+
         {/* ---- PREVIOUS APPOINTMENT TAB ---- */}
         {activeTab === 'previous' && (
           <div id="previous">
@@ -970,6 +1054,15 @@ export default function MbbsPatientDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Document Viewer Modal */}
+      {selectedDocument && (
+        <DocumentViewerModal
+          document={selectedDocument}
+          patientId={patientId}
+          onClose={() => setSelectedDocument(null)}
+        />
+      )}
     </DashboardShell>
   );
 }

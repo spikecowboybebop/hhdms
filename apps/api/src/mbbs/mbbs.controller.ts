@@ -10,8 +10,13 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { MbbsService } from './mbbs.service';
 import { CreateVitalsDto } from './dto/create-vitals.dto';
 import { CreateDiagnosisDto } from './dto/create-diagnosis.dto';
@@ -197,6 +202,48 @@ export class MbbsController {
   async getDoctorProfile(@Req() req: any) {
     const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.getDoctorProfile(doctorUserId);
+  }
+
+  // ============================================================
+  // Patient Documents
+  // ============================================================
+
+  @Post('patients/:id/documents')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 20 * 1024 * 1024 },
+    }),
+  )
+  @HttpCode(HttpStatus.CREATED)
+  async uploadDocument(
+    @Param('id') patientId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('File is required.');
+    return this.mbbsService.uploadDocument(patientId, file);
+  }
+
+  @Get('patients/:id/documents')
+  async getPatientDocuments(@Param('id') patientId: string) {
+    return this.mbbsService.getPatientDocuments(patientId);
+  }
+
+  @Get('patients/:id/documents/:docId')
+  async getDocumentDetails(
+    @Param('id') patientId: string,
+    @Param('docId') docId: string,
+  ) {
+    return this.mbbsService.getDocumentDetails(patientId, docId);
+  }
+
+  @Get('patients/:id/documents/:docId/text')
+  async getDocumentText(
+    @Param('id') patientId: string,
+    @Param('docId') docId: string,
+  ) {
+    const text = await this.mbbsService.extractDocumentText(docId, patientId);
+    return { text: text ?? '[No text could be extracted]' };
   }
 
   // ============================================================

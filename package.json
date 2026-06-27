@@ -23,6 +23,9 @@
   ],
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
-    "pg": "^8.21.0"
+    "@uploadcare/upload-client": "^6.18.4",
+    "pg": "^8.21.0",
+    "sharp": "^0.35.2",
+    "tesseract.js": "^7.0.0"
   }
 }

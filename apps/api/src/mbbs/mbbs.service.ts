@@ -14,6 +14,10 @@ import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { CreateEmergencyFlagDto } from './dto/create-emergency-flag.dto';
 import * as fs from 'fs';
 import * as path from 'path';
+import pdfParse from 'pdf-parse';
+import * as mammoth from 'mammoth';
+import * as Tesseract from 'tesseract.js';
+import sharp from 'sharp';
 
 interface Icd10Entry {
   code: string;
@@ -98,6 +102,7 @@ export class MbbsService implements OnModuleInit {
       chainEvents,
       testOrders,
       prevAppointments,
+      documents,
     ] = await Promise.all([
       this.prisma.patient_vital_signs.findMany({
         where: { patient_id: patientId },
@@ -142,6 +147,10 @@ export class MbbsService implements OnModuleInit {
           },
         },
       }),
+      this.prisma.patient_documents.findMany({
+        where: { patient_id: patientId },
+        orderBy: { uploaded_at: 'desc' },
+      }),
     ]);
 
     return {
@@ -154,6 +163,7 @@ export class MbbsService implements OnModuleInit {
       referral_chain: chainEvents,
       test_orders: testOrders,
       previous_appointments: prevAppointments,
+      documents,
     };
   }
 
@@ -865,6 +875,190 @@ export class MbbsService implements OnModuleInit {
       take: 20,
       include: { patient: true },
     });
+  }
+
+  // ============================================================
+  // Differential Diagnosis (MB-013) — Stub
+  // ============================================================
+
+  // ============================================================
+  // Patient Documents
+  // ============================================================
+
+  /**
+   * Upload a patient document to UploadCare CDN (no local storage)
+   */
+  async uploadDocument(
+    patientId: string,
+    file: Express.Multer.File,
+  ) {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+    });
+    if (!patient) throw new NotFoundException('Patient not found.');
+
+    const cdnBase = process.env.UPLOADCARE_CDN_BASE || 'https://ucarecdn.com';
+
+    const formData = new FormData();
+    formData.append('UPLOADCARE_PUB_KEY', process.env.UPLOADCARE_PUB_KEY!);
+    const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
+    formData.append('file', blob, file.originalname);
+
+    const ucRes = await fetch('https://upload.uploadcare.com/base/', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!ucRes.ok) {
+      const body = await ucRes.text().catch(() => '');
+      throw new BadRequestException(`UploadCare upload failed: ${ucRes.status} ${body}`);
+    }
+
+    const ucData = await ucRes.json() as { file: string };
+    const fileUrl = `${cdnBase}/${ucData.file}/${file.originalname}`;
+
+    const document = await this.prisma.patient_documents.create({
+      data: {
+        patient_id: patientId,
+        file_name: file.originalname,
+        file_type: file.mimetype,
+        file_size: file.size,
+        file_url: fileUrl,
+      },
+    });
+
+    await this.addReferralChainEvent(
+      patientId,
+      'DOCUMENT_UPLOAD',
+      document.id,
+      `Document Uploaded: ${file.originalname}`,
+      'PATIENT',
+      `Type: ${file.mimetype}, Size: ${(file.size / 1024).toFixed(1)} KB`,
+    );
+
+    return document;
+  }
+
+  /**
+   * Extract text on-demand — fetches file from UploadCare CDN
+   */
+  async extractDocumentText(docId: string, patientId: string): Promise<string | null> {
+    const document = await this.prisma.patient_documents.findFirst({
+      where: { id: docId, patient_id: patientId },
+    });
+    if (!document) throw new NotFoundException('Document not found.');
+
+    const fileUrl = document.file_url;
+    const mimeType = document.file_type;
+
+    const res = await fetch(fileUrl);
+    if (!res.ok) return '[Failed to fetch document]';
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    if (mimeType === 'application/pdf') {
+      try {
+        const data = await pdfParse(buffer);
+        return this.formatText(data.text || '[No text found in PDF]');
+      } catch {
+        return '[Text extraction failed for this PDF]';
+      }
+    }
+
+    if (
+      mimeType === 'application/msword' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        return this.formatText(result.value || '[No text found in document]');
+      } catch {
+        return '[Text extraction failed for this document]';
+      }
+    }
+
+    if (mimeType.startsWith('image/')) {
+      try {
+        const processed = await sharp(buffer)
+          .grayscale()
+          .resize({ width: 2400, withoutEnlargement: false })
+          .sharpen()
+          .normalise()
+          .png()
+          .toBuffer();
+        const { data } = await Tesseract.recognize(processed, 'eng', {
+          logger: () => {},
+        });
+        const raw = data.text?.trim();
+        return raw ? this.formatText(raw) : '[No text found in image]';
+      } catch {
+        return '[OCR failed for this image]';
+      }
+    }
+
+    return `[Text extraction not supported for ${mimeType}]`;
+  }
+
+  private formatText(text: string): string {
+    if (text.startsWith('[')) return text;
+
+    // Split concatenated fields
+    let cleaned = text
+      .replace(/([a-z])([A-Z][a-z]+ [A-Z][a-z]+:)/g, '$1\n$2') // "nDate Collected:" → "n\nDate Collected:"
+      .replace(/([a-z])([A-Z][a-z]+:)/g, '$1\n$2')             // "eOrdering MD:" → "e\nOrdering MD:"
+      .replace(/(\d)([A-Z][a-z]+ [A-Za-z]+:)/g, '$1\n$2')      // "2Ordering MD:" → "2\nOrdering MD:"
+      .replace(/(\d{2}-\w{3}-\d{4})([A-Z])/g, '$1\n$2')        // "26-Jun-2026P" → "26-Jun-2026\nP"
+      .replace(/(\d{2}-\w{3}-\d{4})\s*([A-Z][a-z]+:)/g, '$1\n$2'); // date then field
+
+    const lines = cleaned.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(l => l.length > 0);
+
+    const result: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const prev = i > 0 ? lines[i - 1] : '';
+
+      // Insert blank line before section headers
+      const isSectionHeader = /^[A-Z][A-Z\s()]+$/.test(line) || /^[A-Z][A-Za-z\s]+:$/.test(line);
+      if (isSectionHeader && prev.length > 0 && !prev.endsWith(':') && prev !== '') {
+        result.push('');
+      }
+
+      // Insert blank line before lab result lines
+      const isResultLine = /^[A-Za-z][A-Za-z\s(%)]+[\d]+\.[\d]/.test(line);
+      if (isResultLine && prev.length > 0 && !prev.endsWith(':') && !/^[A-Z][A-Z\s]+$/.test(prev)) {
+        result.push('');
+      }
+
+      // Add spaces in concatenated result lines: "WBC)11.8HIGH4.5" → "WBC)  11.8  HIGH  4.5"
+      let formatted = line
+        .replace(/([\d.]+)(HIGH|LOW|NORMAL|CRITICAL)/g, '$1  $2')
+        .replace(/(HIGH|LOW|NORMAL|CRITICAL)(\s*[\d.]+\s*-\s*[\d.]+)/g, '$1  $2')
+        .replace(/([\d.]+\s*-\s*[\d.]+)([a-zA-Z])/g, '$1  $2');
+
+      result.push(formatted);
+    }
+
+    return result.join('\n');
+  }
+
+  /**
+   * Get all documents for a patient
+   */
+  async getPatientDocuments(patientId: string) {
+    return await this.prisma.patient_documents.findMany({
+      where: { patient_id: patientId },
+      orderBy: { uploaded_at: 'desc' },
+    });
+  }
+
+  /**
+   * Get a specific document details
+   */
+  async getDocumentDetails(patientId: string, docId: string) {
+    const document = await this.prisma.patient_documents.findFirst({
+      where: { id: docId, patient_id: patientId },
+    });
+    if (!document) throw new NotFoundException('Document not found.');
+    return document;
   }
 
   // ============================================================
