@@ -17,6 +17,7 @@ import {
   dashboardPathForRole,
   type StoredSession,
 } from "@/lib/auth";
+import PatientRegistrationModal from "@/components/dashboard/patient-registration-modal";
 
 interface CallTicket {
   id: string;
@@ -102,6 +103,8 @@ export default function CallCenterDashboardPage() {
     patientSocketId: string;
     sdpOffer: any;
   } | null>(null);
+  const [patientPhone, setPatientPhone] = useState<string>("");
+  const [showRegModal, setShowRegModal] = useState(false);
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
@@ -112,6 +115,15 @@ export default function CallCenterDashboardPage() {
   useEffect(() => {
     currentIncomingCallRef.current = incomingCall;
   }, [incomingCall]);
+
+  // Open registration modal when call becomes active; close when it ends
+  useEffect(() => {
+    if (callConnected) {
+      setShowRegModal(true);
+    } else {
+      setShowRegModal(false);
+    }
+  }, [callConnected]);
 
   // Shared cleanup used by hangup, peer-disconnect, and connection-failure paths.
   // Reads socket from a ref to avoid stale closures in async event handlers.
@@ -140,6 +152,7 @@ export default function CallCenterDashboardPage() {
     patientSocketIdRef.current = null;
     setIncomingCall(null);
     setCallConnected(false);
+    setPatientPhone("");
   }, []);
 
   useEffect(() => {
@@ -171,6 +184,7 @@ export default function CallCenterDashboardPage() {
       }
 
       patientSocketIdRef.current = resolvedSocketId;
+      setPatientPhone(data.patientPhone || data.phone || "");
       setIncomingCall({
         patientEmail: data.patientEmail || "Unknown Patient",
         patientSocketId: resolvedSocketId,
@@ -182,6 +196,7 @@ export default function CallCenterDashboardPage() {
       console.log("📞 Alternate event channel caught incoming request [agent-incoming-call]:", data);
       const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
       patientSocketIdRef.current = resolvedSocketId;
+      setPatientPhone(data.patientPhone || data.phone || "");
       setIncomingCall({
         patientEmail: data.patientEmail || "Unknown Patient",
         patientSocketId: resolvedSocketId,
@@ -608,6 +623,16 @@ export default function CallCenterDashboardPage() {
           </ul>
         </SectionCard>
       </div>
+
+      <PatientRegistrationModal
+        open={showRegModal}
+        patientPhone={patientPhone || undefined}
+        onClose={() => setShowRegModal(false)}
+        onSuccess={(patientId, mrn) => {
+          console.log(`✅ Patient registered: ${patientId} (MRN: ${mrn})`);
+          setShowRegModal(false);
+        }}
+      />
 
       {incomingCall && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
