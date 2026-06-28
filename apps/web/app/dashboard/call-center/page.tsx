@@ -628,9 +628,10 @@ export default function CallCenterDashboardPage() {
         open={showRegModal}
         patientPhone={patientPhone || undefined}
         onClose={() => setShowRegModal(false)}
-        onSuccess={(patientId, mrn) => {
-          console.log(`✅ Patient registered: ${patientId} (MRN: ${mrn})`);
-          setShowRegModal(false);
+        onSuccess={(result) => {
+          router.push(
+            `/dashboard/call-center/booking?patientId=${result.id}&mrn=${result.mrn}`,
+          );
         }}
       />
 

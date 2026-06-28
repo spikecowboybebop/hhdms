@@ -48,10 +48,81 @@ export interface RegisterPatientResult {
   message: string;
 }
 
+export interface PatientProfile {
+  id: string;
+  mrn: string;
+  first_name_en: string;
+  last_name_en: string;
+  first_name_bn?: string;
+  last_name_bn?: string;
+  sex: string;
+  phone_number?: string;
+  district?: string;
+  date_of_birth?: string;
+  blood_group?: string;
+  address_line1?: string;
+  address_line2?: string;
+  has_emergency_flag: boolean;
+}
+
+export interface ServiceTicketPayload {
+  service_type: string;
+  scheduled_date?: string;
+  scheduled_time_slot?: string;
+  price: number;
+  assigned_provider_id?: string;
+  additional_meta?: Record<string, unknown>;
+}
+
+export interface CreateBookingSessionPayload {
+  patient_id: string;
+  booked_by?: string;
+  agent_id?: string;
+  services: ServiceTicketPayload[];
+}
+
+export interface TicketResult {
+  id: string;
+  ticket_no: string;
+  service_type: string;
+  price: number | null;
+  status: string;
+}
+
+export interface BookingSessionResult {
+  session_id: string;
+  total_amount: number;
+  status: string;
+  tickets: TicketResult[];
+}
+
+export interface AvailableProvider {
+  id: string;
+  name: string;
+  service_type: string;
+  distance?: string;
+  rating?: number;
+  is_available: boolean;
+}
+
 export const callCenterApi = {
   registerPatient: (data: RegisterPatientPayload) =>
     apiFetch<RegisterPatientResult>('/patients/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  getPatient: (id: string) =>
+    apiFetch<PatientProfile>(`/patients/${id}`),
+
+  createBookingSession: (data: CreateBookingSessionPayload) =>
+    apiFetch<BookingSessionResult>('/bookings/create-session', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAvailableProviders: (params: { service_type: string; date: string; district: string }) =>
+    apiFetch<AvailableProvider[]>(
+      `/bookings/available-providers?${new URLSearchParams(params)}`,
+    ),
 };

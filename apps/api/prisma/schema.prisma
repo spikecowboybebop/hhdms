@@ -166,6 +166,49 @@ model caregiver_condition_reports {
   @@map("caregiver_condition_reports")
 }
 
+model booking_sessions {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id   String            @map("patient_id") @db.Uuid
+  booked_by    String?           @map("booked_by") @db.VarChar(255)
+  agent_id     String?           @map("agent_id") @db.Uuid
+  total_amount Decimal?          @map("total_amount") @db.Decimal(12, 2)
+  status       String            @default("ACTIVE") @map("status") @db.VarChar(20)
+  created_at   DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at   DateTime?         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  patient      patients          @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+  tickets      service_tickets[]
+
+  @@map("booking_sessions")
+}
+
+model service_tickets {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id          String                @map("session_id") @db.Uuid
+  ticket_no           String                @unique @map("ticket_no") @db.VarChar(50)
+  service_type        String                @map("service_type") @db.VarChar(30)
+  scheduled_date      DateTime?             @map("scheduled_date") @db.Date
+  scheduled_time_slot String?               @map("scheduled_time_slot") @db.VarChar(20)
+  assigned_provider_id String?              @map("assigned_provider_id") @db.Uuid
+  price               Decimal?              @map("price") @db.Decimal(10, 2)
+  status              String                @default("PENDING") @map("status") @db.VarChar(20)
+  created_at          DateTime?             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at          DateTime?             @default(now()) @map("updated_at") @db.Timestamptz(6)
+  session             booking_sessions      @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  details             ticket_specific_details?
+
+  @@map("service_tickets")
+}
+
+model ticket_specific_details {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id       String          @unique @map("ticket_id") @db.Uuid
+  additional_meta Json?           @map("additional_meta") @db.JsonB
+  created_at      DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  ticket          service_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("ticket_specific_details")
+}
+
 model patients {
   id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   mrn                   String                       @unique @map("mrn") @db.VarChar(50)
@@ -203,6 +246,7 @@ model patients {
   caregiver_assignments   caregiver_patient_assignments[]
   caregiver_activity_logs caregiver_activity_logs[]
   caregiver_condition_reports caregiver_condition_reports[]
+  booking_sessions      booking_sessions[]
 
   @@map("patients")
 }

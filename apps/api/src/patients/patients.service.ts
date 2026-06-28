@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
@@ -63,5 +63,29 @@ export class PatientsService {
       mrn: patient.mrn,
       message: 'Patient registered successfully.',
     };
+  }
+
+  async findById(id: string) {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        mrn: true,
+        first_name_en: true,
+        last_name_en: true,
+        first_name_bn: true,
+        last_name_bn: true,
+        sex: true,
+        phone_number: true,
+        district: true,
+        date_of_birth: true,
+        blood_group: true,
+        address_line1: true,
+        address_line2: true,
+        has_emergency_flag: true,
+      },
+    });
+    if (!patient) throw new NotFoundException('Patient not found.');
+    return patient;
   }
 }

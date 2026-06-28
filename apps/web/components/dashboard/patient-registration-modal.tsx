@@ -70,7 +70,7 @@ interface Props {
   open: boolean;
   patientPhone?: string;
   onClose: () => void;
-  onSuccess: (patientId: string, mrn: string) => void;
+  onSuccess: (result: { id: string; mrn: string; full_name_en: string; sex: string; primary_phone: string; district: string }) => void;
 }
 
 interface FormData {
@@ -168,7 +168,14 @@ export default function PatientRegistrationModal({ open, patientPhone, onClose, 
 
     try {
       const data = await callCenterApi.registerPatient(form);
-      onSuccess(data.id, data.mrn);
+      onSuccess({
+        id: data.id,
+        mrn: data.mrn,
+        full_name_en: form.full_name_en,
+        sex: form.sex,
+        primary_phone: form.primary_phone,
+        district: form.district,
+      });
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
