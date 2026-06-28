@@ -8,6 +8,7 @@ import { CallGateway } from './gateway/call.gateway';
 import { SpecialistModule } from './specialist/specialist.module';
 import { CaregiverModule } from './caregiver/caregiver.module';
 import { PatientsModule } from './patients/patients.module';
+import { NutritionistModule } from './nutritionist/nutritionist.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PatientsModule } from './patients/patients.module';
     SpecialistModule,
     CaregiverModule,
     PatientsModule,
+    NutritionistModule,
   ],
   controllers: [AppController],
   providers: [AppService, CallGateway],
