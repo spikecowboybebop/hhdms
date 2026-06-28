@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
@@ -10,5 +10,10 @@ export class PatientsController {
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: CreatePatientDto) {
     return this.patientsService.register(dto);
+  }
+
+  @Get()
+  async findByBookedBy(@Query('booked_by') bookedBy: string) {
+    return this.patientsService.findByBookedBy(bookedBy);
   }
 }

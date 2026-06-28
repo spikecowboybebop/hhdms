@@ -40,6 +40,7 @@ export interface RegisterPatientPayload {
   address_detail: string;
   agent_notes?: string;
   has_emergency_flag?: boolean;
+  booked_by?: string;
 }
 
 export interface RegisterPatientResult {
@@ -48,10 +49,28 @@ export interface RegisterPatientResult {
   message: string;
 }
 
+export interface PastPatient {
+  id: string;
+  mrn: string;
+  full_name_en: string;
+  full_name_bn: string;
+  date_of_birth: string;
+  sex: 'Male' | 'Female' | 'Child';
+  blood_group: string;
+  primary_phone: string;
+  address_line1: string;
+  address_line2: string;
+  district: string;
+  emergency_contact: string;
+}
+
 export const callCenterApi = {
   registerPatient: (data: RegisterPatientPayload) =>
     apiFetch<RegisterPatientResult>('/patients/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  fetchPastPatients: (bookedBy: string) =>
+    apiFetch<PastPatient[]>(`/patients?booked_by=${encodeURIComponent(bookedBy)}`),
 };

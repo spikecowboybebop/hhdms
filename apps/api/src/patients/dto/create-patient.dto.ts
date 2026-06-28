@@ -83,4 +83,8 @@ export class CreatePatientDto {
   @IsOptional()
   @IsBoolean()
   has_emergency_flag?: boolean;
+
+  @IsString()
+  @IsOptional()
+  booked_by?: string;
 }
