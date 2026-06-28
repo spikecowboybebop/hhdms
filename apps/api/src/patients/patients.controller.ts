@@ -11,4 +11,14 @@ export class PatientsController {
   async register(@Body() dto: CreatePatientDto) {
     return this.patientsService.register(dto);
   }
+
+  @Get()
+  async findByBookedBy(@Query('booked_by') bookedBy: string) {
+    return this.patientsService.findByBookedBy(bookedBy);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.patientsService.findOne(id);
+  }
 }

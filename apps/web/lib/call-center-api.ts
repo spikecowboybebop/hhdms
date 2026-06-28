@@ -49,6 +49,21 @@ export interface RegisterPatientResult {
   message: string;
 }
 
+export interface PastPatient {
+  id: string;
+  mrn: string;
+  full_name_en: string;
+  full_name_bn: string;
+  date_of_birth: string;
+  sex: 'Male' | 'Female' | 'Child';
+  blood_group: string;
+  primary_phone: string;
+  address_line1: string;
+  address_line2: string;
+  district: string;
+  emergency_contact: string;
+}
+
 export interface PatientProfile {
   id: string;
   mrn: string;
@@ -112,4 +127,19 @@ export const callCenterApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  fetchPastPatients: (bookedBy: string) =>
+    apiFetch<PastPatient[]>(`/patients?booked_by=${encodeURIComponent(bookedBy)}`),
+
+  getPatient: (id: string) =>
+    apiFetch<PatientProfile>(`/patients/${id}`),
+
+  createBookingSession: (data: CreateBookingSessionPayload) =>
+    apiFetch<BookingSessionResult>('/bookings/create-session', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAvailableProviders: (params: { service_type: string; date: string; district: string }) =>
+    apiFetch<AvailableProvider[]>(`/providers/available?service_type=${encodeURIComponent(params.service_type)}&date=${encodeURIComponent(params.date)}&district=${encodeURIComponent(params.district)}`),
 };
