@@ -104,6 +104,8 @@ export default function CallCenterDashboardPage() {
     sdpOffer: any;
   } | null>(null);
   const [patientPhone, setPatientPhone] = useState<string>("");
+  const [callerName, setCallerName] = useState<string>("Mobile User");
+  const [callerEmail, setCallerEmail] = useState<string>("");
   const [showRegModal, setShowRegModal] = useState(false);
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
@@ -153,6 +155,8 @@ export default function CallCenterDashboardPage() {
     setIncomingCall(null);
     setCallConnected(false);
     setPatientPhone("");
+    setCallerName("Mobile User");
+    setCallerEmail("");
   }, []);
 
   useEffect(() => {
@@ -176,6 +180,7 @@ export default function CallCenterDashboardPage() {
     });
 
     socketClient.on("call-center-dial", (data) => {
+      if (!data) return;
       console.log("📞 Raw Incoming WebRTC payload arriving on browser via [call-center-dial]:", data);
       
       const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
@@ -183,22 +188,33 @@ export default function CallCenterDashboardPage() {
         console.error("⚠️ CRITICAL: Call packet received but missing identifier tracking properties!", data);
       }
 
+      const email: string = String(data.patientEmail || "Unknown Patient");
+      const [localPart1] = email.split("@");
+      const name: string = (localPart1 || "").split(".").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
       patientSocketIdRef.current = resolvedSocketId;
       setPatientPhone(data.patientPhone || data.phone || "");
+      setCallerName(name);
+      setCallerEmail(email);
       setIncomingCall({
-        patientEmail: data.patientEmail || "Unknown Patient",
+        patientEmail: email,
         patientSocketId: resolvedSocketId,
         sdpOffer: data.sdpOffer
       });
     });
 
     socketClient.on("agent-incoming-call", (data) => {
+      if (!data) return;
       console.log("📞 Alternate event channel caught incoming request [agent-incoming-call]:", data);
       const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
+      const email: string = String(data.patientEmail || "Unknown Patient");
+      const [localPart2] = email.split("@");
+      const name: string = (localPart2 || "").split(".").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
       patientSocketIdRef.current = resolvedSocketId;
       setPatientPhone(data.patientPhone || data.phone || "");
+      setCallerName(name);
+      setCallerEmail(email);
       setIncomingCall({
-        patientEmail: data.patientEmail || "Unknown Patient",
+        patientEmail: email,
         patientSocketId: resolvedSocketId,
         sdpOffer: data.sdpOffer
       });
@@ -627,6 +643,8 @@ export default function CallCenterDashboardPage() {
       <PatientRegistrationModal
         open={showRegModal}
         patientPhone={patientPhone || undefined}
+        callerName={callerName}
+        callerEmail={callerEmail}
         onClose={() => setShowRegModal(false)}
         onSuccess={(result) => {
           router.push(

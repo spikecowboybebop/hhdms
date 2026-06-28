@@ -1,6 +1,8 @@
 // apps/web/app/utils/api.ts
 import { loadSession } from '@/lib/auth'; // Adjust import path if needed
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/';
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   // 1. Fetch your stored browser token
   const session = loadSession();

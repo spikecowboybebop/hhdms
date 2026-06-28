@@ -40,6 +40,7 @@ export interface RegisterPatientPayload {
   address_detail: string;
   agent_notes?: string;
   has_emergency_flag?: boolean;
+  booked_by?: string;
 }
 
 export interface RegisterPatientResult {
@@ -111,18 +112,4 @@ export const callCenterApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-
-  getPatient: (id: string) =>
-    apiFetch<PatientProfile>(`/patients/${id}`),
-
-  createBookingSession: (data: CreateBookingSessionPayload) =>
-    apiFetch<BookingSessionResult>('/bookings/create-session', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  getAvailableProviders: (params: { service_type: string; date: string; district: string }) =>
-    apiFetch<AvailableProvider[]>(
-      `/bookings/available-providers?${new URLSearchParams(params)}`,
-    ),
 };

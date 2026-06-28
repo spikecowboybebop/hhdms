@@ -231,6 +231,7 @@ model patients {
   family_history        String?                      @map("family_history")
   height_cm             Decimal?                     @map("height_cm") @db.Decimal(5, 1)
   weight_kg             Decimal?                     @map("weight_kg") @db.Decimal(5, 1)
+  booked_by             String?                      @map("booked_by") @db.VarChar(255)
   has_emergency_flag    Boolean                      @default(false) @map("has_emergency_flag")
   created_at            DateTime?                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at            DateTime?                    @default(now()) @map("updated_at") @db.Timestamptz(6)
