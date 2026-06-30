@@ -57,7 +57,6 @@ export class SpecialistService {
 
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
-        specialty_code: specialist.specialty_code,
         status: 'PENDING',
       },
       include: {
@@ -103,9 +102,6 @@ export class SpecialistService {
       throw new NotFoundException('Specialist profile not encountered.');
 
     const referrals = await this.prisma.specialist_referrals.findMany({
-      where: {
-        specialty_code: specialist.specialty_code,
-      },
       include: {
         patient: {
           select: {
@@ -137,7 +133,6 @@ export class SpecialistService {
 
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
-        specialty_code: specialist.specialty_code,
         status: 'COMPLETED',
       },
       include: {
@@ -156,7 +151,7 @@ export class SpecialistService {
       id: referral.id,
       patient: `${referral.patient.first_name_en} ${referral.patient.last_name_en}`,
       mrn: referral.patient.mrn,
-      type: `${specialist.specialty_code} Consultation Report`,
+      type: `${referral.specialty_code} Consultation Report`,
       status: 'SIGNED',
       date: referral.updated_at
         ? new Date(referral.updated_at).toLocaleDateString('en-US', {
