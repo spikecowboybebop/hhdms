@@ -1,5 +1,9 @@
 // apps/api/src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
@@ -33,14 +37,19 @@ export class AuthService {
     }
 
     // 3. Evaluate the password hash using bcrypt
-    const isPasswordMatching = await bcrypt.compare(password, user.passwordHash);
+    const isPasswordMatching = await bcrypt.compare(
+      password,
+      user.passwordHash,
+    );
     if (!isPasswordMatching) {
       throw new UnauthorizedException('Invalid email or password credentials.');
     }
 
     // 4. Confirm the profile status layer is completely unrestricted
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('This account profile has been locked out or suspended.');
+      throw new UnauthorizedException(
+        'This account profile has been locked out or suspended.',
+      );
     }
 
     // 5. Structure the payload to store session information
@@ -65,26 +74,29 @@ export class AuthService {
   }
 
   /**
-   * Native Mobile Signup specifically for Patients (Hardcoded role_id: 5)
+   * Native Mobile Signup specifically for Mobile Users (Hardcoded role_id: 7)
    */
   /**
-   * Native Mobile Signup specifically for Patients (Hardcoded role_id: 5)
+   * Native Mobile Signup specifically for Mobile Users (Hardcoded role_id: 7)
    */
   async mobileSignup(mobileSignupDto: MobileSignupDto) {
-    const { email, phone_number, password, first_name_en, last_name_en } = mobileSignupDto;
+    const { email, phone_number, password, first_name_en, last_name_en } =
+      mobileSignupDto;
 
     // 1. Guard against duplicate records using an OR check on unique fields
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [
           { email },
-          { phoneNumber: phone_number } // Matches Prisma's 'phoneNumber' property
-        ]
-      }
+          { phoneNumber: phone_number }, // Matches Prisma's 'phoneNumber' property
+        ],
+      },
     });
 
     if (existingUser) {
-      throw new ConflictException('A user profile with this email address or phone number already exists.');
+      throw new ConflictException(
+        'A user profile with this email address or phone number already exists.',
+      );
     }
 
     // 2. Hash the plain text password from the mobile screen securely (Salt rounds: 10)
@@ -92,14 +104,14 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // 3. Insert record matching your exact internal Prisma model field casing (camelCase)
-    const newPatient = await this.prisma.user.create({
+    const newMobileUser = await this.prisma.user.create({
       data: {
         email,
         passwordHash: hashedPassword,     // Maps to password_hash
         phoneNumber: phone_number,        // Maps to phone_number
         firstNameEn: first_name_en,       // Maps to first_name_en
         lastNameEn: last_name_en,         // Maps to last_name_en
-        roleId: 5,                        // Patient roleId statically assigned
+        roleId: 7,                        // Mobile User roleId statically assigned
         status: 'ACTIVE',                 // Maps to AccountStatusEnum.ACTIVE
         mfaEnabled: false,
       },
@@ -107,13 +119,13 @@ export class AuthService {
         id: true,
         email: true,
         phoneNumber: true,
-        createdAt: true,                 // Adjusted to camelCase to match your Prisma model exactly
-      }
+        createdAt: true, // Adjusted to camelCase to match your Prisma model exactly
+      },
     });
 
     return {
-      message: 'Patient user registration completed successfully.',
-      patientId: newPatient.id,
+      message: 'Mobile user registration completed successfully.',
+      userId: newMobileUser.id,
     };
   }
 }

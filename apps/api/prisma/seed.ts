@@ -38,7 +38,30 @@ async function main() {
     update: {},
     create: { name: 'SPECIALIST', description: 'Specialist' },
   });
-  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST');
+  const caregiverRole = await prisma.role.upsert({
+    where: { name: 'CAREGIVER' },
+    update: {},
+    create: { name: 'CAREGIVER', description: 'Caregiver' },
+  });
+  // MOBILE_USER role must have id=7 — the auth service hardcodes roleId: 7 for mobile signups
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO roles (id, name, description) VALUES (7, 'MOBILE_USER', 'Mobile App User')
+     ON CONFLICT (name) DO UPDATE SET description = 'Mobile App User'`
+  );
+  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER, MOBILE_USER');
+
+  // --- Caregiver (Shamima) ---
+  console.log('Creating caregiver.shamima@hhdms.com (Caregiver)...');
+  const shamima = await prisma.user.upsert({
+    where: { email: 'caregiver.shamima@hhdms.com' },
+    update: { passwordHash, roleId: caregiverRole.id, phoneNumber: '+8801700000007', firstNameEn: 'Shamima', lastNameEn: 'Akhtar', firstNameBn: 'শামীমা', status: 'ACTIVE' },
+    create: { email: 'caregiver.shamima@hhdms.com', passwordHash, phoneNumber: '+8801700000007', firstNameEn: 'Shamima', lastNameEn: 'Akhtar', firstNameBn: 'শামীমা', roleId: caregiverRole.id, status: 'ACTIVE' },
+  });
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO caregiver_profiles (user_id, gender, experience_years, specializations, verification_status, training_certs, rating, phone_number, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (user_id) DO UPDATE SET gender=$2, experience_years=$3, specializations=$4, verification_status=$5, training_certs=$6, rating=$7, phone_number=$8, is_available=$9`,
+    shamima.id, 'Female', 5, 'Dementia Care, Post-Surgical Care, Bedridden Patient Care', 'VERIFIED', 'Home Care Assistant Certificate, First Aid Training', 4.5, '+8801700000007', true
+  );
+  console.log('  Done: shamima (Caregiver)');
 
   // --- Dr. Arif (MBBS) ---
   console.log('Creating dr.arif@hhdms.com (MBBS)...');
@@ -127,6 +150,7 @@ async function main() {
   console.log('  dr.nasrin@hhdms.com / Password2026! (MBBS Doctor) — Assigned: Shahnaz');
   console.log('  nutritionist.tanvir@hhdms.com / Password2026! (Nutritionist)');
   console.log('  dr.nusrat@hhdms.com / Password2026! (Specialist)');
+  console.log('  caregiver.shamima@hhdms.com / Password2026! (Caregiver) — Assigned: Rahim, Fatema');
 
   // --- Seed ICD10 Codes ---
   console.log('\nSeeding ICD10 Codes...');
@@ -334,6 +358,20 @@ async function main() {
     create: { doctor_id: nasrin.id, patient_id: patient4.id },
   });
   console.log('  Done: Patients assigned to Dr. Nasrin');
+
+  // --- Assign Patients to Caregiver Shamima ---
+  console.log('Assigning patients to Shamima (Caregiver)...');
+  await prisma.caregiver_patient_assignments.upsert({
+    where: { caregiver_id_patient_id: { caregiver_id: shamima.id, patient_id: patient1.id } },
+    update: { service_type: 'DAY_CARE', patient_type: 'ADULT' },
+    create: { caregiver_id: shamima.id, patient_id: patient1.id, service_type: 'DAY_CARE', patient_type: 'ADULT' },
+  });
+  await prisma.caregiver_patient_assignments.upsert({
+    where: { caregiver_id_patient_id: { caregiver_id: shamima.id, patient_id: patient2.id } },
+    update: { service_type: 'NIGHT_CARE', patient_type: 'ADULT' },
+    create: { caregiver_id: shamima.id, patient_id: patient2.id, service_type: 'NIGHT_CARE', patient_type: 'ADULT' },
+  });
+  console.log('  Done: Patients assigned to Shamima');
 
   console.log('Assigning consultations for Dr. Arif...');
   

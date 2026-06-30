@@ -186,10 +186,7 @@ export class MbbsController {
   }
 
   @Patch('signature')
-  async updateSignature(
-    @Body() dto: UpdateSignatureDto,
-    @Req() req: any,
-  ) {
+  async updateSignature(@Body() dto: UpdateSignatureDto, @Req() req: any) {
     const doctorUserId = this.getDoctorUserId(req);
     return this.mbbsService.updateSignature(doctorUserId, dto.signature_url);
   }

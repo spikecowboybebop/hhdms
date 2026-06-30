@@ -1,12 +1,22 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { NutritionistService } from './nutritionist.service';
-import { 
-  BookConsultationDto, 
-  CreateAnthropometricRecordDto, 
-  CreateDietPlanDto, 
-  CreateFollowUpDto, 
-  CreateAdherenceLogDto, 
-  CalculateNutrientsDto 
+import {
+  BookConsultationDto,
+  CreateAnthropometricRecordDto,
+  CreateDietPlanDto,
+  CreateFollowUpDto,
+  CreateAdherenceLogDto,
+  CalculateNutrientsDto,
 } from './dto'; // Assumes an index.ts file exists inside the dto/ folder
 @Controller('nutritionist')
 export class NutritionistController {
@@ -18,22 +28,22 @@ export class NutritionistController {
   }
 
   @Post('appointment/:appointmentId/nutritionist/:nutritionistId/metrics')
-async recordMetrics(
-  @Param('appointmentId') appointmentId: string,
-  @Param('nutritionistId') nutritionistId: string,
-  @Body() dto: CreateAnthropometricRecordDto, // Update type here
-) {
-  // ... handling logic
-}
+  async recordMetrics(
+    @Param('appointmentId') appointmentId: string,
+    @Param('nutritionistId') nutritionistId: string,
+    @Body() dto: CreateAnthropometricRecordDto, // Update type here
+  ) {
+    // ... handling logic
+  }
 
- @Post('appointment/:appointmentId/nutritionist/:nutritionistId/chart')
-async createChart(
-  @Param('appointmentId') appointmentId: string,
-  @Param('nutritionistId') nutritionistId: string,
-  @Body() dto: CreateDietPlanDto, // Update type here
-) {
-  // ... handling logic
-}
+  @Post('appointment/:appointmentId/nutritionist/:nutritionistId/chart')
+  async createChart(
+    @Param('appointmentId') appointmentId: string,
+    @Param('nutritionistId') nutritionistId: string,
+    @Body() dto: CreateDietPlanDto, // Update type here
+  ) {
+    // ... handling logic
+  }
 
   @Post('nutritionist/:nutritionistId/adherence')
   logAdherence(

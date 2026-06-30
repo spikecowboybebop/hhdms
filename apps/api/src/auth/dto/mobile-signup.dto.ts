@@ -1,5 +1,12 @@
 // apps/api/src/auth/dto/mobile-signup.dto.ts
-import { IsEmail, IsNotEmpty, IsString, MinLength, Matches, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  Matches,
+  IsOptional,
+} from 'class-validator';
 
 export class MobileSignupDto {
   @IsString()
@@ -18,13 +25,18 @@ export class MobileSignupDto {
   })
   phone_number!: string;
 
-  @IsEmail({}, { message: 'Please provide a valid patient email configuration.' })
+  @IsEmail(
+    {},
+    { message: 'Please provide a valid patient email configuration.' },
+  )
   @IsNotEmpty()
   email!: string;
 
   @IsString()
   @IsNotEmpty()
-  @MinLength(6, { message: 'Security passwords must contain at least 6 characters.' })
+  @MinLength(6, {
+    message: 'Security passwords must contain at least 6 characters.',
+  })
   password!: string;
 
   @IsString()

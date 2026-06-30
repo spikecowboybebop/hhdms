@@ -43,6 +43,7 @@ export default function SignInPage() {
       const accessToken: string | undefined = data?.access_token;
       const userRole: string | undefined = data?.user?.role;
       const userEmail: string | undefined = data?.user?.email;
+      const userId: string | undefined = data?.user?.id;
       const firstNameEn: string | undefined = data?.user?.first_name_en;
 
       if (!accessToken) {
@@ -57,10 +58,15 @@ export default function SignInPage() {
         throw new Error("Authentication token is missing role information.");
       }
 
+      const sessionUserId = userId ?? decoded?.sub;
+      if (!sessionUserId) {
+        throw new Error("Authentication response missing user identifier.");
+      }
+
       const session: StoredSession = {
         token: accessToken,
         user: {
-          id: data?.user?.id,
+          id: sessionUserId,
           email: userEmail ?? email,
           first_name_en: firstNameEn,
           role: effectiveRole,

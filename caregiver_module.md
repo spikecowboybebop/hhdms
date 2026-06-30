@@ -1,0 +1,15 @@
+# 3.6 Caregiver Module (CG)
+
+Caregivers provide non-clinical daily living support. The module supports Male, Female, and Child patient caregivers, with four service duration types: Day Care (8 hrs), Night Care (8 hrs overnight), 24-Hour Care, and Respite Care.
+
+| ID | Feature | Description | Priority | Actors | Inputs | Outputs |
+| --- | --- | --- | --- | --- | --- | --- |
+| CG-001 | Caregiver Booking | Book caregiver by: gender preference (Male/Female), patient type (Adult/Child/Elderly), care duration type, special skills (dementia care, post-surgical, pediatric), and availability. | Must Have | Call Center Agent | Patient needs, preferences, date/time | Caregiver assigned, patient and caregiver confirmed |
+| CG-003 | Service Type Management | Support four service durations: Day Care (7am–3pm), Night Care (10pm–6am), 24-Hour Care (rotational), Respite Care (temporary relief for family caregivers, minimum 4 hrs). | Must Have | System, Admin | Service type selection | Shift schedule, caregiver assignment, billing type |
+| CG-005 | Daily Activity Logging | Log daily care activities: personal hygiene (bathing, grooming), mobility assistance, feeding assistance, oral medication administration, companionship, exercise. | Must Have | Caregiver | Activity completion inputs | Daily activity log per patient |
+| CG-006 | GPS Shift Check-In/Out | Caregiver checks in when within 100m of patient address (geofence verified). Check-out verified the same way. Timestamps used for attendance and billing. | Must Have | GPS Module, Caregiver | Arrival at patient address | Verified check-in/out, attendance record |
+| CG-007 | Condition Change Reporting | Caregiver reports any observed changes: patient fall, medication refusal, behavioural changes, physical symptoms. Instantly alerts the assigned nurse and MBBS doctor. | Must Have | Caregiver, Notification Engine | Caregiver submits report | Alert to nurse/doctor, incident record created |
+| CG-008 | Attendance & Timesheets | Auto-generate daily and monthly timesheets from GPS-verified check-in/out records. Exported to payroll system. | Must Have | System | Check-in/out records | Timesheet, payroll export |
+| CG-009 | Caregiver Rating & Feedback | After each shift, the patient or guardian rates the caregiver (1–5 stars) and submits written feedback. Average ratings displayed on caregiver profile. | Must Have | Patient/Guardian | Post-shift feedback submission | Rating updated on profile, trends tracked |
+| CG-010 | Training Records | Maintain caregiver training log: training date, subject, certificate expiry. Alert admin 30 days before certificate expiry. | Should Have | Admin, System | Training record inputs | Training history, expiry alert |
+| CG-011 | Specialized Caregiver Booking | Book caregivers with specific certifications: Dementia Care, Post-Surgical Recovery, Pediatric Care, Bedridden Patient Care, Terminal/Palliative Care. | Must Have | Call Center Agent | Specialty requirement selected | Matched certified caregiver assigned |

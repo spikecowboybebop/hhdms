@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteReferralDto } from './dto/complete-referral.dto';
 
@@ -28,7 +32,15 @@ export class SpecialistService {
     });
   }
 
-  private mapVitalSigns(vitalSigns: Array<{ systolic_bp: number | null; diastolic_bp: number | null; pulse_bpm: number | null; temperature_c: number | null; spo2_pct: number | null }>) {
+  private mapVitalSigns(
+    vitalSigns: Array<{
+      systolic_bp: number | null;
+      diastolic_bp: number | null;
+      pulse_bpm: number | null;
+      temperature_c: number | null;
+      spo2_pct: number | null;
+    }>,
+  ) {
     return vitalSigns.map((vital) => ({
       blood_pressure_systolic: vital.systolic_bp ?? 0,
       blood_pressure_diastolic: vital.diastolic_bp ?? 0,
@@ -40,7 +52,8 @@ export class SpecialistService {
 
   async getMyIncomingReferrals(userId: string) {
     const specialist = await this.resolveSpecialistProfile(userId);
-    if (!specialist) throw new NotFoundException('Specialist profile not encountered.');
+    if (!specialist)
+      throw new NotFoundException('Specialist profile not encountered.');
 
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
@@ -71,14 +84,23 @@ export class SpecialistService {
       updated_at: referral.updated_at?.toISOString() ?? null,
       patient: {
         ...referral.patient,
-        vital_signs: this.mapVitalSigns(referral.patient.vital_signs as Array<{ systolic_bp: number | null; diastolic_bp: number | null; pulse_bpm: number | null; temperature_c: number | null; spo2_pct: number | null }>),
+        vital_signs: this.mapVitalSigns(
+          referral.patient.vital_signs as Array<{
+            systolic_bp: number | null;
+            diastolic_bp: number | null;
+            pulse_bpm: number | null;
+            temperature_c: number | null;
+            spo2_pct: number | null;
+          }>,
+        ),
       },
     }));
   }
 
   async getSpecialistDicomStudies(userId: string) {
     const specialist = await this.resolveSpecialistProfile(userId);
-    if (!specialist) throw new NotFoundException('Specialist profile not encountered.');
+    if (!specialist)
+      throw new NotFoundException('Specialist profile not encountered.');
 
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
@@ -110,7 +132,8 @@ export class SpecialistService {
 
   async getSpecialistReports(userId: string) {
     const specialist = await this.resolveSpecialistProfile(userId);
-    if (!specialist) throw new NotFoundException('Specialist profile not encountered.');
+    if (!specialist)
+      throw new NotFoundException('Specialist profile not encountered.');
 
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
@@ -135,25 +158,33 @@ export class SpecialistService {
       mrn: referral.patient.mrn,
       type: `${specialist.specialty_code} Consultation Report`,
       status: 'SIGNED',
-      date: referral.updated_at ? new Date(referral.updated_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }) : 'Pending',
+      date: referral.updated_at
+        ? new Date(referral.updated_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : 'Pending',
       hash: `sha256:${referral.id.replace(/-/g, '').slice(0, 16)}`,
-      findings: referral.response_notes ?? referral.clinical_summary ?? 'No specialist response recorded in the database yet.',
+      findings:
+        referral.response_notes ??
+        referral.clinical_summary ??
+        'No specialist response recorded in the database yet.',
     }));
   }
 
   async completeReferral(dto: CompleteReferralDto) {
     const specialist = await this.resolveSpecialistProfile(dto.specialistId);
-    if (!specialist) throw new NotFoundException('Specialist validation credential failure.');
+    if (!specialist)
+      throw new NotFoundException('Specialist validation credential failure.');
 
     const referral = await this.prisma.specialist_referrals.findUnique({
       where: { id: dto.referralId },
     });
-    if (!referral) throw new NotFoundException('Target referral case item missing.');
-    if (referral.status !== 'PENDING') throw new BadRequestException('Referral has already been resolved.');
+    if (!referral)
+      throw new NotFoundException('Target referral case item missing.');
+    if (referral.status !== 'PENDING')
+      throw new BadRequestException('Referral has already been resolved.');
 
     return this.prisma.$transaction(async (tx) => {
       const updatedReferral = await tx.specialist_referrals.update({
@@ -173,7 +204,8 @@ export class SpecialistService {
           step_id: referral.id,
           step_label: `Specialist Consultation Complete (${specialist.specialty_code})`,
           actor_role: 'SPECIALIST',
-          actor_name: `Dr. ${specialist.user?.firstNameEn ?? specialist.user_id} ${specialist.user?.lastNameEn ?? ''}`.trim(),
+          actor_name:
+            `Dr. ${specialist.user?.firstNameEn ?? specialist.user_id} ${specialist.user?.lastNameEn ?? ''}`.trim(),
           notes: dto.responseNotes,
         },
       });
@@ -188,17 +220,22 @@ export class SpecialistService {
 
   private getModalityForReferral(specialtyCode: string) {
     const normalized = specialtyCode.toUpperCase();
-    if (normalized.includes('CARD') || normalized.includes('DERM')) return 'X-RAY';
-    if (normalized.includes('NEURO') || normalized.includes('ONC')) return 'CT SCAN';
+    if (normalized.includes('CARD') || normalized.includes('DERM'))
+      return 'X-RAY';
+    if (normalized.includes('NEURO') || normalized.includes('ONC'))
+      return 'CT SCAN';
     return 'ULTRASOUND';
   }
 
   private getImageUrl(specialtyCode: string) {
     const modality = this.getModalityForReferral(specialtyCode);
     const imageMap: Record<string, string> = {
-      'X-RAY': 'https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=600&auto=format&fit=crop',
-      'CT SCAN': 'https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?q=80&w=600&auto=format&fit=crop',
-      'ULTRASOUND': 'https://images.unsplash.com/photo-1516062423079-7ca13cca99a8?q=80&w=600&auto=format&fit=crop',
+      'X-RAY':
+        'https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=600&auto=format&fit=crop',
+      'CT SCAN':
+        'https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?q=80&w=600&auto=format&fit=crop',
+      ULTRASOUND:
+        'https://images.unsplash.com/photo-1516062423079-7ca13cca99a8?q=80&w=600&auto=format&fit=crop',
     };
 
     return imageMap[modality] ?? imageMap['X-RAY'];
