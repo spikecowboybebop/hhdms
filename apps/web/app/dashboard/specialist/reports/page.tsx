@@ -69,7 +69,7 @@ export default function ReportsPage() {
       const matchesStatus = statusFilter === "ALL" || report.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, reports]);
 
   const handlePrint = (report: ReportItem) => {
     const printWindow = window.open("", "_blank");

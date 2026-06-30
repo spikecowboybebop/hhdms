@@ -69,8 +69,10 @@ const DIVISIONS = {
 interface Props {
   open: boolean;
   patientPhone?: string;
+  callerName: string;
+  callerEmail: string;
   onClose: () => void;
-  onSuccess: (patientId: string, mrn: string) => void;
+  onSuccess: (result: { id: string; mrn: string; full_name_en: string; sex: string; primary_phone: string; district: string }) => void;
 }
 
 interface FormData {
@@ -116,11 +118,30 @@ interface FieldError {
   message: string;
 }
 
-export default function PatientRegistrationModal({ open, patientPhone, onClose, onSuccess }: Props) {
+export default function PatientRegistrationModal({ open, patientPhone, callerName, callerEmail, onClose, onSuccess }: Props) {
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [pastPatients, setPastPatients] = useState<import("@/lib/call-center-api").PastPatient[]>([]);
+  const [pastPatientsLoading, setPastPatientsLoading] = useState(false);
+  const [selectedPastPatientId, setSelectedPastPatientId] = useState("");
+
+  // Fetch past patients booked by this caller when modal opens
+  useEffect(() => {
+    if (open && callerEmail) {
+      setPastPatientsLoading(true);
+      import("@/lib/call-center-api").then(({ callCenterApi }) => {
+        callCenterApi.fetchPastPatients(callerEmail).then((patients) => {
+          setPastPatients(patients);
+          setPastPatientsLoading(false);
+        }).catch(() => {
+          setPastPatients([]);
+          setPastPatientsLoading(false);
+        });
+      });
+    }
+  }, [open, callerEmail]);
 
   // Pre-fill phone from WebRTC context when available
   useEffect(() => {
@@ -133,6 +154,45 @@ export default function PatientRegistrationModal({ open, patientPhone, onClose, 
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => prev.filter((e) => e.field !== field));
   }, []);
+
+  const parseAddressLine1 = useCallback((line: string) => {
+    const getValue = (re: RegExp): string => {
+      const m = line.match(re);
+      return m?.[1]?.trim() ?? "";
+    };
+    return {
+      division: getValue(/Division:\s*([^,]+)/i),
+      district: getValue(/District:\s*([^,]+)/i),
+      thana: getValue(/Thana:\s*([^,]+)/i),
+    };
+  }, []);
+
+  const handlePastPatientSelect = useCallback((patientId: string) => {
+    setSelectedPastPatientId(patientId);
+    if (!patientId) return;
+    const patient = pastPatients.find((p) => p.id === patientId);
+    if (!patient) return;
+    const parsed = parseAddressLine1(patient.address_line1);
+    setForm({
+      full_name_en: patient.full_name_en,
+      full_name_bn: patient.full_name_bn,
+      date_of_birth: patient.date_of_birth,
+      sex: patient.sex,
+      blood_group: patient.blood_group,
+      primary_phone: patient.primary_phone,
+      alternative_phone: "",
+      emergency_contact_name: "",
+      emergency_contact_relation: "",
+      emergency_contact_phone: patient.emergency_contact,
+      division: parsed.division,
+      district: parsed.district || patient.district,
+      thana: parsed.thana,
+      address_detail: patient.address_line2,
+      agent_notes: "",
+      has_emergency_flag: false,
+    });
+    setErrors([]);
+  }, [pastPatients, parseAddressLine1]);
 
   const getFieldError = (field: keyof FormData): string | undefined =>
     errors.find((e) => e.field === field)?.message;
@@ -168,7 +228,14 @@ export default function PatientRegistrationModal({ open, patientPhone, onClose, 
 
     try {
       const data = await callCenterApi.registerPatient(form);
-      onSuccess(data.id, data.mrn);
+      onSuccess({
+        id: data.id,
+        mrn: data.mrn,
+        full_name_en: form.full_name_en,
+        sex: form.sex,
+        primary_phone: form.primary_phone,
+        district: form.district,
+      });
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
@@ -237,6 +304,42 @@ export default function PatientRegistrationModal({ open, patientPhone, onClose, 
               <p className="text-[11px] text-red-600">{serverError}</p>
             </div>
           )}
+
+          {/* 0. Booking Context */}
+          <section className="rounded-xl border border-slate-200/60 bg-slate-50/50 p-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Booked By</label>
+                <div className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-medium text-[#0A2540]">
+                  {callerName}
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Book for a Past Patient</label>
+                <select
+                  value={selectedPastPatientId}
+                  onChange={(e) => handlePastPatientSelect(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#0A2540] transition-all outline-none focus:border-[#00D4B2] focus:ring-2 focus:ring-[#00D4B2]/20"
+                >
+                  <option value="">
+                    {pastPatientsLoading ? "Loading..." : pastPatients.length > 0 ? "-- Select a past patient --" : "No past patients found"}
+                  </option>
+                  {pastPatients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name_en} — {p.primary_phone}
+                    </option>
+                  ))}
+                </select>
+                {selectedPastPatientId && (
+                  <p className="mt-1 text-[10px] text-amber-600">
+                    Fields auto-filled from past record. Edit as needed.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <div className="border-t border-slate-200/60" />
 
           {/* 1. Patient Demographics */}
           <section>

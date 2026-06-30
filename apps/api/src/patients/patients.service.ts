@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
@@ -55,6 +55,7 @@ export class PatientsService {
         district: dto.district,
         emergency_contact: dto.emergency_contact_phone,
         has_emergency_flag: dto.has_emergency_flag ?? false,
+        booked_by: dto.booked_by || null,
       },
     });
 
@@ -63,5 +64,50 @@ export class PatientsService {
       mrn: patient.mrn,
       message: 'Patient registered successfully.',
     };
+  }
+
+  async findByBookedBy(email: string) {
+    const patients = await this.prisma.patients.findMany({
+      where: { booked_by: email },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        mrn: true,
+        first_name_en: true,
+        last_name_en: true,
+        first_name_bn: true,
+        last_name_bn: true,
+        date_of_birth: true,
+        sex: true,
+        blood_group: true,
+        phone_number: true,
+        address_line1: true,
+        address_line2: true,
+        district: true,
+        emergency_contact: true,
+        booked_by: true,
+      },
+    });
+
+    return patients.map((p) => ({
+      id: p.id,
+      mrn: p.mrn,
+      full_name_en: `${p.first_name_en} ${p.last_name_en}`.trim(),
+      full_name_bn: `${p.first_name_bn || ''} ${p.last_name_bn || ''}`.trim(),
+      date_of_birth: p.date_of_birth?.toISOString().split('T')[0] || '',
+      sex: p.sex === 'M' ? 'Male' as const : p.sex === 'F' ? 'Female' as const : 'Child' as const,
+      blood_group: p.blood_group || '',
+      primary_phone: p.phone_number || '',
+      address_line1: p.address_line1 || '',
+      address_line2: p.address_line2 || '',
+      district: p.district || '',
+      emergency_contact: p.emergency_contact || '',
+    }));
+  }
+
+  async findOne(id: string) {
+    const p = await this.prisma.patients.findUnique({ where: { id } });
+    if (!p) throw new NotFoundException('Patient not found.');
+    return p;
   }
 }
