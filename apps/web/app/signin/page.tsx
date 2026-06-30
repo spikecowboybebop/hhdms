@@ -60,6 +60,7 @@ export default function SignInPage() {
       const session: StoredSession = {
         token: accessToken,
         user: {
+          id: data?.user?.id,
           email: userEmail ?? email,
           first_name_en: firstNameEn,
           role: effectiveRole,

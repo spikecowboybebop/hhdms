@@ -6,6 +6,13 @@ import { CompleteReferralDto } from './dto/complete-referral.dto';
 export class SpecialistService {
   constructor(private prisma: PrismaService) {}
 
+  async getReferrals(doctorId: string) {
+    return this.prisma.specialist_referrals.findMany({
+      where: { specialist_id: doctorId },
+      include: {patient: true},
+    });
+  }
+
   private async resolveSpecialistProfile(userId?: string) {
     if (userId) {
       const byUserId = await this.prisma.specialist_profiles.findUnique({
