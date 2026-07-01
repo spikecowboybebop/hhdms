@@ -13,7 +13,7 @@ export class SpecialistService {
   async getReferrals(doctorId: string) {
     return this.prisma.specialist_referrals.findMany({
       where: { specialist_id: doctorId },
-      include: {patient: true},
+      include: { patient: true },
     });
   }
 

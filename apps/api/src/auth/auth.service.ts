@@ -107,12 +107,12 @@ export class AuthService {
     const newMobileUser = await this.prisma.user.create({
       data: {
         email,
-        passwordHash: hashedPassword,     // Maps to password_hash
-        phoneNumber: phone_number,        // Maps to phone_number
-        firstNameEn: first_name_en,       // Maps to first_name_en
-        lastNameEn: last_name_en,         // Maps to last_name_en
-        roleId: 7,                        // Mobile User roleId statically assigned
-        status: 'ACTIVE',                 // Maps to AccountStatusEnum.ACTIVE
+        passwordHash: hashedPassword, // Maps to password_hash
+        phoneNumber: phone_number, // Maps to phone_number
+        firstNameEn: first_name_en, // Maps to first_name_en
+        lastNameEn: last_name_en, // Maps to last_name_en
+        roleId: 7, // Mobile User roleId statically assigned
+        status: 'ACTIVE', // Maps to AccountStatusEnum.ACTIVE
         mfaEnabled: false,
       },
       select: {

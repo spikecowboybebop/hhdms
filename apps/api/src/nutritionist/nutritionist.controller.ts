@@ -101,7 +101,10 @@ export class NutritionistController {
   // GET /nutritionist/adherence?patientId=xxx
   @Get('adherence')
   getAdherenceLogs(@Req() req: any, @Query('patientId') patientId?: string) {
-    return this.nutritionistService.getAdherenceLogs(req.user.userId, patientId);
+    return this.nutritionistService.getAdherenceLogs(
+      req.user.userId,
+      patientId,
+    );
   }
 
   // ─── Nutrient Calculator ───────────────────────────────────────────────

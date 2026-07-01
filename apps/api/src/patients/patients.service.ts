@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
@@ -95,7 +99,12 @@ export class PatientsService {
       full_name_en: `${p.first_name_en} ${p.last_name_en}`.trim(),
       full_name_bn: `${p.first_name_bn || ''} ${p.last_name_bn || ''}`.trim(),
       date_of_birth: p.date_of_birth?.toISOString().split('T')[0] || '',
-      sex: p.sex === 'M' ? 'Male' as const : p.sex === 'F' ? 'Female' as const : 'Child' as const,
+      sex:
+        p.sex === 'M'
+          ? ('Male' as const)
+          : p.sex === 'F'
+            ? ('Female' as const)
+            : ('Child' as const),
       blood_group: p.blood_group || '',
       primary_phone: p.phone_number || '',
       address_line1: p.address_line1 || '',
