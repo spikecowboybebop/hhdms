@@ -73,7 +73,7 @@ export default function DicomLibraryPage() {
                             study.mrn.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesModality && matchesSearch;
     });
-  }, [modalityFilter, searchQuery]);
+    }, [modalityFilter, searchQuery, studies]);
 
   return (
     <DashboardShell

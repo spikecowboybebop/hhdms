@@ -9,6 +9,7 @@ import { SpecialistModule } from './specialist/specialist.module';
 import { CaregiverModule } from './caregiver/caregiver.module';
 import { PatientsModule } from './patients/patients.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { NutritionistModule } from './nutritionist/nutritionist.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BookingsModule } from './bookings/bookings.module';
     SpecialistModule,
     CaregiverModule,
     PatientsModule,
+    NutritionistModule,
     BookingsModule,
   ],
   controllers: [AppController],
