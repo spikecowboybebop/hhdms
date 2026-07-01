@@ -107,15 +107,41 @@ export default function CallCenterDashboardPage() {
   const [callerName, setCallerName] = useState<string>("Mobile User");
   const [callerEmail, setCallerEmail] = useState<string>("");
   const [showRegModal, setShowRegModal] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const callStartTimeRef = useRef<number | null>(null);
+  const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
   const patientSocketIdRef = useRef<string | null>(null);
+  const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   
   // Track dynamic current call state across async triggers inside a clean React ref
   const currentIncomingCallRef = useRef<any>(null);
   useEffect(() => {
     currentIncomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+
+  // Play ringtone when a call comes in, stop when dismissed
+  useEffect(() => {
+    if (incomingCall) {
+      const audio = new Audio('/classic-5916.mp3');
+      audio.loop = true;
+      audio.volume = 0.4;
+      audio.play().catch(() => {/* autoplay blocked — user will interact */});
+      ringtoneRef.current = audio;
+    } else {
+      if (ringtoneRef.current) {
+        ringtoneRef.current.pause();
+        ringtoneRef.current = null;
+      }
+    }
+    return () => {
+      if (ringtoneRef.current) {
+        ringtoneRef.current.pause();
+        ringtoneRef.current = null;
+      }
+    };
   }, [incomingCall]);
 
   // Open registration modal when call becomes active; close when it ends
@@ -125,6 +151,29 @@ export default function CallCenterDashboardPage() {
     } else {
       setShowRegModal(false);
     }
+  }, [callConnected]);
+
+  // Call duration timer
+  useEffect(() => {
+    if (callConnected) {
+      callStartTimeRef.current = Date.now();
+      setCallDuration(0);
+      callTimerRef.current = setInterval(() => {
+        setCallDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+      callStartTimeRef.current = null;
+    }
+    return () => {
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+    };
   }, [callConnected]);
 
   // Shared cleanup used by hangup, peer-disconnect, and connection-failure paths.
@@ -645,6 +694,8 @@ export default function CallCenterDashboardPage() {
         patientPhone={patientPhone || undefined}
         callerName={callerName}
         callerEmail={callerEmail}
+        callDuration={callDuration}
+        onEndCall={handleHangUp}
         onClose={() => setShowRegModal(false)}
         onSuccess={(result) => {
           router.push(
@@ -654,30 +705,39 @@ export default function CallCenterDashboardPage() {
       />
 
       {incomingCall && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-200">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-2xl animate-bounce">
-              🚨
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">Incoming Mobile Call</h3>
-            <p className="mt-1 text-xs text-slate-500">A patient is requesting a voice triage channel:</p>
-            <p className="mt-2 text-md font-extrabold text-teal-600 font-mono bg-slate-50 py-1.5 rounded-lg border border-slate-100">
-              {incomingCall.patientEmail}
-            </p>
-            
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={handleAnswerCall}
-                className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 active:scale-[0.98] transition"
-              >
-                Pick Up / Answer
-              </button>
-              <button
-                onClick={handleHangUp}
-                className="flex-1 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200 active:scale-[0.98] transition"
-              >
-                Decline
-              </button>
+        <div className="fixed top-0 left-0 right-0 z-[9999] flex justify-center pointer-events-none">
+          <div className="pointer-events-auto mt-4 w-full max-w-sm rounded-2xl bg-white px-5 py-4 shadow-2xl border border-slate-200 animate-slide-down">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-50">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00D4B2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v3a2 2 0 0 1-2 2 16 16 0 0 1-15-15 2 2 0 0 1 2-2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500">Incoming Call</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{callerName}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleAnswerCall}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 active:scale-90 transition-all"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleHangUp}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg hover:bg-rose-600 active:scale-90 transition-all"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
