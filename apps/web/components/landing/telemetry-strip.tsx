@@ -1,27 +1,27 @@
 export function TelemetryStrip() {
   const items = [
     {
-      label: "Average Dispatch Tracking Precision",
-      value: "≤ 10",
-      unit: "Meters",
+      label: "Service Categories",
+      value: "6+",
+      unit: "Specialized",
       highlight: true,
     },
     {
-      label: "Active Emergency Triage Dispatch",
-      value: "Live",
-      unit: "Core Active",
+      label: "Specialist Fields",
+      value: "11",
+      unit: "Categories",
       highlight: false,
     },
     {
-      label: "Clinicians En-Route / On-Duty",
-      value: "84",
-      unit: "Verified",
+      label: "Patients Served",
+      value: "12,400+",
+      unit: "Nationwide",
       highlight: false,
     },
     {
-      label: "Average Gateway Triage Queue",
-      value: "< 15",
-      unit: "Mins",
+      label: "Average Response",
+      value: "< 30",
+      unit: "Minutes",
       highlight: false,
     },
   ];

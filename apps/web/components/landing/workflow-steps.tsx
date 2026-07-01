@@ -1,37 +1,41 @@
 const steps = [
   {
     n: "01",
-    title: "Phone Call Intake",
-    body: "Patient or family initiates service via verified hotline. Identity, location, and chief complaint captured.",
+    title: "Call & Register",
+    body: "Patient or guardian calls our service center. The agent captures identity, symptoms, and preferences, then registers the patient and books the required service.",
   },
   {
     n: "02",
-    title: "Automated Dispatch & Verification",
-    body: "Smart routing engine matches the nearest available clinician and dispatches with cryptographic identity proof.",
+    title: "Assign & Dispatch",
+    body: "The system intelligently assigns the nearest available provider based on service type, location, and urgency. The provider receives instant notification.",
   },
   {
     n: "03",
-    title: "Geofenced Care Delivery",
-    body: "Clinician arrives on-site. Geofence unlock triggers portable diagnostic activation and live triage sync.",
+    title: "Deliver Care",
+    body: "Provider arrives at the patient's home. GPS-verified check-in, clinical assessment, diagnostics, and treatment are documented in real time.",
   },
   {
     n: "04",
-    title: "Immutable Diagnostic Record Archival",
-    body: "Encounter data sealed to a tamper-evident audit ledger and synced to the patient's longitudinal health record.",
+    title: "Report & Follow-up",
+    body: "Consultation reports, prescriptions, and invoices are delivered via SMS/WhatsApp. Follow-up appointments and reminders are scheduled automatically.",
   },
 ];
 
 export function WorkflowSteps() {
   return (
-    <section id="mission" className="bg-[#F8F9FA] py-20">
+    <section id="workflow" className="bg-[#F8F9FA] py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-12 flex flex-col gap-3">
+        <div className="mb-12 flex flex-col gap-3 text-center">
           <span className="text-xs font-semibold uppercase tracking-widest text-[#00D4B2]">
-            Operational Pipeline
+            How It Works
           </span>
           <h2 className="text-4xl font-bold tracking-tight text-[#0A2540] sm:text-5xl">
-            How a Service Ticket Moves
+            From Call to Care in Four Steps
           </h2>
+          <p className="mx-auto max-w-2xl text-base text-[#2D3A4A]">
+            A unified workflow that ensures every patient receives timely, coordinated care —
+            from the moment you call to post-visit follow-up.
+          </p>
         </div>
 
         <ol className="relative grid grid-cols-1 gap-6 md:grid-cols-4">

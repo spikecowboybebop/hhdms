@@ -1,15 +1,15 @@
 const columns = [
   {
-    title: "Regulatory",
-    links: ["DGHS Compliance", "BMDC Registration", "Telemedicine Guidelines", "Audit Reports"],
+    title: "Services",
+    links: ["MBBS Doctor", "Specialist Consultation", "Nursing Care", "Nutritionist", "Caregiver Support", "Portable Diagnostics"],
   },
   {
-    title: "Medical Act",
-    links: ["Patient Rights Charter", "Informed Consent", "Emergency Protocols", "Code of Conduct"],
+    title: "Resources",
+    links: ["Patient Rights Charter", "Informed Consent", "Emergency Protocols", "Telemedicine Guidelines", "FAQ"],
   },
   {
-    title: "Data Protection",
-    links: ["Privacy Policy", "Data Retention", "HIPAA Equivalence", "Breach Disclosures"],
+    title: "Legal",
+    links: ["Privacy Policy", "Terms of Service", "Data Protection", "BMDC Compliance", "Audit Reports"],
   },
 ];
 
@@ -21,15 +21,15 @@ export function Footer() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#0A2540] text-[#00D4B2] font-bold">
-                M
+                A
               </span>
               <span className="text-base font-bold tracking-tight text-[#0A2540]">
-                MEDLY <span className="text-slate-300">/</span> HHDMS
+                Aastha <span className="text-slate-300">/</span> HHDMS
               </span>
             </div>
             <p className="text-sm leading-relaxed">
-              A centralized digital ecosystem for telehealth, dispatch, and clinical triage
-              across Bangladesh.
+              Bangladesh&apos;s trusted home healthcare network — connecting patients with verified
+              doctors, specialists, nurses, nutritionists, and caregivers.
             </p>
           </div>
 
