@@ -10,6 +10,7 @@ import { CaregiverModule } from './caregiver/caregiver.module';
 import { PatientsModule } from './patients/patients.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { NutritionistModule } from './nutritionist/nutritionist.module';
+import { ProvidersModule } from './providers/providers.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NutritionistModule } from './nutritionist/nutritionist.module';
     PatientsModule,
     NutritionistModule,
     BookingsModule,
+    ProvidersModule,
   ],
   controllers: [AppController],
   providers: [AppService, CallGateway],

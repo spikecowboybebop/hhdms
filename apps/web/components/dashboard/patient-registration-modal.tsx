@@ -313,7 +313,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
     setServerError(null);
 
     try {
-      const data = await callCenterApi.registerPatient(form);
+      const data = await callCenterApi.registerPatient({ ...form, booked_by: callerEmail });
       setRegisteredPatientId(data.id);
       setRegisteredMrn(data.mrn);
       setStep(4);
@@ -874,6 +874,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                       serviceType={newServiceType}
                       date={newDate}
                       district={form.district}
+                      thana={form.thana}
                       onSelect={setNewProviderId}
                       selectedProviderId={newProviderId}
                     />
@@ -975,6 +976,11 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                     <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-2">
                       <span className="text-sm font-bold text-[#0A2540]">Total</span>
                       <span className="text-lg font-bold text-[#0A2540]">৳{totalAmount}</span>
+                    </div>
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-[14px] font-medium text-amber-800">
+                        This is the base cost. The final amount may increase based on the assigned doctor's consultation fee, miscellaneous charges, and other applicable fees.
+                      </p>
                     </div>
                   </div>
                 )}

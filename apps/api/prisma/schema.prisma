@@ -52,6 +52,8 @@ model mbbs_doctor_profiles {
   years_of_experience Int?                         @map("years_of_experience")
   consultation_fee    Decimal?                     @map("consultation_fee") @db.Decimal(10, 2)
   signature_url       String?                      @map("signature_url") @db.VarChar(512)
+  district            String?                      @map("district") @db.VarChar(100)
+  thana               String?                      @map("thana") @db.VarChar(100)
   is_available        Boolean                      @default(true) @map("is_available")
   created_at          DateTime?                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at          DateTime?                    @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -63,8 +65,24 @@ model mbbs_doctor_profiles {
   vital_signs         patient_vital_signs[]
   prescriptions       prescriptions[]
   referrals           specialist_referrals[]
+  schedules           provider_schedules[]
 
   @@map("mbbs_doctor_profiles")
+}
+
+model provider_schedules {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_id String               @map("provider_id") @db.Uuid
+  day_of_week Int                  @map("day_of_week")
+  start_time  String               @map("start_time") @db.VarChar(5)
+  end_time    String               @map("end_time") @db.VarChar(5)
+  is_available Boolean             @default(true) @map("is_available")
+  created_at  DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at  DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  provider    mbbs_doctor_profiles @relation(fields: [provider_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider_id, day_of_week, start_time])
+  @@map("provider_schedules")
 }
 
 model nutritionist_profiles {

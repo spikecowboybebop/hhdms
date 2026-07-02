@@ -13,6 +13,49 @@ export class BookingsService {
     return `TKT-${y}-${rand}`;
   }
 
+  private async assignMbbsDoctor(
+    tx: any,
+    patientId: string,
+    scheduledDate: string | undefined,
+  ): Promise<string | null> {
+    const patient = await tx.patients.findUnique({
+      where: { id: patientId },
+      select: { district: true },
+    });
+
+    const dayOfWeek =
+      scheduledDate !== undefined
+        ? new Date(scheduledDate).getDay()
+        : undefined;
+
+    const where: Record<string, unknown> = { is_available: true };
+
+    if (dayOfWeek !== undefined) {
+      where.schedules = {
+        some: { day_of_week: dayOfWeek, is_available: true },
+      };
+    }
+
+    const doctors = await tx.mbbs_doctor_profiles.findMany({
+      where,
+      include: {
+        _count: { select: { patient_assignments: true } },
+      },
+      orderBy: { patient_assignments: { _count: 'asc' } },
+    });
+
+    if (doctors.length === 0) return null;
+
+    if (patient?.district) {
+      const sameDistrict = doctors.filter(
+        (d: any) => d.district === patient.district,
+      );
+      if (sameDistrict.length > 0) return sameDistrict[0].user_id;
+    }
+
+    return doctors[0].user_id;
+  }
+
   async createSession(dto: CreateBookingSessionDto) {
     const totalAmount = dto.services.reduce((sum, s) => sum + s.price, 0);
 
@@ -33,9 +76,20 @@ export class BookingsService {
         service_type: string;
         price: number | null;
         status: string;
+        assigned_provider_id: string | null;
       }[] = [];
 
       for (const svc of dto.services) {
+        let providerId = svc.assigned_provider_id ?? null;
+
+        if (!providerId && svc.service_type === 'MBBS') {
+          providerId = await this.assignMbbsDoctor(
+            tx,
+            dto.patient_id,
+            svc.scheduled_date,
+          );
+        }
+
         const ticket = await tx.service_tickets.create({
           data: {
             session_id: session.id,
@@ -45,9 +99,9 @@ export class BookingsService {
               ? new Date(svc.scheduled_date)
               : null,
             scheduled_time_slot: svc.scheduled_time_slot ?? null,
-            assigned_provider_id: svc.assigned_provider_id ?? null,
+            assigned_provider_id: providerId,
             price: svc.price,
-            status: 'PENDING',
+            status: providerId ? 'ASSIGNED' : 'PENDING',
           },
         });
 
@@ -69,6 +123,7 @@ export class BookingsService {
           service_type: ticket.service_type,
           price: ticket.price ? Number(ticket.price) : null,
           status: ticket.status,
+          assigned_provider_id: providerId,
         });
       }
 
