@@ -286,22 +286,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   };
 
   const handleClose = useCallback(() => {
-    setForm(initialForm);
-    setErrors([]);
-    setServerError(null);
-    setSubmitting(false);
-    setStep(0);
     onClose();
   }, [onClose]);
-
-  useEffect(() => {
-    if (!open) {
-      setForm(initialForm);
-      setErrors([]);
-      setServerError(null);
-      setStep(0);
-    }
-  }, [open]);
 
   if (!open) return null;
 
@@ -324,20 +310,20 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
-      <div className="flex w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
+      <div className="flex w-full max-w-4xl h-[560px] overflow-hidden rounded-2xl bg-white shadow-2xl animate-in fade-in zoom-in duration-200">
         {/* Left Panel — Caller Info */}
-        <div className="flex w-64 shrink-0 flex-col items-center justify-between bg-gradient-to-b from-[#0A2540] to-[#0A2540]/90 px-6 py-8">
+        <div className="flex w-80 shrink-0 flex-col items-center justify-between bg-gradient-to-b from-[#0A2540] to-[#0A2540]/90 px-6 py-10">
           <div className="flex flex-col items-center gap-1 w-full">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-2xl font-bold text-white ring-2 ring-white/20">
               {initials}
             </div>
-            <p className="mt-3 text-center text-sm font-semibold text-white/90">{callerName}</p>
-            <p className="text-[10px] text-white/50">{callerEmail}</p>
+            <p className="mt-3 text-center text-lg font-semibold text-white">{callerName}</p>
+            <p className="text-[16px] text-white">{callerEmail}</p>
           </div>
 
           <div className="flex flex-col items-center gap-6">
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-widest text-white/40">Call Duration</p>
+              <p className="text-[10px] uppercase tracking-widest text-white">Call Duration</p>
               <p className="mt-1 text-2xl font-mono font-bold text-white tabular-nums">{formatDuration(callDuration)}</p>
             </div>
 
@@ -345,9 +331,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
               onClick={onEndCall}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg hover:bg-rose-600 active:scale-90 transition-all"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
-                <line x1="1" y1="1" x2="23" y2="23" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.18-.29-.43-.29-.71 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
               </svg>
             </button>
           </div>
@@ -356,11 +341,11 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
         {/* Right Panel — Form */}
         <div className="flex flex-1 flex-col min-w-0">
           {/* Step Indicator */}
-          <div className="flex items-center gap-0 border-b border-slate-200/60 px-6">
+          <div className="flex items-center gap-0 overflow-x-auto border-b border-slate-200/60 px-5 scrollbar-none">
             {STEPS.map((s, i) => (
               <div
                 key={s.key}
-                className={`relative flex items-center gap-2 px-4 py-3 text-xs font-semibold transition-colors ${
+                className={`flex shrink-0 items-center gap-1.5 px-2 py-3 text-xs font-semibold transition-colors ${
                   i === step
                     ? "text-[#0A2540]"
                     : i < step
@@ -379,16 +364,16 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                 >
                   {i < step ? "✓" : i + 1}
                 </span>
-                <span className="hidden sm:inline">{s.label}</span>
+                <span className="whitespace-nowrap">{s.label}</span>
                 {i < STEPS.length - 1 && (
-                  <div className={`ml-4 h-px w-8 ${i < step ? "bg-[#00D4B2]" : "bg-slate-200"}`} />
+                  <div className={`ml-2 h-px w-6 ${i < step ? "bg-[#00D4B2]/50" : "bg-slate-200"}`} />
                 )}
               </div>
             ))}
           </div>
 
           {/* Form Body */}
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             {serverError && (
               <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                 <p className="text-[11px] text-red-600">{serverError}</p>
@@ -423,7 +408,6 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                     </select>
                     {selectedPastPatientId && (
                       <p className="mt-1 text-[10px] text-amber-600">
-                        Fields auto-filled from past record. Edit as needed.
                       </p>
                     )}
                   </div>

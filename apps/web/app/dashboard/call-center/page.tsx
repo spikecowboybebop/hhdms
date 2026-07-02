@@ -108,6 +108,7 @@ export default function CallCenterDashboardPage() {
   const [callerEmail, setCallerEmail] = useState<string>("");
   const [showRegModal, setShowRegModal] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [callSessionKey, setCallSessionKey] = useState(0);
   const callStartTimeRef = useRef<number | null>(null);
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -147,6 +148,7 @@ export default function CallCenterDashboardPage() {
   // Open registration modal when call becomes active; close when it ends
   useEffect(() => {
     if (callConnected) {
+      setCallSessionKey((k) => k + 1);
       setShowRegModal(true);
     } else {
       setShowRegModal(false);
@@ -458,12 +460,20 @@ export default function CallCenterDashboardPage() {
               🎙️ Live Audio Peer-to-Peer Connection Stream Active with Patient
             </p>
           </div>
-          <button
-            onClick={handleHangUp}
-            className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
-          >
-            Disconnect Line
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRegModal(true)}
+              className="rounded-lg bg-white border border-emerald-500/30 px-4 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition"
+            >
+              Return To Call
+            </button>
+            <button
+              onClick={handleHangUp}
+              className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
+            >
+              Disconnect Line
+            </button>
+          </div>
         </div>
       )}
 
@@ -690,6 +700,7 @@ export default function CallCenterDashboardPage() {
       </div>
 
       <PatientRegistrationModal
+        key={callSessionKey}
         open={showRegModal}
         patientPhone={patientPhone || undefined}
         callerName={callerName}
@@ -732,9 +743,8 @@ export default function CallCenterDashboardPage() {
                   onClick={handleHangUp}
                   className="flex h-11 w-11 items-center justify-center rounded-full bg-rose-500 text-white shadow-lg hover:bg-rose-600 active:scale-90 transition-all"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.18-.29-.43-.29-.71 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
                   </svg>
                 </button>
               </div>
