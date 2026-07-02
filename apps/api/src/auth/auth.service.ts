@@ -123,9 +123,58 @@ export class AuthService {
       },
     });
 
+    const normalized = phone_number.startsWith('+880')
+      ? phone_number
+      : `+880${phone_number.replace(/^0+/, '')}`;
+    const alternate = phone_number.startsWith('+880')
+      ? `0${phone_number.slice(3)}`
+      : phone_number;
+
+    let linkedPatientId: string | null = null;
+
+    const matchedPatient = await this.prisma.patients.findFirst({
+      where: {
+        OR: [
+          { phone_number },
+          { phone_number: normalized },
+          { phone_number: alternate },
+        ],
+      },
+    });
+    if (matchedPatient) {
+      await this.prisma.patients.update({
+        where: { id: matchedPatient.id },
+        data: { user_id: newMobileUser.id },
+      });
+      linkedPatientId = matchedPatient.id;
+    } else {
+      const mrn = `MRN-${Date.now()}-${String(Math.random()).slice(2, 8)}`;
+      const newPatient = await this.prisma.patients.create({
+        data: {
+          mrn,
+          first_name_en,
+          last_name_en,
+          phone_number,
+          sex: 'U',
+          user_id: newMobileUser.id,
+          booked_by: null,
+        },
+      });
+      linkedPatientId = newPatient.id;
+    }
+
+    const jwtPayload = {
+      sub: newMobileUser.id,
+      email: newMobileUser.email,
+      role: 'MOBILE_USER',
+    };
+    const accessToken = await this.jwtService.signAsync(jwtPayload);
+
     return {
       message: 'Mobile user registration completed successfully.',
       userId: newMobileUser.id,
+      patientId: linkedPatientId,
+      access_token: accessToken,
     };
   }
 }

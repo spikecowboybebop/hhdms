@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingSessionDto } from './dto/create-booking.dto';
 
 @Injectable()
 export class BookingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   private generateTicketNo(): string {
     const now = new Date();
@@ -59,7 +63,7 @@ export class BookingsService {
   async createSession(dto: CreateBookingSessionDto) {
     const totalAmount = dto.services.reduce((sum, s) => sum + s.price, 0);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const session = await tx.booking_sessions.create({
         data: {
           patient_id: dto.patient_id,
@@ -134,5 +138,45 @@ export class BookingsService {
         tickets,
       };
     });
+
+    const raw = await this.prisma.$queryRawUnsafe<{ user_id: string | null }[]>(
+      `SELECT user_id FROM patients WHERE id = $1`,
+      dto.patient_id,
+    );
+    const patientUserId = raw[0]?.user_id ?? null;
+
+    console.log(
+      `[NOTIFICATION] Patient lookup: id=${dto.patient_id}, user_id=${patientUserId}`,
+    );
+
+    if (patientUserId) {
+      const serviceLabels = result.tickets
+        .map((t) => t.service_type)
+        .join(', ');
+
+      console.log(
+        `[NOTIFICATION] Sending push to user ${patientUserId} for session ${result.session_id}`,
+      );
+
+      this.notificationsService
+        .sendToUser(
+          patientUserId,
+          {
+            title: 'Service Booking Confirmed',
+            body: `A new service booking (${serviceLabels}) has been created for you.`,
+          },
+          {
+            session_id: result.session_id,
+            type: 'booking_confirmed',
+          },
+        )
+        .catch((err) =>
+          console.error('[NOTIFICATION] Failed to send booking notification:', err),
+        );
+    } else {
+      console.log('[NOTIFICATION] No user_id on patient, skipping push');
+    }
+
+    return result;
   }
 }

@@ -11,6 +11,7 @@ import { PatientsModule } from './patients/patients.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { NutritionistModule } from './nutritionist/nutritionist.module';
 import { ProvidersModule } from './providers/providers.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ProvidersModule } from './providers/providers.module';
     NutritionistModule,
     BookingsModule,
     ProvidersModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService, CallGateway],
