@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { callCenterApi } from "@/lib/call-center-api";
+import { callCenterApi, type BookingSessionResult } from "@/lib/call-center-api";
+import ServiceFormFields from "@/components/dashboard/service-form-fields";
+import ProviderSelector, { type ServiceFormMeta } from "@/components/dashboard/provider-selector";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -66,6 +68,31 @@ const DIVISIONS = {
   },
 };
 
+const STEPS = [
+  { label: "Demographics", key: "demographics" },
+  { label: "Contact", key: "contact" },
+  { label: "Address", key: "address" },
+  { label: "Register", key: "register" },
+  { label: "Services", key: "services" },
+  { label: "Booking", key: "booking" },
+] as const;
+
+const SERVICE_CONFIG: Record<string, { label: string; price: number }> = {
+  MBBS: { label: "MBBS Doctor Consultation", price: 800 },
+  SPECIALIST: { label: "Specialist Doctor Consultation", price: 1200 },
+  ADULT_NURSE: { label: "Adult Nursing Service", price: 1500 },
+  PEDIATRIC_NURSE: { label: "Pediatric Nursing Service", price: 1500 },
+  NUTRITIONIST: { label: "Nutritionist Consultation", price: 1000 },
+  CAREGIVER: { label: "Caregiver (M/F/Child)", price: 2500 },
+  USG: { label: "Ultrasound (USG)", price: 1200 },
+  XRAY: { label: "X-Ray", price: 500 },
+};
+
+const TIME_SLOTS = [
+  "09:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
+  "14:00-15:00", "15:00-16:00", "16:00-17:00",
+];
+
 interface Props {
   open: boolean;
   patientPhone?: string;
@@ -74,7 +101,6 @@ interface Props {
   callDuration: number;
   onEndCall: () => void;
   onClose: () => void;
-  onSuccess: (result: { id: string; mrn: string; full_name_en: string; sex: string; primary_phone: string; district: string }) => void;
 }
 
 interface FormData {
@@ -120,12 +146,17 @@ interface FieldError {
   message: string;
 }
 
-const STEPS = [
-  { label: "Demographics", key: "demographics" },
-  { label: "Contact", key: "contact" },
-  { label: "Address", key: "address" },
-  { label: "Review", key: "review" },
-] as const;
+interface CartItem {
+  id: string;
+  service_type: string;
+  scheduled_date: string;
+  scheduled_time_slot: string;
+  price: number;
+  assigned_provider_id: string | null;
+  additional_meta: ServiceFormMeta;
+}
+
+let cartIdCounter = 0;
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -142,7 +173,7 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export default function PatientRegistrationModal({ open, patientPhone, callerName, callerEmail, callDuration, onEndCall, onClose, onSuccess }: Props) {
+export default function PatientRegistrationModal({ open, patientPhone, callerName, callerEmail, callDuration, onEndCall, onClose }: Props) {
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -151,6 +182,20 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   const [pastPatientsLoading, setPastPatientsLoading] = useState(false);
   const [selectedPastPatientId, setSelectedPastPatientId] = useState("");
   const [step, setStep] = useState(0);
+
+  const [registeredPatientId, setRegisteredPatientId] = useState<string | null>(null);
+  const [registeredMrn, setRegisteredMrn] = useState<string | null>(null);
+
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newServiceType, setNewServiceType] = useState("");
+  const [newDate, setNewDate] = useState("");
+  const [newTimeSlot, setNewTimeSlot] = useState("");
+  const [newProviderId, setNewProviderId] = useState<string | null>(null);
+  const [newMeta, setNewMeta] = useState<ServiceFormMeta>({});
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingResult, setBookingResult] = useState<BookingSessionResult | null>(null);
 
   useEffect(() => {
     if (open && callerEmail) {
@@ -263,25 +308,79 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   };
 
   const handleSubmit = async () => {
-    // Validate all required fields before final submit
     if (!validateStep(0) || !validateStep(1) || !validateStep(2)) return;
     setSubmitting(true);
     setServerError(null);
 
     try {
       const data = await callCenterApi.registerPatient(form);
-      onSuccess({
-        id: data.id,
-        mrn: data.mrn,
-        full_name_en: form.full_name_en,
-        sex: form.sex,
-        primary_phone: form.primary_phone,
-        district: form.district,
-      });
+      setRegisteredPatientId(data.id);
+      setRegisteredMrn(data.mrn);
+      setStep(4);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const resetAddForm = useCallback(() => {
+    setNewServiceType("");
+    setNewDate("");
+    setNewTimeSlot("");
+    setNewProviderId(null);
+    setNewMeta({});
+    setShowAddForm(false);
+  }, []);
+
+  const handleAddToCart = useCallback(() => {
+    if (!newServiceType) return;
+    const item: CartItem = {
+      id: `cart-${++cartIdCounter}`,
+      service_type: newServiceType,
+      scheduled_date: newDate,
+      scheduled_time_slot: newTimeSlot,
+      price: SERVICE_CONFIG[newServiceType]?.price ?? 0,
+      assigned_provider_id: newProviderId,
+      additional_meta: { ...newMeta },
+    };
+    setCart((prev) => [...prev, item]);
+    resetAddForm();
+  }, [newServiceType, newDate, newTimeSlot, newProviderId, newMeta, resetAddForm]);
+
+  const handleRemoveFromCart = useCallback((id: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  const handleSubmitBooking = async () => {
+    if (cart.length === 0 || !registeredPatientId) return;
+    setBookingSubmitting(true);
+    setBookingError(null);
+
+    try {
+      const payload = cart.map((item) => ({
+        service_type: item.service_type,
+        scheduled_date: item.scheduled_date || undefined,
+        scheduled_time_slot: item.scheduled_time_slot || undefined,
+        price: item.price,
+        assigned_provider_id: item.assigned_provider_id || undefined,
+        additional_meta: Object.values(item.additional_meta).some((v) => v)
+          ? (item.additional_meta as Record<string, unknown>)
+          : undefined,
+      }));
+
+      const data = await callCenterApi.createBookingSession({
+        patient_id: registeredPatientId,
+        booked_by: callerEmail,
+        services: payload,
+      });
+
+      setBookingResult(data);
+      setCart([]);
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : "Booking submission failed.");
+    } finally {
+      setBookingSubmitting(false);
     }
   };
 
@@ -307,6 +406,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   const requiredMark = <span className="text-red-500 ml-0.5">*</span>;
 
   const initials = getInitials(callerName);
+  const totalAmount = cart.reduce((sum, i) => sum + i.price, 0);
+  const cartServicesInCart = new Set(cart.map((i) => i.service_type));
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
@@ -338,50 +439,86 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
           </div>
         </div>
 
-        {/* Right Panel — Form */}
+        {/* Right Panel */}
         <div className="flex flex-1 flex-col min-w-0">
-          {/* Step Indicator */}
-          <div className="flex items-center gap-0 overflow-x-auto border-b border-slate-200/60 px-5 scrollbar-none">
-            {STEPS.map((s, i) => (
-              <div
-                key={s.key}
-                className={`flex shrink-0 items-center gap-1.5 px-2 py-3 text-xs font-semibold transition-colors ${
-                  i === step
-                    ? "text-[#0A2540]"
-                    : i < step
-                    ? "text-[#00D4B2]"
-                    : "text-slate-300"
-                }`}
-              >
-                <span
-                  className={`grid h-6 w-6 place-items-center rounded-lg text-[10px] font-bold ${
+          {/* Step Indicator — hidden on booking success */}
+          {!bookingResult && (
+            <div className="flex items-center gap-0 overflow-x-auto border-b border-slate-200/60 px-5 scrollbar-none">
+              {STEPS.map((s, i) => (
+                <div
+                  key={s.key}
+                  className={`flex shrink-0 items-center gap-1.5 px-2 py-3 text-xs font-semibold transition-colors ${
                     i === step
-                      ? "bg-[#0A2540] text-white"
+                      ? "text-[#0A2540]"
                       : i < step
-                      ? "bg-[#00D4B2]/10 text-[#00D4B2]"
-                      : "bg-slate-100 text-slate-300"
+                      ? "text-[#00D4B2]"
+                      : "text-slate-300"
                   }`}
                 >
-                  {i < step ? "✓" : i + 1}
-                </span>
-                <span className="whitespace-nowrap">{s.label}</span>
-                {i < STEPS.length - 1 && (
-                  <div className={`ml-2 h-px w-6 ${i < step ? "bg-[#00D4B2]/50" : "bg-slate-200"}`} />
-                )}
-              </div>
-            ))}
-          </div>
+                  <span
+                    className={`grid h-6 w-6 place-items-center rounded-lg text-[10px] font-bold ${
+                      i === step
+                        ? "bg-[#0A2540] text-white"
+                        : i < step
+                        ? "bg-[#00D4B2]/10 text-[#00D4B2]"
+                        : "bg-slate-100 text-slate-300"
+                    }`}
+                  >
+                    {i < step ? "✓" : i + 1}
+                  </span>
+                  <span className="whitespace-nowrap">{s.label}</span>
+                  {i < STEPS.length - 1 && (
+                    <div className={`ml-2 h-px w-6 ${i < step ? "bg-[#00D4B2]/50" : "bg-slate-200"}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Form Body */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {serverError && (
+            {serverError && !bookingResult && (
               <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                 <p className="text-[11px] text-red-600">{serverError}</p>
               </div>
             )}
 
+            {/* Booking Success View */}
+            {bookingResult && (
+              <div className="flex flex-col items-center justify-center h-full py-8">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 animate-in zoom-in duration-300">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-[#0A2540]">Booking Successful</h3>
+                <p className="mt-1 text-xs text-slate-500 text-center">
+                  Service has been booked for the patient successfully.
+                </p>
+                <p className="mt-3 text-[10px] text-slate-400 font-mono">
+                  Session: {bookingResult.session_id}
+                </p>
+                <div className="mt-4 w-full max-w-sm space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Tickets</p>
+                  {bookingResult.tickets.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-xs font-semibold text-[#0A2540]">{t.ticket_no}</span>
+                        <span className="text-[10px] text-slate-500">{t.service_type}</span>
+                      </div>
+                      <span className="text-xs font-bold text-[#0A2540]">৳{t.price ?? 0}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-2 mt-2">
+                    <span className="text-xs font-bold text-[#0A2540]">Total</span>
+                    <span className="text-sm font-bold text-[#0A2540]">৳{bookingResult.total_amount}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Past patient selector — show on step 0 */}
-            {step === 0 && (
+            {step === 0 && !bookingResult && (
               <section className="mb-4 rounded-xl border border-slate-200/60 bg-slate-50/50 p-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -415,8 +552,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
               </section>
             )}
 
-            {/* Step 1: Demographics */}
-            {step === 0 && (
+            {/* Step 0: Demographics */}
+            {step === 0 && !bookingResult && (
               <section>
                 <h3 className="text-sm font-bold text-[#0A2540] mb-3">Patient Demographics</h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -483,8 +620,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
               </section>
             )}
 
-            {/* Step 2: Contact */}
-            {step === 1 && (
+            {/* Step 1: Contact */}
+            {step === 1 && !bookingResult && (
               <section>
                 <h3 className="text-sm font-bold text-[#0A2540] mb-3">Contact Information</h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -547,8 +684,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
               </section>
             )}
 
-            {/* Step 3: Address */}
-            {step === 2 && (
+            {/* Step 2: Address */}
+            {step === 2 && !bookingResult && (
               <section>
                 <h3 className="text-sm font-bold text-[#0A2540] mb-3">Geographic Address &amp; Routing</h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -618,8 +755,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
               </section>
             )}
 
-            {/* Step 4: Review & Notes */}
-            {step === 3 && (
+            {/* Step 3: Review & Register */}
+            {step === 3 && !bookingResult && (
               <section>
                 <h3 className="text-sm font-bold text-[#0A2540] mb-3">Administrative Notes</h3>
                 <div>
@@ -646,39 +783,257 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                 </div>
               </section>
             )}
+
+            {/* Step 4: Services */}
+            {step === 4 && !bookingResult && (
+              <section>
+                <h3 className="text-sm font-bold text-[#0A2540] mb-3">Add Services</h3>
+
+                {registeredMrn && (
+                  <p className="mb-3 text-[10px] text-emerald-600 font-medium">
+                    Patient registered — MRN: {registeredMrn}
+                  </p>
+                )}
+
+                {!showAddForm ? (
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    className="w-full rounded-lg border-2 border-dashed border-slate-200 py-3 text-xs font-semibold text-slate-400 hover:border-[#00D4B2] hover:text-[#00D4B2] transition"
+                  >
+                    + Add Service
+                  </button>
+                ) : (
+                  <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">Service Type</label>
+                        <select
+                          value={newServiceType}
+                          onChange={(e) => { setNewServiceType(e.target.value); setNewMeta({}); }}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-[#0A2540] outline-none focus:border-[#00D4B2]"
+                        >
+                          <option value="">Select</option>
+                          {Object.entries(SERVICE_CONFIG).map(([key, cfg]) => (
+                            <option key={key} value={key} disabled={cartServicesInCart.has(key)}>
+                              {cfg.label} — ৳{cfg.price}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={newDate}
+                          onChange={(e) => setNewDate(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-[#0A2540] outline-none focus:border-[#00D4B2]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">Time Slot</label>
+                        <select
+                          value={newTimeSlot}
+                          onChange={(e) => setNewTimeSlot(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-[#0A2540] outline-none focus:border-[#00D4B2]"
+                        >
+                          <option value="">Select</option>
+                          {TIME_SLOTS.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <p className="text-xs font-bold text-[#0A2540]">
+                          ৳{newServiceType ? SERVICE_CONFIG[newServiceType]?.price ?? 0 : 0}
+                        </p>
+                      </div>
+                    </div>
+
+                    {newServiceType && (
+                      <ServiceFormFields
+                        serviceType={newServiceType}
+                        meta={newMeta}
+                        onChange={setNewMeta}
+                      />
+                    )}
+
+                    <ProviderSelector
+                      serviceType={newServiceType}
+                      date={newDate}
+                      district={form.district}
+                      onSelect={setNewProviderId}
+                      selectedProviderId={newProviderId}
+                    />
+
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={resetAddForm}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-100 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleAddToCart}
+                        disabled={!newServiceType}
+                        className="rounded-lg bg-[#0A2540] px-4 py-1.5 text-[10px] font-bold text-white hover:bg-[#0A2540]/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Add to Cart
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-2">
+                    Cart ({cart.length})
+                  </p>
+                  {cart.length === 0 ? (
+                    <p className="py-4 text-center text-[10px] text-slate-400 italic">
+                      No services added yet.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {cart.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-3 py-2.5">
+                          <div className="flex flex-col leading-tight">
+                            <span className="text-xs font-semibold text-[#0A2540]">
+                              {SERVICE_CONFIG[item.service_type]?.label ?? item.service_type}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {item.scheduled_date || "TBD"} {item.scheduled_time_slot ? `• ${item.scheduled_time_slot}` : ""}
+                              {item.assigned_provider_id ? " • Provider assigned" : ""}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-[#0A2540]">৳{item.price}</span>
+                            <button
+                              onClick={() => handleRemoveFromCart(item.id)}
+                              className="rounded p-1 text-slate-300 hover:text-red-500 transition"
+                              aria-label="Remove"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Step 5: Booking Review & Submit */}
+            {step === 5 && !bookingResult && (
+              <section>
+                <h3 className="text-sm font-bold text-[#0A2540] mb-3">Review & Submit Booking</h3>
+
+                {bookingError && (
+                  <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                    <p className="text-[11px] text-red-600">{bookingError}</p>
+                  </div>
+                )}
+
+                {cart.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-slate-400 italic">No services in cart.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {cart.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-4 py-3">
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-sm font-semibold text-[#0A2540]">
+                            {SERVICE_CONFIG[item.service_type]?.label ?? item.service_type}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {item.scheduled_date || "TBD"} {item.scheduled_time_slot ? `• ${item.scheduled_time_slot}` : ""}
+                          </span>
+                        </div>
+                        <span className="text-sm font-bold text-[#0A2540]">৳{item.price}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-2">
+                      <span className="text-sm font-bold text-[#0A2540]">Total</span>
+                      <span className="text-lg font-bold text-[#0A2540]">৳{totalAmount}</span>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
 
           {/* Footer Navigation */}
           <div className="flex items-center justify-between border-t border-slate-200/60 px-6 py-4">
-            <button
-              onClick={step === 0 ? handleClose : handleBack}
-              className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50"
-            >
-              {step === 0 ? "Cancel" : "Back"}
-            </button>
-
-            {step < STEPS.length - 1 ? (
+            {bookingResult ? (
               <button
-                onClick={handleNext}
-                className="rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90"
+                onClick={handleClose}
+                className="w-full rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90"
               >
-                Next
+                Done
               </button>
             ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? (
-                  <>
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Registering...
-                  </>
-                ) : (
-                  "Register Patient"
+              <>
+                <button
+                  onClick={step === 0 ? handleClose : handleBack}
+                  className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50"
+                >
+                  {step === 0 ? "Cancel" : "Back"}
+                </button>
+
+                {step < 3 && (
+                  <button
+                    onClick={handleNext}
+                    className="rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90"
+                  >
+                    Next
+                  </button>
                 )}
-              </button>
+
+                {step === 3 && (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Registering...
+                      </>
+                    ) : (
+                      "Register Patient"
+                    )}
+                  </button>
+                )}
+
+                {step === 4 && (
+                  <button
+                    onClick={() => setStep(5)}
+                    disabled={cart.length === 0}
+                    className="rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                )}
+
+                {step === 5 && (
+                  <button
+                    onClick={handleSubmitBooking}
+                    disabled={cart.length === 0 || bookingSubmitting}
+                    className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {bookingSubmitting ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Booking"
+                    )}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

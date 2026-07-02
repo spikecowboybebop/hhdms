@@ -8,6 +8,13 @@ interface Props {
   onChange: (meta: ServiceFormMeta) => void;
 }
 
+const SPECIALIST_TYPES = [
+  "Pulmonology (Lung)", "Cardiology (Heart)", "Neurology (Brain)",
+  "Nephrology (Kidney)", "Dermatology (Skin)", "ENT",
+  "General Surgery", "Gynecology & Obstetrics", "Internal Medicine",
+  "Pain Management", "Oncology",
+];
+
 const SERVICE_FIELDS: Record<
   string,
   { key: keyof ServiceFormMeta; label: string; type: "text" | "select"; options?: string[] }[]
@@ -28,6 +35,45 @@ const SERVICE_FIELDS: Record<
       options: ["Day", "Night", "24h", "Respite"],
     },
     { key: "certification", label: "Certification Criteria", type: "text" },
+  ],
+  MBBS: [
+    { key: "chief_complaint", label: "Chief Complaint", type: "text" },
+  ],
+  SPECIALIST: [
+    {
+      key: "specialist_type",
+      label: "Specialist Type",
+      type: "select",
+      options: SPECIALIST_TYPES,
+    },
+    { key: "specialist_reason", label: "Reason for Referral", type: "text" },
+  ],
+  ADULT_NURSE: [
+    {
+      key: "nurse_care_type",
+      label: "Care Type",
+      type: "select",
+      options: ["General", "ICU", "Post-Surgical", "Palliative"],
+    },
+    { key: "nurse_duration_days", label: "Duration (Days)", type: "text" },
+  ],
+  PEDIATRIC_NURSE: [
+    { key: "child_age", label: "Child Age", type: "text" },
+    {
+      key: "pediatric_care_type",
+      label: "Care Type",
+      type: "select",
+      options: ["General", "NICU", "Growth Monitoring"],
+    },
+  ],
+  NUTRITIONIST: [
+    {
+      key: "goal_type",
+      label: "Goal",
+      type: "select",
+      options: ["Weight Loss", "Diabetes", "Pregnancy", "General"],
+    },
+    { key: "dietary_restrictions", label: "Dietary Restrictions", type: "text" },
   ],
 };
 

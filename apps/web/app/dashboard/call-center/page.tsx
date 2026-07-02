@@ -708,11 +708,6 @@ export default function CallCenterDashboardPage() {
         callDuration={callDuration}
         onEndCall={handleHangUp}
         onClose={() => setShowRegModal(false)}
-        onSuccess={(result) => {
-          router.push(
-            `/dashboard/call-center/booking?patientId=${result.id}&mrn=${result.mrn}`,
-          );
-        }}
       />
 
       {incomingCall && (

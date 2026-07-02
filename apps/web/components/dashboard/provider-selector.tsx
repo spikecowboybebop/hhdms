@@ -10,6 +10,15 @@ export interface ServiceFormMeta {
   scan_type?: string;
   shift_type?: string;
   certification?: string;
+  chief_complaint?: string;
+  specialist_type?: string;
+  specialist_reason?: string;
+  nurse_care_type?: string;
+  nurse_duration_days?: string;
+  child_age?: string;
+  pediatric_care_type?: string;
+  goal_type?: string;
+  dietary_restrictions?: string;
 }
 
 interface Props {
