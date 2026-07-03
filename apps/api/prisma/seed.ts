@@ -73,8 +73,8 @@ async function main() {
   console.log('Creating dr.shahid@hhdms.com (Sonologist)...');
   const shahid = await prisma.user.upsert({
     where: { email: 'dr.shahid@hhdms.com' },
-    update: { passwordHash, roleId: sonoRole.id, phoneNumber: '+8801700000009', firstNameEn: 'Shahid', lastNameEn: 'Alam', firstNameBn: 'শহীদ', status: 'ACTIVE' },
-    create: { email: 'dr.shahid@hhdms.com', passwordHash, phoneNumber: '+8801700000009', firstNameEn: 'Shahid', lastNameEn: 'Alam', firstNameBn: 'শহীদ', roleId: sonoRole.id, status: 'ACTIVE' },
+    update: { passwordHash, roleId: sonoRole.id, phoneNumber: '+8801700000039', firstNameEn: 'Shahid', lastNameEn: 'Alam', firstNameBn: 'শহীদ', status: 'ACTIVE' },
+    create: { email: 'dr.shahid@hhdms.com', passwordHash, phoneNumber: '+8801700000039', firstNameEn: 'Shahid', lastNameEn: 'Alam', firstNameBn: 'শহীদ', roleId: sonoRole.id, status: 'ACTIVE' },
   });
   await prisma.$executeRawUnsafe(
     `INSERT INTO sonologist_profiles (user_id, license_number, qualification, years_of_experience, consultation_fee, equipment_ids, usg_specializations, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, qualification=$3, years_of_experience=$4, consultation_fee=$5, equipment_ids=$6, usg_specializations=$7, is_available=$8`,
@@ -138,8 +138,8 @@ async function main() {
   console.log('Creating dr.mehedi@hhdms.com (MBBS)...');
   const mehedi = await prisma.user.upsert({
     where: { email: 'dr.mehedi@hhdms.com' },
-    update: { passwordHash, roleId: mbbsRole.id, phoneNumber: '+8801700000009', firstNameEn: 'Mehedi', lastNameEn: 'Hasan', firstNameBn: 'মেহেদী', status: 'ACTIVE' },
-    create: { email: 'dr.mehedi@hhdms.com', passwordHash, phoneNumber: '+8801700000009', firstNameEn: 'Mehedi', lastNameEn: 'Hasan', firstNameBn: 'মেহেদী', roleId: mbbsRole.id, status: 'ACTIVE' },
+    update: { passwordHash, roleId: mbbsRole.id, phoneNumber: '+8801700000035', firstNameEn: 'Mehedi', lastNameEn: 'Hasan', firstNameBn: 'মেহেদী', status: 'ACTIVE' },
+    create: { email: 'dr.mehedi@hhdms.com', passwordHash, phoneNumber: '+8801700000035', firstNameEn: 'Mehedi', lastNameEn: 'Hasan', firstNameBn: 'মেহেদী', roleId: mbbsRole.id, status: 'ACTIVE' },
   });
   await prisma.$executeRawUnsafe(
     `INSERT INTO mbbs_doctor_profiles (user_id, license_number, bmdc_registration, specialization, qualification, years_of_experience, consultation_fee, district, thana, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, bmdc_registration=$3, specialization=$4, qualification=$5, years_of_experience=$6, consultation_fee=$7, district=$8, thana=$9, is_available=$10`,
