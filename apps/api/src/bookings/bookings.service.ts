@@ -221,7 +221,7 @@ export class BookingsService {
         .sendToUser(
           patientUserId,
           {
-            title: 'Service Booking Confirmedf',
+            title: 'Service Booking Confirmed',
             body: `A new service booking (${serviceLabels}) has been created for you.`,
           },
           {
