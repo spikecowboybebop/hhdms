@@ -139,10 +139,10 @@ export class BookingsService {
       };
     });
 
-    const raw = await this.prisma.$queryRawUnsafe<{ user_id: string | null }[]>(
+    const raw = (await this.prisma.$queryRawUnsafe(
       `SELECT user_id FROM patients WHERE id = $1`,
       dto.patient_id,
-    );
+    )) as { user_id: string | null }[];
     const patientUserId = raw[0]?.user_id ?? null;
 
     console.log(
