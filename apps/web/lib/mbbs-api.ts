@@ -273,6 +273,30 @@ export interface ReferralChainEvent {
   created_at: string;
 }
 
+export interface ScheduleSlot {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface AvailableMbbsProvider {
+  userId: string;
+  name: string;
+  email: string;
+  phoneNumber: string | null;
+  specialization: string | null;
+  qualification: string | null;
+  yearsOfExperience: number | null;
+  consultationFee: number | null;
+  district: string | null;
+  thana: string | null;
+  schedules: ScheduleSlot[];
+}
+
+export interface AvailableMbbsResponse {
+  providers: AvailableMbbsProvider[];
+}
+
 // ---- API Functions ----
 
 export const mbbsApi = {
@@ -371,4 +395,8 @@ export const mbbsApi = {
   // Differential Diagnosis (stub)
   getDifferentialDiagnosis: (patientId: string) =>
     apiFetch<any>(`/mbbs/patients/${patientId}/differential-diagnosis`),
+
+  // Available Providers
+  getAvailableProviders: (params: { serviceType: string; district?: string; thana?: string; date?: string }) =>
+    apiFetch<AvailableMbbsResponse>(`/providers/available?serviceType=${encodeURIComponent(params.serviceType)}${params.district ? `&district=${encodeURIComponent(params.district)}` : ''}${params.thana ? `&thana=${encodeURIComponent(params.thana)}` : ''}${params.date ? `&date=${encodeURIComponent(params.date)}` : ''}`),
 };

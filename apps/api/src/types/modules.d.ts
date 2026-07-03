@@ -7,7 +7,10 @@ declare module 'pdf-parse' {
     metadata: Record<string, unknown>;
     version: string;
   }
-  function pdfParse(dataBuffer: Buffer, options?: Record<string, unknown>): Promise<PdfData>;
+  function pdfParse(
+    dataBuffer: Buffer,
+    options?: Record<string, unknown>,
+  ): Promise<PdfData>;
   export default pdfParse;
 }
 
@@ -16,8 +19,12 @@ declare module 'mammoth' {
     value: string;
     messages: unknown[];
   }
-  export function extractRawText(input: { buffer: Buffer }): Promise<MammothResult>;
-  export function convertToHtml(input: { buffer: Buffer }): Promise<MammothResult>;
+  export function extractRawText(input: {
+    buffer: Buffer;
+  }): Promise<MammothResult>;
+  export function convertToHtml(input: {
+    buffer: Buffer;
+  }): Promise<MammothResult>;
 }
 
 declare module 'tesseract.js' {
@@ -29,7 +36,11 @@ declare module 'tesseract.js' {
       paragraphs: unknown[];
     };
   }
-  export function recognize(image: Buffer | string, language?: string, options?: Record<string, unknown>): Promise<RecognizeResult>;
+  export function recognize(
+    image: Buffer | string,
+    language?: string,
+    options?: Record<string, unknown>,
+  ): Promise<RecognizeResult>;
   export function createWorker(language?: string): Promise<{
     recognize: (image: Buffer | string) => Promise<RecognizeResult>;
     terminate: () => Promise<void>;

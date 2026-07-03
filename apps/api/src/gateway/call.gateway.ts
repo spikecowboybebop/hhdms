@@ -21,6 +21,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Track active call pairings: socketId → paired socketId
   private activeCalls: Map<string, string> = new Map();
 
+  // Track ringing (unanswered) calls so early disconnects dismiss agent popups
+  private pendingCalls: Set<string> = new Set();
+
   // This fires automatically when the Android app or Web app logs into the socket channel
   handleConnection(client: Socket) {
     console.log(`⚡ Device connected to gateway socket id: ${client.id}`);
@@ -30,7 +33,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(client: Socket) {
     console.log(`🔌 Device disconnected: ${client.id}`);
 
-    // Notify the paired peer and clean up the call session
+    // Case 1: Paired call — notify the peer
     const pairedId = this.activeCalls.get(client.id);
     if (pairedId) {
       console.log(
@@ -41,6 +44,15 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
         .emit('call-ended', { reason: 'peer-disconnected' });
       this.activeCalls.delete(pairedId);
       this.activeCalls.delete(client.id);
+    }
+
+    // Case 2: Ringing but unanswered — dismiss all agent popups
+    if (this.pendingCalls.has(client.id)) {
+      console.log(
+        `📞 [CANCEL] ${client.id} disconnected while ringing — dismissing agent popups`,
+      );
+      client.broadcast.emit('call-ended', { reason: 'patient-cancelled' });
+      this.pendingCalls.delete(client.id);
     }
   }
 
@@ -55,6 +67,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(
       `📞 [DIAL] Patient ${data.patientEmail} is calling the agent help desk...`,
     );
+
+    // Track this as a ringing call so early disconnects are handled
+    this.pendingCalls.add(client.id);
 
     // Pass this call alert straight over to the Next.js Web Agent app
     this.server.emit('agent-incoming-call', {
@@ -75,6 +90,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(
       `🟢 [ANSWER] Agent [${client.id}] picked up the call for patient line: ${data.patientSocketId}`,
     );
+
+    // Move from ringing to active pairing
+    this.pendingCalls.delete(data.patientSocketId);
 
     // Register the call pair for clean disconnection handling
     this.activeCalls.set(data.patientSocketId, client.id);
@@ -127,7 +145,15 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (pairedId) {
       this.server.to(pairedId).emit('call-ended', { reason: 'peer-hung-up' });
       this.activeCalls.delete(pairedId);
+    } else {
+      // Patient hung up before agent answered — dismiss all agent popups
+      console.log(
+        `📞 [CANCEL] ${client.id} cancelled while ringing — dismissing agent popups`,
+      );
+      client.broadcast.emit('call-ended', { reason: 'patient-cancelled' });
     }
+
+    this.pendingCalls.delete(client.id);
     this.activeCalls.delete(client.id);
   }
 }

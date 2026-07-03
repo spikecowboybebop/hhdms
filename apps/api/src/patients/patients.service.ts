@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
@@ -59,6 +63,26 @@ export class PatientsService {
       },
     });
 
+    const phoneNumbers = [dto.primary_phone, dto.emergency_contact_phone].filter(Boolean);
+    const phoneQueries = phoneNumbers.flatMap((num) => {
+      const normalized = num.startsWith('+880')
+        ? num
+        : `+880${num.replace(/^0+/, '')}`;
+      const alternate = num.startsWith('+880')
+        ? `0${num.slice(3)}`
+        : num;
+      return [{ phoneNumber: num }, { phoneNumber: normalized }, { phoneNumber: alternate }];
+    });
+    const matchingUser = await this.prisma.user.findFirst({
+      where: { OR: phoneQueries },
+    });
+    if (matchingUser) {
+      await this.prisma.patients.update({
+        where: { id: patient.id },
+        data: { user_id: matchingUser.id },
+      });
+    }
+
     return {
       id: patient.id,
       mrn: patient.mrn,
@@ -95,7 +119,12 @@ export class PatientsService {
       full_name_en: `${p.first_name_en} ${p.last_name_en}`.trim(),
       full_name_bn: `${p.first_name_bn || ''} ${p.last_name_bn || ''}`.trim(),
       date_of_birth: p.date_of_birth?.toISOString().split('T')[0] || '',
-      sex: p.sex === 'M' ? 'Male' as const : p.sex === 'F' ? 'Female' as const : 'Child' as const,
+      sex:
+        p.sex === 'M'
+          ? ('Male' as const)
+          : p.sex === 'F'
+            ? ('Female' as const)
+            : ('Child' as const),
       blood_group: p.blood_group || '',
       primary_phone: p.phone_number || '',
       address_line1: p.address_line1 || '',
