@@ -21,17 +21,19 @@ export class BookingsService {
     tx: any,
     patientId: string,
     scheduledDate: string | undefined,
+    scheduledTimeSlot: string | undefined,
   ): Promise<string | null> {
     const patient = await tx.patients.findUnique({
       where: { id: patientId },
       select: { district: true },
     });
 
-    const dayOfWeek =
-      scheduledDate !== undefined
-        ? new Date(scheduledDate).getDay()
-        : undefined;
+    const dayOfWeek = scheduledDate ? new Date(scheduledDate).getDay() : undefined;
 
+    const reqStart = scheduledTimeSlot?.split('-')?.[0]?.trim();
+    const reqEnd = scheduledTimeSlot?.split('-')?.[1]?.trim();
+
+    // Use in-memory schedule filtering to avoid Prisma string-comparison edge cases
     const where: Record<string, unknown> = { is_available: true };
 
     if (dayOfWeek !== undefined) {
@@ -44,20 +46,53 @@ export class BookingsService {
       where,
       include: {
         _count: { select: { patient_assignments: true } },
+        schedules: {
+          where: { day_of_week: dayOfWeek, is_available: true },
+        },
       },
       orderBy: { patient_assignments: { _count: 'asc' } },
     });
 
     if (doctors.length === 0) return null;
 
-    if (patient?.district) {
-      const sameDistrict = doctors.filter(
-        (d: any) => d.district === patient.district,
+    // Filter by time-slot coverage (doctor's schedule must span the requested window)
+    let qualified = doctors;
+    if (reqStart && reqEnd) {
+      const timeOk = doctors.filter((d: any) =>
+        d.schedules?.some(
+          (s: any) => s.start_time <= reqStart && s.end_time >= reqEnd,
+        ),
       );
-      if (sameDistrict.length > 0) return sameDistrict[0].user_id;
+      if (timeOk.length > 0) qualified = timeOk;
     }
 
-    return doctors[0].user_id;
+    // Prefer same-district doctors (proximity, case-insensitive)
+    let candidates = qualified;
+    if (patient?.district) {
+      const pd = patient.district.toLowerCase();
+      const sameDistrict = qualified.filter(
+        (d: any) => d.district?.toLowerCase() === pd,
+      );
+      if (sameDistrict.length > 0) candidates = sameDistrict;
+    }
+
+    // Weighted random selection: doctors with fewer assignments are more likely
+    const maxLoad = Math.max(
+      ...candidates.map((d: any) => d._count.patient_assignments),
+      0,
+    );
+    const weights = candidates.map(
+      (d: any) => maxLoad - d._count.patient_assignments + 1,
+    );
+    const totalWeight = weights.reduce((a: number, b: number) => a + b, 0);
+
+    let r = Math.random() * totalWeight;
+    for (let i = 0; i < candidates.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return candidates[i].user_id;
+    }
+
+    return candidates[0].user_id;
   }
 
   async getSessionById(id: string) {
@@ -199,36 +234,32 @@ export class BookingsService {
   async getUserSessions(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { phoneNumber: true },
+      select: { email: true },
     });
 
     if (!user) return [];
 
-    const normalize = (p: string) =>
-      p.replace(/^(\+88|88|0)/, '').replace(/\D/g, '');
-    const userPhone = user.phoneNumber ? normalize(user.phoneNumber) : null;
-
+    // Find patients linked to this user
     const patients = await this.prisma.patients.findMany({
-      where: {
-        OR: [
-          { user_id: userId },
-          ...(userPhone
-            ? [
-                { phone_number: { contains: userPhone } },
-                { emergency_contact: { contains: userPhone } },
-              ]
-            : []),
-        ],
-      },
+      where: { user_id: userId },
       select: { id: true },
     });
 
-    if (patients.length === 0) return [];
-
     const patientIds = patients.map((p) => p.id);
 
+    // Search sessions: either linked patient's sessions OR booked_by matching user's email
+    const whereSessions: any =
+      patientIds.length > 0
+        ? {
+            OR: [
+              { patient_id: { in: patientIds } },
+              { booked_by: user.email },
+            ],
+          }
+        : { booked_by: user.email };
+
     const sessions = await this.prisma.booking_sessions.findMany({
-      where: { patient_id: { in: patientIds } },
+      where: whereSessions,
       include: {
         patient: {
           select: {
@@ -304,6 +335,7 @@ export class BookingsService {
             tx,
             dto.patient_id,
             svc.scheduled_date,
+            svc.scheduled_time_slot,
           );
         }
 
@@ -369,28 +401,44 @@ export class BookingsService {
       };
     });
 
-    const raw = (await this.prisma.$queryRawUnsafe(
-      `SELECT user_id FROM patients WHERE id = $1`,
-      dto.patient_id,
-    )) as { user_id: string | null }[];
-    const patientUserId = raw[0]?.user_id ?? null;
+    // Find user by booked_by email and send notification
+    let bookingUserId: string | null = null;
+    if (dto.booked_by && dto.booked_by.includes('@')) {
+      const bookingUser = await this.prisma.user.findUnique({
+        where: { email: dto.booked_by },
+        select: { id: true },
+      });
+      if (bookingUser) {
+        bookingUserId = bookingUser.id;
+        // Link patient to user for future lookups
+        await this.prisma.patients
+          .update({
+            where: { id: dto.patient_id },
+            data: { user_id: bookingUser.id },
+          })
+          .catch(() => {});
+        console.log(
+          `[NOTIFICATION] Linked patient ${dto.patient_id} to user ${bookingUser.id} via booked_by email`,
+        );
+      }
+    }
 
     console.log(
-      `[NOTIFICATION] Patient lookup: id=${dto.patient_id}, user_id=${patientUserId}`,
+      `[NOTIFICATION] Booking user lookup: booked_by=${dto.booked_by}, user_id=${bookingUserId}`,
     );
 
-    if (patientUserId) {
+    if (bookingUserId) {
       const serviceLabels = result.tickets
         .map((t) => t.service_type)
         .join(', ');
 
       console.log(
-        `[NOTIFICATION] Sending push to user ${patientUserId} for session ${result.session_id}`,
+        `[NOTIFICATION] Sending push to user ${bookingUserId} for session ${result.session_id}`,
       );
 
       this.notificationsService
         .sendToUser(
-          patientUserId,
+          bookingUserId,
           {
             title: 'Service Booking Confirmed',
             body: `A new service booking (${serviceLabels}) has been created for you.`,
@@ -404,7 +452,7 @@ export class BookingsService {
           console.error('[NOTIFICATION] Failed to send booking notification:', err),
         );
     } else {
-      console.log('[NOTIFICATION] No user_id on patient, skipping push');
+      console.log('[NOTIFICATION] No user found for booked_by email, skipping push');
     }
 
     // ── Notify assigned providers ──
