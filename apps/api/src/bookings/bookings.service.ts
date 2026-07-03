@@ -334,6 +334,23 @@ export class BookingsService {
           });
         }
 
+        if (providerId && svc.service_type === 'MBBS') {
+          await tx.doctor_patient_assignments.upsert({
+            where: {
+              doctor_id_patient_id: {
+                doctor_id: providerId,
+                patient_id: dto.patient_id,
+              },
+            },
+            create: {
+              doctor_id: providerId,
+              patient_id: dto.patient_id,
+              appointment_activity: 'pending',
+            },
+            update: {},
+          });
+        }
+
         tickets.push({
           id: ticket.id,
           ticket_no: ticket.ticket_no,
@@ -388,6 +405,46 @@ export class BookingsService {
         );
     } else {
       console.log('[NOTIFICATION] No user_id on patient, skipping push');
+    }
+
+    // ── Notify assigned providers ──
+    const assignedProviderIds = [
+      ...new Set(
+        result.tickets
+          .map((t) => t.assigned_provider_id)
+          .filter((id): id is string => id !== null),
+      ),
+    ];
+
+    if (assignedProviderIds.length > 0) {
+      const patient = await this.prisma.patients.findUnique({
+        where: { id: dto.patient_id },
+        select: { first_name_en: true, last_name_en: true },
+      });
+      const patientName = patient
+        ? `${patient.first_name_en} ${patient.last_name_en}`
+        : 'a patient';
+
+      for (const providerId of assignedProviderIds) {
+        this.notificationsService
+          .sendToUser(
+            providerId,
+            {
+              title: 'New Patient Assignment',
+              body: `You have been assigned to attend ${patientName}.`,
+            },
+            {
+              session_id: result.session_id,
+              type: 'provider_assigned',
+            },
+          )
+          .catch((err) =>
+            console.error(
+              '[NOTIFICATION] Failed to send provider notification:',
+              err,
+            ),
+          );
+      }
     }
 
     return result;
