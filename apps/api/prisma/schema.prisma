@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Role {
@@ -441,46 +440,8 @@ model patients {
   nutritionistAdherenceLogs         nutritionist_adherence_logs[]
   bookingSessions                   booking_sessions[]
   user                              User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  mrn                   String                       @unique @map("mrn") @db.VarChar(50)
-  first_name_en         String                       @map("first_name_en") @db.VarChar(100)
-  last_name_en          String                       @map("last_name_en") @db.VarChar(100)
-  first_name_bn         String?                      @map("first_name_bn") @db.VarChar(100)
-  last_name_bn          String?                      @map("last_name_bn") @db.VarChar(100)
-  date_of_birth         DateTime?                    @map("date_of_birth") @db.Date
-  sex                   String                       @map("sex") @db.VarChar(1)
-  blood_group           String?                      @map("blood_group") @db.VarChar(5)
-  phone_number          String?                      @map("phone_number") @db.VarChar(20)
-  email                 String?                      @map("email") @db.VarChar(255)
-  address_line1         String?                      @map("address_line1") @db.VarChar(255)
-  address_line2         String?                      @map("address_line2") @db.VarChar(255)
-  district              String?                      @map("district") @db.VarChar(100)
-  emergency_contact     String?                      @map("emergency_contact") @db.VarChar(20)
-  known_allergies       String?                      @map("known_allergies")
-  current_medications   String?                      @map("current_medications")
-  past_medical_history  String?                      @map("past_medical_history")
-  family_history        String?                      @map("family_history")
-  height_cm             Decimal?                     @map("height_cm") @db.Decimal(5, 1)
-  weight_kg             Decimal?                     @map("weight_kg") @db.Decimal(5, 1)
-  booked_by             String?                      @map("booked_by") @db.VarChar(255)
-  has_emergency_flag    Boolean                      @default(false) @map("has_emergency_flag")
-  created_at            DateTime?                    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at            DateTime?                    @default(now()) @map("updated_at") @db.Timestamptz(6)
-  test_orders           diagnostic_test_orders[]
-  doctor_assignments    doctor_patient_assignments[]
-  emergency_flags       emergency_flags[]
-  diagnoses             patient_diagnoses[]
-  vital_signs           patient_vital_signs[]
-  prescriptions         prescriptions[]
-  referral_chain_events referral_chain[]
-  referrals             specialist_referrals[]
-  documents             patient_documents[]
-  caregiver_assignments   caregiver_patient_assignments[]
-  caregiver_activity_logs caregiver_activity_logs[]
-  caregiver_condition_reports caregiver_condition_reports[]
-  sonologist_studies    sonologist_studies[]
-  sonologist_reports    sonologist_reports[]
-  booking_sessions      booking_sessions[]
+  sonologist_studies                sonologist_studies[]
+  sonologist_reports                sonologist_reports[]
 
   @@map("patients")
 }
