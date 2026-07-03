@@ -495,7 +495,7 @@ export class BookingsService {
             providerId,
             {
               title: 'New Patient Assignment',
-              body: `You have been assigned to attend ${patientName}.`,
+              body: `You have been assigned to attend ${patientName}`,
             },
             {
               session_id: result.session_id,
