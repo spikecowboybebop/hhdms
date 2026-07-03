@@ -8,7 +8,8 @@ export type AppRole =
   | "SPECIALIST"
   | "NUTRITIONIST"
   | "ADMIN"
-  | "CAREGIVER";
+  | "CAREGIVER"
+  | "SONOLOGIST";
 
 export interface DecodedJwt {
   sub: string;
@@ -102,6 +103,8 @@ export function dashboardPathForRole(role: string | undefined | null): string {
       return "/dashboard/specialist";
     case "NUTRITIONIST":
       return "/dashboard/nutritionist";
+    case "SONOLOGIST":
+      return "/dashboard/sonologist";
     case "CAREGIVER":
       return "/dashboard/caregiver";
     case "ADMIN":
@@ -122,6 +125,8 @@ export function roleLabel(role: string | undefined | null): string {
       return "Specialist";
     case "NUTRITIONIST":
       return "Nutritionist";
+    case "SONOLOGIST":
+      return "Sonologist";
     case "CAREGIVER":
       return "Caregiver";
     case "ADMIN":

@@ -37,6 +37,7 @@ model User {
   nutritionist_profiles nutritionist_profiles?
   specialist_profiles   specialist_profiles?
   caregiver_profiles    caregiver_profiles?
+  sonologist_profiles   sonologist_profiles?
   role                  Role                   @relation(fields: [roleId], references: [id], onUpdate: NoAction)
 
   @@map("users")
@@ -98,6 +99,64 @@ model specialist_profiles {
   assigned_referrals  specialist_referrals[]
 
   @@map("specialist_profiles")
+}
+
+model sonologist_profiles {
+  user_id             String    @id @map("user_id") @db.Uuid
+  license_number      String?   @unique @map("license_number") @db.VarChar(50)
+  qualification       String?   @map("qualification") @db.VarChar(255)
+  years_of_experience Int?      @map("years_of_experience")
+  consultation_fee    Decimal?  @map("consultation_fee") @db.Decimal(10, 2)
+  equipment_ids       String?   @map("equipment_ids") @db.VarChar(500)
+  usg_specializations String?   @map("usg_specializations") @db.VarChar(255)
+  is_available        Boolean   @default(true) @map("is_available")
+  created_at          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user                User      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  studies             sonologist_studies[]
+  reports             sonologist_reports[]
+
+  @@map("sonologist_profiles")
+}
+
+model sonologist_studies {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sonologist_id  String             @map("sonologist_id") @db.Uuid
+  patient_id     String             @map("patient_id") @db.Uuid
+  modality       String             @default("USG") @map("modality") @db.VarChar(20)
+  body_part      String?            @map("body_part") @db.VarChar(100)
+  study_date     DateTime?          @default(now()) @map("study_date") @db.Timestamptz(6)
+  dicom_series_uids String?         @map("dicom_series_uids") @db.Text
+  storage_url    String?            @map("storage_url") @db.VarChar(2000)
+  findings       String?            @map("findings") @db.Text
+  impression     String?            @map("impression") @db.Text
+  is_abnormal    Boolean            @default(false) @map("is_abnormal")
+  status         String             @default("COMPLETED") @map("status") @db.VarChar(20)
+  created_at     DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at     DateTime?          @default(now()) @map("updated_at") @db.Timestamptz(6)
+  sonologist     sonologist_profiles @relation(fields: [sonologist_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient        patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reports        sonologist_reports[]
+
+  @@map("sonologist_studies")
+}
+
+model sonologist_reports {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  study_id        String             @map("study_id") @db.Uuid
+  sonologist_id   String             @map("sonologist_id") @db.Uuid
+  patient_id      String             @map("patient_id") @db.Uuid
+  findings        String             @map("findings") @db.Text
+  impression      String?            @map("impression") @db.Text
+  annotated_images String?           @map("annotated_images") @db.Text
+  digital_signature_url String?      @map("digital_signature_url") @db.VarChar(512)
+  report_date     DateTime?          @default(now()) @map("report_date") @db.Timestamptz(6)
+  created_at      DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  study           sonologist_studies  @relation(fields: [study_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sonologist      sonologist_profiles @relation(fields: [sonologist_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient         patients            @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("sonologist_reports")
 }
 
 model caregiver_profiles {
@@ -247,6 +306,8 @@ model patients {
   caregiver_assignments   caregiver_patient_assignments[]
   caregiver_activity_logs caregiver_activity_logs[]
   caregiver_condition_reports caregiver_condition_reports[]
+  sonologist_studies    sonologist_studies[]
+  sonologist_reports    sonologist_reports[]
   booking_sessions      booking_sessions[]
 
   @@map("patients")

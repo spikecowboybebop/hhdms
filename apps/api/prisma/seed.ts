@@ -48,7 +48,13 @@ async function main() {
     `INSERT INTO roles (id, name, description) VALUES (7, 'MOBILE_USER', 'Mobile App User')
      ON CONFLICT (name) DO UPDATE SET description = 'Mobile App User'`
   );
-  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER, MOBILE_USER');
+  // SONOLOGIST role
+  const sonoRole = await prisma.role.upsert({
+    where: { name: 'SONOLOGIST' },
+    update: {},
+    create: { name: 'SONOLOGIST', description: 'Sonologist (USG Specialist)' },
+  });
+  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER, MOBILE_USER, SONOLOGIST');
 
   // --- Caregiver (Shamima) ---
   console.log('Creating caregiver.shamima@hhdms.com (Caregiver)...');
@@ -62,6 +68,19 @@ async function main() {
     shamima.id, 'Female', 5, 'Dementia Care, Post-Surgical Care, Bedridden Patient Care', 'VERIFIED', 'Home Care Assistant Certificate, First Aid Training', 4.5, '+8801700000007', true
   );
   console.log('  Done: shamima (Caregiver)');
+
+  // --- Dr. Shahid (Sonologist) ---
+  console.log('Creating dr.shahid@hhdms.com (Sonologist)...');
+  const shahid = await prisma.user.upsert({
+    where: { email: 'dr.shahid@hhdms.com' },
+    update: { passwordHash, roleId: sonoRole.id, phoneNumber: '+8801700000009', firstNameEn: 'Shahid', lastNameEn: 'Alam', firstNameBn: 'শহীদ', status: 'ACTIVE' },
+    create: { email: 'dr.shahid@hhdms.com', passwordHash, phoneNumber: '+8801700000009', firstNameEn: 'Shahid', lastNameEn: 'Alam', firstNameBn: 'শহীদ', roleId: sonoRole.id, status: 'ACTIVE' },
+  });
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO sonologist_profiles (user_id, license_number, qualification, years_of_experience, consultation_fee, equipment_ids, usg_specializations, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, qualification=$3, years_of_experience=$4, consultation_fee=$5, equipment_ids=$6, usg_specializations=$7, is_available=$8`,
+    shahid.id, 'SONO-2024-001', 'MBBS, DMRD (Ultrasound), FCPS (Radiology)', 7, 1200.0, 'USG-001 (Samsung RS85), USG-002 (GE Logiq P7)', 'Whole Abdomen, Obstetric, Pelvic, Renal, Thyroid, Musculoskeletal', true
+  );
+  console.log('  Done: dr.shahid (Sonologist)');
 
   // --- Dr. Arif (MBBS) ---
   console.log('Creating dr.arif@hhdms.com (MBBS)...');
