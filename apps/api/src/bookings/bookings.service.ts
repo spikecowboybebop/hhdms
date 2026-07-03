@@ -61,7 +61,7 @@ export class BookingsService {
   }
 
   async getSessionById(id: string) {
-    return this.prisma.booking_sessions.findUnique({
+    const session = await this.prisma.booking_sessions.findUnique({
       where: { id },
       include: {
         patient: {
@@ -78,6 +78,83 @@ export class BookingsService {
         },
       },
     });
+
+    if (!session) return null;
+
+    const providerIds = session.tickets
+      .map((t) => t.assigned_provider_id)
+      .filter((id): id is string => id !== null);
+
+    const uniqueIds = [...new Set(providerIds)];
+
+    if (uniqueIds.length === 0) return session;
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      include: {
+        mbbs_doctor_profiles: {
+          select: { specialization: true },
+        },
+        specialist_profiles: {
+          select: { specialty_code: true },
+        },
+        caregiver_profiles: {
+          select: { specializations: true },
+        },
+        nutritionist_profiles: {
+          select: { specialization: true },
+        },
+      },
+    });
+
+    const userMap = new Map<string, (typeof users)[number]>();
+    for (const u of users) {
+      userMap.set(u.id, u);
+    }
+
+    const formatDate = (d: Date | string | null | undefined) => {
+      if (!d) return null;
+      const date = typeof d === 'string' ? new Date(d) : d;
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const tickets = session.tickets.map((ticket) => {
+      let specialization: string | null = null;
+      const providerUser = ticket.assigned_provider_id
+        ? userMap.get(ticket.assigned_provider_id)
+        : undefined;
+
+      if (providerUser) {
+        const svc = ticket.service_type.toUpperCase();
+        if (svc === 'MBBS' && providerUser.mbbs_doctor_profiles) {
+          specialization = providerUser.mbbs_doctor_profiles.specialization;
+        } else if (svc === 'SPECIALIST' && providerUser.specialist_profiles) {
+          specialization = providerUser.specialist_profiles.specialty_code;
+        } else if (svc === 'CAREGIVER' && providerUser.caregiver_profiles) {
+          specialization = providerUser.caregiver_profiles.specializations;
+        } else if (svc === 'NUTRITIONIST' && providerUser.nutritionist_profiles) {
+          specialization = providerUser.nutritionist_profiles.specialization;
+        }
+      }
+
+      return {
+        ...ticket,
+        scheduled_date: formatDate(ticket.scheduled_date),
+        provider: providerUser
+          ? {
+              id: providerUser.id,
+              first_name_en: providerUser.firstNameEn,
+              last_name_en: providerUser.lastNameEn,
+              specialization,
+            }
+          : null,
+      };
+    });
+
+    return { ...session, tickets };
   }
 
   async userOwnsSession(
@@ -117,6 +194,83 @@ export class BookingsService {
       select: { id: true, phone_number: true },
     });
     return { user, patient, userPatients, patientId, userId };
+  }
+
+  async getUserSessions(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phoneNumber: true },
+    });
+
+    if (!user) return [];
+
+    const normalize = (p: string) =>
+      p.replace(/^(\+88|88|0)/, '').replace(/\D/g, '');
+    const userPhone = user.phoneNumber ? normalize(user.phoneNumber) : null;
+
+    const patients = await this.prisma.patients.findMany({
+      where: {
+        OR: [
+          { user_id: userId },
+          ...(userPhone
+            ? [
+                { phone_number: { contains: userPhone } },
+                { emergency_contact: { contains: userPhone } },
+              ]
+            : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (patients.length === 0) return [];
+
+    const patientIds = patients.map((p) => p.id);
+
+    const sessions = await this.prisma.booking_sessions.findMany({
+      where: { patient_id: { in: patientIds } },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            first_name_en: true,
+            last_name_en: true,
+            phone_number: true,
+          },
+        },
+        tickets: {
+          select: {
+            id: true,
+            ticket_no: true,
+            service_type: true,
+            scheduled_date: true,
+            scheduled_time_slot: true,
+            status: true,
+            price: true,
+          },
+          orderBy: { created_at: 'asc' },
+          take: 1,
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const formatDate = (d: Date | string | null | undefined) => {
+      if (!d) return null;
+      const date = typeof d === 'string' ? new Date(d) : d;
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    return sessions.map((session) => ({
+      ...session,
+      tickets: session.tickets.map((ticket) => ({
+        ...ticket,
+        scheduled_date: formatDate(ticket.scheduled_date),
+      })),
+    }));
   }
 
   async createSession(dto: CreateBookingSessionDto) {

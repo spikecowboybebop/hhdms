@@ -25,6 +25,12 @@ export class BookingsController {
     return this.bookingsService.createSession(dto);
   }
 
+  @Get('my-sessions')
+  @UseGuards(AuthGuard('jwt'))
+  async getMySessions(@Req() req: any) {
+    return this.bookingsService.getUserSessions(req.user.sub);
+  }
+
   @Get('session/:id')
   @UseGuards(AuthGuard('jwt'))
   async getSession(@Param('id') id: string, @Req() req: any) {
