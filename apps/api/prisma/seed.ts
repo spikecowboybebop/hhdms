@@ -170,6 +170,7 @@ async function main() {
   console.log('  nutritionist.tanvir@hhdms.com / Password2026! (Nutritionist)');
   console.log('  dr.nusrat@hhdms.com / Password2026! (Specialist)');
   console.log('  caregiver.shamima@hhdms.com / Password2026! (Caregiver) — Assigned: Rahim, Fatema');
+  console.log('  dr.shahid@hhdms.com / Password2026! (Sonologist)');
 
   // --- Seed ICD10 Codes ---
   console.log('\nSeeding ICD10 Codes...');
@@ -541,6 +542,43 @@ async function main() {
     });
   }
   console.log('  Done: Test orders seeded');
+
+  // ── Seed Sonologist USG Studies ────────────────────────────
+  console.log('Seeding sonologist USG studies...');
+  await prisma.sonologist_studies.deleteMany({ where: { sonologist_id: shahid.id } });
+  await prisma.sonologist_reports.deleteMany({ where: { sonologist_id: shahid.id } });
+
+  const p1Study = await prisma.sonologist_studies.create({
+    data: {
+      sonologist_id: shahid.id,
+      patient_id: patient1.id,
+      body_part: 'Whole Abdomen',
+      findings: 'Liver: mildly enlarged, echogenic texture suggesting fatty infiltration. Gallbladder: normal. Kidneys: normal size and echotexture. No free fluid.',
+      impression: 'Grade I fatty liver. Otherwise normal abdominal ultrasound.',
+      is_abnormal: true,
+    },
+  });
+  await prisma.sonologist_reports.create({
+    data: {
+      study_id: p1Study.id,
+      sonologist_id: shahid.id,
+      patient_id: patient1.id,
+      findings: p1Study.findings ?? '',
+      impression: p1Study.impression,
+    },
+  });
+
+  await prisma.sonologist_studies.create({
+    data: {
+      sonologist_id: shahid.id,
+      patient_id: patient2.id,
+      body_part: 'Obstetric',
+      findings: 'Single live intrauterine fetus. Fetal heart rate: 148 bpm. Amniotic fluid index: normal. Placenta: posterior, grade I.',
+      impression: 'Normal obstetric ultrasound. Gestational age approximately 20 weeks.',
+      is_abnormal: false,
+    },
+  });
+  console.log('  Done: USG studies seeded');
 }
 
 main()
