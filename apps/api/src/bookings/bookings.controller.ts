@@ -1,4 +1,17 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Req,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  ForbiddenException,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { BookingsService } from './bookings.service';
 import { CreateBookingSessionDto } from './dto/create-booking.dto';
 
@@ -10,5 +23,27 @@ export class BookingsController {
   @HttpCode(HttpStatus.CREATED)
   async createSession(@Body() dto: CreateBookingSessionDto) {
     return this.bookingsService.createSession(dto);
+  }
+
+  @Get('session/:id')
+  @UseGuards(AuthGuard('jwt'))
+  async getSession(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user.sub;
+    const session = await this.bookingsService.getSessionById(id);
+    if (!session) {
+      throw new NotFoundException('Booking session not found');
+    }
+    const ownsSession = await this.bookingsService.userOwnsSession(
+      session.patient_id,
+      userId,
+    );
+    if (!ownsSession) {
+      const debugInfo = await this.bookingsService.debugAccess(userId, session.patient_id);
+      console.log(`[BOOKING_ACCESS] DENIED`, JSON.stringify(debugInfo, null, 2));
+      throw new ForbiddenException(
+        'You do not have access to this booking session',
+      );
+    }
+    return session;
   }
 }

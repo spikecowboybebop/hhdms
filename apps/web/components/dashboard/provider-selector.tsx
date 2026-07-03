@@ -119,7 +119,6 @@ export default function ProviderSelector({
     if (mbbsProviders.length === 0) {
       return (
         <p className="text-[10px] text-slate-400 italic">
-          No available doctors found for this criteria.
         </p>
       );
     }

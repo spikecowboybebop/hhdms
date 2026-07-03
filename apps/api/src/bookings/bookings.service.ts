@@ -60,6 +60,65 @@ export class BookingsService {
     return doctors[0].user_id;
   }
 
+  async getSessionById(id: string) {
+    return this.prisma.booking_sessions.findUnique({
+      where: { id },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            first_name_en: true,
+            last_name_en: true,
+            phone_number: true,
+          },
+        },
+        tickets: {
+          include: { details: true },
+          orderBy: { created_at: 'asc' },
+        },
+      },
+    });
+  }
+
+  async userOwnsSession(
+    patientId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+      select: { user_id: true, phone_number: true, emergency_contact: true },
+    });
+    if (!patient) return false;
+    if (patient.user_id === userId) return true;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phoneNumber: true },
+    });
+    if (!user?.phoneNumber) return false;
+    const normalize = (p: string) =>
+      p.replace(/^(\+88|88|0)/, '').replace(/\D/g, '');
+    const userPhone = normalize(user.phoneNumber);
+    if (patient.phone_number && normalize(patient.phone_number) === userPhone) return true;
+    if (patient.emergency_contact && normalize(patient.emergency_contact) === userPhone) return true;
+    return false;
+  }
+
+  async debugAccess(userId: string, patientId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, phoneNumber: true },
+    });
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+      select: { id: true, user_id: true, phone_number: true, emergency_contact: true, first_name_en: true, last_name_en: true },
+    });
+    const userPatients = await this.prisma.patients.findMany({
+      where: { user_id: userId },
+      select: { id: true, phone_number: true },
+    });
+    return { user, patient, userPatients, patientId, userId };
+  }
+
   async createSession(dto: CreateBookingSessionDto) {
     const totalAmount = dto.services.reduce((sum, s) => sum + s.price, 0);
 
@@ -162,7 +221,7 @@ export class BookingsService {
         .sendToUser(
           patientUserId,
           {
-            title: 'Service Booking Confirmed',
+            title: 'Service Booking Confirmedf',
             body: `A new service booking (${serviceLabels}) has been created for you.`,
           },
           {
