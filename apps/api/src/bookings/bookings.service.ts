@@ -28,7 +28,9 @@ export class BookingsService {
       select: { district: true },
     });
 
-    const dayOfWeek = scheduledDate ? new Date(scheduledDate).getDay() : undefined;
+    const dayOfWeek = scheduledDate
+      ? new Date(scheduledDate).getDay()
+      : undefined;
 
     const reqStart = scheduledTimeSlot?.split('-')?.[0]?.trim();
     const reqEnd = scheduledTimeSlot?.split('-')?.[1]?.trim();
@@ -170,7 +172,10 @@ export class BookingsService {
           specialization = providerUser.specialist_profiles.specialty_code;
         } else if (svc === 'CAREGIVER' && providerUser.caregiver_profiles) {
           specialization = providerUser.caregiver_profiles.specializations;
-        } else if (svc === 'NUTRITIONIST' && providerUser.nutritionist_profiles) {
+        } else if (
+          svc === 'NUTRITIONIST' &&
+          providerUser.nutritionist_profiles
+        ) {
           specialization = providerUser.nutritionist_profiles.specialization;
         }
       }
@@ -192,10 +197,7 @@ export class BookingsService {
     return { ...session, tickets };
   }
 
-  async userOwnsSession(
-    patientId: string,
-    userId: string,
-  ): Promise<boolean> {
+  async userOwnsSession(patientId: string, userId: string): Promise<boolean> {
     const patient = await this.prisma.patients.findUnique({
       where: { id: patientId },
       select: { user_id: true, phone_number: true, emergency_contact: true },
@@ -210,8 +212,13 @@ export class BookingsService {
     const normalize = (p: string) =>
       p.replace(/^(\+88|88|0)/, '').replace(/\D/g, '');
     const userPhone = normalize(user.phoneNumber);
-    if (patient.phone_number && normalize(patient.phone_number) === userPhone) return true;
-    if (patient.emergency_contact && normalize(patient.emergency_contact) === userPhone) return true;
+    if (patient.phone_number && normalize(patient.phone_number) === userPhone)
+      return true;
+    if (
+      patient.emergency_contact &&
+      normalize(patient.emergency_contact) === userPhone
+    )
+      return true;
     return false;
   }
 
@@ -222,7 +229,14 @@ export class BookingsService {
     });
     const patient = await this.prisma.patients.findUnique({
       where: { id: patientId },
-      select: { id: true, user_id: true, phone_number: true, emergency_contact: true, first_name_en: true, last_name_en: true },
+      select: {
+        id: true,
+        user_id: true,
+        phone_number: true,
+        emergency_contact: true,
+        first_name_en: true,
+        last_name_en: true,
+      },
     });
     const userPatients = await this.prisma.patients.findMany({
       where: { user_id: userId },
@@ -251,10 +265,7 @@ export class BookingsService {
     const whereSessions: any =
       patientIds.length > 0
         ? {
-            OR: [
-              { patient_id: { in: patientIds } },
-              { booked_by: user.email },
-            ],
+            OR: [{ patient_id: { in: patientIds } }, { booked_by: user.email }],
           }
         : { booked_by: user.email };
 
@@ -449,10 +460,15 @@ export class BookingsService {
           },
         )
         .catch((err) =>
-          console.error('[NOTIFICATION] Failed to send booking notification:', err),
+          console.error(
+            '[NOTIFICATION] Failed to send booking notification:',
+            err,
+          ),
         );
     } else {
-      console.log('[NOTIFICATION] No user found for booked_by email, skipping push');
+      console.log(
+        '[NOTIFICATION] No user found for booked_by email, skipping push',
+      );
     }
 
     // ── Notify assigned providers ──

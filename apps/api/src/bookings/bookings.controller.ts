@@ -43,13 +43,21 @@ export class BookingsController {
       session.patient_id,
       userId,
     );
-    if (!ownsSession) {
-      const debugInfo = await this.bookingsService.debugAccess(userId, session.patient_id);
-      console.log(`[BOOKING_ACCESS] DENIED`, JSON.stringify(debugInfo, null, 2));
-      throw new ForbiddenException(
-        'You do not have access to this booking session',
-      );
-    }
-    return session;
+    if (ownsSession) return session;
+
+    // Check if user is an assigned provider for this session
+    const isProvider = session.tickets.some(
+      (t) => t.assigned_provider_id === userId,
+    );
+    if (isProvider) return session;
+
+    const debugInfo = await this.bookingsService.debugAccess(
+      userId,
+      session.patient_id,
+    );
+    console.log(`[BOOKING_ACCESS] DENIED`, JSON.stringify(debugInfo, null, 2));
+    throw new ForbiddenException(
+      'You do not have access to this booking session',
+    );
   }
 }

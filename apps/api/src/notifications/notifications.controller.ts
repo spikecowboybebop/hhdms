@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   HttpCode,
@@ -14,6 +15,12 @@ import { RegisterTokenDto } from './dto/register-token.dto';
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
+
+  @Get('pending')
+  @UseGuards(AuthGuard('jwt'))
+  async getPending(@Req() req: any) {
+    return this.notificationsService.getPendingNotifications(req.user.sub);
+  }
 
   @Post('register-token')
   @UseGuards(AuthGuard('jwt'))

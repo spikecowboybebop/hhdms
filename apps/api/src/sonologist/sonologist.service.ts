@@ -1,4 +1,9 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUsgReportDto } from './dto/create-usg-report.dto';
 
@@ -11,7 +16,9 @@ export class SonologistService {
       where: { user_id: userId },
     });
     if (!profile) {
-      throw new ForbiddenException('Only sonologists can access this resource.');
+      throw new ForbiddenException(
+        'Only sonologists can access this resource.',
+      );
     }
     return profile;
   }
@@ -196,8 +203,12 @@ export class SonologistService {
   async getDashboardStats(userId: string) {
     await this.verifySonologist(userId);
     const [totalStudies, totalReports, recentStudies] = await Promise.all([
-      this.prisma.sonologist_studies.count({ where: { sonologist_id: userId } }),
-      this.prisma.sonologist_reports.count({ where: { sonologist_id: userId } }),
+      this.prisma.sonologist_studies.count({
+        where: { sonologist_id: userId },
+      }),
+      this.prisma.sonologist_reports.count({
+        where: { sonologist_id: userId },
+      }),
       this.prisma.sonologist_studies.findMany({
         where: { sonologist_id: userId },
         orderBy: { study_date: 'desc' },

@@ -63,15 +63,20 @@ export class PatientsService {
       },
     });
 
-    const phoneNumbers = [dto.primary_phone, dto.emergency_contact_phone].filter(Boolean);
+    const phoneNumbers = [
+      dto.primary_phone,
+      dto.emergency_contact_phone,
+    ].filter(Boolean);
     const phoneQueries = phoneNumbers.flatMap((num) => {
       const normalized = num.startsWith('+880')
         ? num
         : `+880${num.replace(/^0+/, '')}`;
-      const alternate = num.startsWith('+880')
-        ? `0${num.slice(3)}`
-        : num;
-      return [{ phoneNumber: num }, { phoneNumber: normalized }, { phoneNumber: alternate }];
+      const alternate = num.startsWith('+880') ? `0${num.slice(3)}` : num;
+      return [
+        { phoneNumber: num },
+        { phoneNumber: normalized },
+        { phoneNumber: alternate },
+      ];
     });
     const matchingUser = await this.prisma.user.findFirst({
       where: { OR: phoneQueries },

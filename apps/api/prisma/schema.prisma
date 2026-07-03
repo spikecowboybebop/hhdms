@@ -39,6 +39,7 @@ model User {
   specialist_profiles   specialist_profiles?
   caregiver_profiles    caregiver_profiles?
   fcm_tokens            fcm_tokens[]
+  server_notifications  server_notifications[]
   patients              patients[]
   sonologist_profiles   sonologist_profiles?
   role                  Role                   @relation(fields: [roleId], references: [id], onUpdate: NoAction)
@@ -91,7 +92,7 @@ model provider_schedules {
 model fcm_tokens {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id     String   @map("user_id") @db.Uuid
-  token       String   @unique @db.Text
+  token       String   @db.Text
   device_type String   @default("android") @map("device_type") @db.VarChar(20)
   created_at  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -99,6 +100,22 @@ model fcm_tokens {
 
   @@unique([user_id, token])
   @@map("fcm_tokens")
+}
+
+model server_notifications {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @map("user_id") @db.Uuid
+  title      String   @db.VarChar(255)
+  body       String   @db.Text
+  session_id String?  @map("session_id") @db.Uuid
+  type       String?  @db.VarChar(50)
+  delivered  Boolean  @default(false)
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, delivered])
+  @@map("server_notifications")
 }
 
 model nutritionist_profiles {
