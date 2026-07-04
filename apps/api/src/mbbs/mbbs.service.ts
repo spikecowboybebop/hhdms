@@ -6,6 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateVitalsDto } from './dto/create-vitals.dto';
 import { CreateDiagnosisDto } from './dto/create-diagnosis.dto';
 import { CreateTestOrderDto } from './dto/create-test-order.dto';
@@ -28,7 +29,10 @@ interface Icd10Entry {
 export class MbbsService implements OnModuleInit {
   private icd10Codes: Icd10Entry[] = [];
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   onModuleInit() {
     const jsonPath = path.resolve(__dirname, '../../prisma/icd10_codes.json');
@@ -168,6 +172,37 @@ export class MbbsService implements OnModuleInit {
       previous_appointments: prevAppointments,
       documents,
     };
+  }
+
+  /**
+   * Start a patient visit — sends a push notification to the patient
+   * that the doctor is on their way.
+   */
+  async startPatientVisit(doctorUserId: string, patientId: string) {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+    });
+    if (!patient) throw new NotFoundException('Patient not found.');
+
+    if (!patient.user_id) {
+      throw new BadRequestException('Patient has no associated user account.');
+    }
+
+    const doctor = await this.prisma.user.findUnique({
+      where: { id: doctorUserId },
+      select: { firstNameEn: true, lastNameEn: true },
+    });
+    if (!doctor) throw new NotFoundException('Doctor not found.');
+
+    const doctorName = `Dr. ${doctor.firstNameEn} ${doctor.lastNameEn}`;
+
+    await this.notificationsService.sendToUser(
+      patient.user_id,
+      { title: 'Doctor on the Way', body: `${doctorName} is coming to visit you.` },
+      { type: 'doctor_coming' },
+    );
+
+    return { message: 'Visit started', doctor_name: doctorName };
   }
 
   // ============================================================
