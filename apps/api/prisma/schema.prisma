@@ -218,42 +218,42 @@ model nutritionist_adherence_logs {
 }
 
 model food_items {
-  id          String   @id @default(uuid())
-  name_en     String   // e.g., "White Rice (Boiled)"
-  name_bn     String?  // e.g., "সাদা ভাত"
-  calories    Float    // per 100g
-  protein     Float    // per 100g
-  carbs       Float    // per 100g
-  fat         Float    // per 100g
-  fiber       Float    // per 100g
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id         String   @id @default(uuid())
+  name_en    String // e.g., "White Rice (Boiled)"
+  name_bn    String? // e.g., "সাদা ভাত"
+  calories   Float // per 100g
+  protein    Float // per 100g
+  carbs      Float // per 100g
+  fat        Float // per 100g
+  fiber      Float // per 100g
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model diet_templates {
-  id               String                @id @default(uuid())
-  condition_name   String                @unique // e.g., "Diabetes Type 2", "Hypertension"
-  description      String?
-  total_calories   Int
-  language         String                @default("en")
-  is_active        Boolean               @default(true)
-  created_at       DateTime              @default(now())
-  updated_at       DateTime              @updatedAt
+  id             String   @id @default(uuid())
+  condition_name String   @unique // e.g., "Diabetes Type 2", "Hypertension"
+  description    String?
+  total_calories Int
+  language       String   @default("en")
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
-  meals            diet_template_meals[]
+  meals diet_template_meals[]
 }
 
 model diet_template_meals {
-  id                   String          @id @default(uuid())
+  id                   String  @id @default(uuid())
   template_id          String
-  meal_slot            String          // e.g., "Breakfast", "Lunch"
+  meal_slot            String // e.g., "Breakfast", "Lunch"
   calories             Int?
   preparation_guidance String?
-  foods_json           String          // Array of { food_id, grams }
-  sort_order           Int             @default(0)
+  foods_json           String // Array of { food_id, grams }
+  sort_order           Int     @default(0)
 
-  template             diet_templates  @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  template diet_templates @relation(fields: [template_id], references: [id], onDelete: Cascade)
 }
 
 model specialist_profiles {
