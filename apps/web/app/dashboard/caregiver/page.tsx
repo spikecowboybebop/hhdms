@@ -33,27 +33,6 @@ const navItems: DashboardNavItem[] = [
       </svg>
     ),
   },
-  {
-    label: "Activity Log",
-    href: "/dashboard/caregiver#activity",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    label: "Condition Reports",
-    href: "/dashboard/caregiver#reports",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    ),
-  },
 ];
 
 const ACTIVITY_TYPES = [
@@ -170,7 +149,19 @@ export default function CaregiverDashboardPage() {
     load();
   }, [hydrated, session]);
 
-  // Load logs when tab or selected patient changes
+  // Load recent activity logs
+  useEffect(() => {
+    if (!hydrated) return;
+    caregiverApi.getActivityLogs().then(setActivityLogs).catch(() => {});
+  }, [hydrated]);
+
+  // Load recent condition reports
+  useEffect(() => {
+    if (!hydrated) return;
+    caregiverApi.getConditionReports().then(setConditionReports).catch(() => {});
+  }, [hydrated]);
+
+  // Filter logs/reports by selected patient when viewing specific tabs
   useEffect(() => {
     if (!hydrated || activeTab !== "activity") return;
     caregiverApi.getActivityLogs(selectedPatient?.id).then(setActivityLogs).catch(() => {});
@@ -383,48 +374,119 @@ export default function CaregiverDashboardPage() {
 
           {/* ====== OVERVIEW TAB ====== */}
           {activeTab === "overview" && (
-            <SectionCard title="Caregiver Workspace" description="Quick overview of your assigned patients">
-              {patients.length === 0 ? (
-                <p className="text-xs text-[#2D3A4A] italic py-4">
-                  No patients are currently assigned to you.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {patients.map((p) => (
-                    <li key={p.id}>
-                      <button
-                        onClick={() => setSelectedPatient(p)}
-                        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-all ${
-                          selectedPatient?.id === p.id
-                            ? "border-[#00D4B2] bg-[#00D4B2]/5"
-                            : "border-slate-200/60 bg-white hover:border-[#00D4B2]/40"
-                        }`}
-                      >
-                        <div className="flex flex-col gap-1">
-                          <div>
-                            <span className="text-sm font-bold text-[#0A2540]">
-                              {p.first_name_en} {p.last_name_en}
-                            </span>
-                            <span className="ml-2 text-[10px] font-mono text-[#2D3A4A]">
-                              {p.mrn}
-                            </span>
+            <>
+              <SectionCard title="Caregiver Workspace" description="Quick overview of your assigned patients">
+                {patients.length === 0 ? (
+                  <p className="text-xs text-[#2D3A4A] italic py-4">
+                    No patients are currently assigned to you.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {patients.map((p) => (
+                      <li key={p.id}>
+                        <button
+                          onClick={() => setSelectedPatient(p)}
+                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-all ${
+                            selectedPatient?.id === p.id
+                              ? "border-[#00D4B2] bg-[#00D4B2]/5"
+                              : "border-slate-200/60 bg-white hover:border-[#00D4B2]/40"
+                          }`}
+                        >
+                          <div className="flex flex-col gap-1">
+                            <div>
+                              <span className="text-sm font-bold text-[#0A2540]">
+                                {p.first_name_en} {p.last_name_en}
+                              </span>
+                              <span className="ml-2 text-[10px] font-mono text-[#2D3A4A]">
+                                {p.mrn}
+                              </span>
+                            </div>
+                            {p.service_type && (
+                              <span className="text-[10px] text-[#00D4B2] font-semibold">
+                                {SERVICE_TYPE_LABELS[p.service_type] || p.service_type}
+                                {p.patient_type && ` · ${PATIENT_TYPE_LABELS[p.patient_type] || p.patient_type}`}
+                              </span>
+                            )}
                           </div>
-                          {p.service_type && (
-                            <span className="text-[10px] text-[#00D4B2] font-semibold">
-                              {SERVICE_TYPE_LABELS[p.service_type] || p.service_type}
-                              {p.patient_type && ` · ${PATIENT_TYPE_LABELS[p.patient_type] || p.patient_type}`}
+                          <span className="text-xs text-[#2D3A4A]">
+                            {p.sex === "M" ? "Male" : "Female"} · {p.blood_group || "N/A"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SectionCard>
+
+              {/* Recent Activity Logs */}
+              <SectionCard
+                title="Recent Activity Logs"
+                description={activityLogs.length > 0 ? `Last ${Math.min(activityLogs.length, 5)} submissions` : "No activities logged yet"}
+              >
+                {activityLogs.length === 0 ? (
+                  <p className="text-xs text-[#2D3A4A] italic py-2">No daily activities logged yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {activityLogs.slice(0, 5).map((log) => (
+                      <div key={log.id} className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-[#00D4B2]/10 px-2 py-0.5 text-[10px] font-bold text-[#00D4B2] uppercase">
+                            {ACTIVITY_TYPES.find((a) => a.value === log.activity_type)?.label || log.activity_type}
+                          </span>
+                          {log.patient && (
+                            <span className="text-[11px] text-[#2D3A4A]">
+                              {log.patient.first_name_en} {log.patient.last_name_en}
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-[#2D3A4A]">
-                          {p.sex === "M" ? "Male" : "Female"} · {p.blood_group || "N/A"}
+                        <span className="text-[10px] text-[#2D3A4A]/50">
+                          {new Date(log.created_at).toLocaleString()}
                         </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </SectionCard>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+
+              {/* Recent Condition Reports */}
+              <SectionCard
+                title="Recent Condition Reports"
+                description={conditionReports.length > 0 ? `Last ${Math.min(conditionReports.length, 5)} submissions` : "No reports submitted yet"}
+              >
+                {conditionReports.length === 0 ? (
+                  <p className="text-xs text-[#2D3A4A] italic py-2">No condition changes reported yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {conditionReports.slice(0, 5).map((report) => (
+                      <div key={report.id} className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                            report.severity === "SEVERE"
+                              ? "bg-red-100 text-red-600"
+                              : report.severity === "MODERATE"
+                                ? "bg-amber-100 text-amber-600"
+                                : "bg-green-100 text-green-600"
+                          }`}>
+                            {report.severity}
+                          </span>
+                          <span className="rounded-full bg-[#FF9900]/10 px-2 py-0.5 text-[10px] font-bold text-[#FF9900] uppercase">
+                            {REPORT_TYPES.find((r) => r.value === report.report_type)?.label || report.report_type}
+                          </span>
+                          {report.patient && (
+                            <span className="text-[11px] text-[#2D3A4A]">
+                              {report.patient.first_name_en} {report.patient.last_name_en}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-[#2D3A4A]/50">
+                          {new Date(report.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+            </>
           )}
 
           {/* ====== ACTIVITY LOG TAB (CG-005) ====== */}
