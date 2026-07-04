@@ -198,7 +198,10 @@ export class MbbsService implements OnModuleInit {
 
     await this.notificationsService.sendToUser(
       patient.user_id,
-      { title: 'Doctor on the Way', body: `${doctorName} is coming to visit you.` },
+      {
+        title: 'Doctor on the Way',
+        body: `${doctorName} is coming to visit you.`,
+      },
       { type: 'doctor_coming' },
     );
 

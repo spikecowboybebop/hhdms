@@ -379,7 +379,7 @@ export class NutritionistService {
     });
   }
 
- // ─── Nutrient Calculator (NU-009) ───────────────────────────────────────
+  // ─── Nutrient Calculator (NU-009) ───────────────────────────────────────
 
   async calculateNutrients(dto: CalculateNutrientsDto) {
     let totalCal = 0;
@@ -400,7 +400,7 @@ export class NutritionistService {
       },
     });
 
-    // Explicitly tell TypeScript that this map holds <string, any> 
+    // Explicitly tell TypeScript that this map holds <string, any>
     // so it stops saying "property does not exist on {}"
     const foodMap = new Map<string, any>(foodRecords.map((f) => [f.id, f]));
 
