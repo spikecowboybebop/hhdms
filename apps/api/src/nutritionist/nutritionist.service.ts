@@ -9,6 +9,19 @@ import { CreateAdherenceLogDto } from './dto/create-adherence-log.dto';
 import { CreateAnthropometricRecordDto } from './dto/create-anthropometric-record.dto';
 import { CreateDietPlanDto } from './dto/create-diet-plan.dto';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
+import { CalculateNutrientsDto } from './dto/calculate-nutrients.dto';
+
+type NutrientBreakdownItem = {
+  food_id: string;
+  name_en: string;
+  name_bn: string | null;
+  grams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+};
 
 @Injectable()
 export class NutritionistService {
@@ -366,134 +379,58 @@ export class NutritionistService {
     });
   }
 
-  // ─── Nutrient Calculator ──────────────────────────────────────────────────
+ // ─── Nutrient Calculator (NU-009) ───────────────────────────────────────
 
-  async calculateNutrients(foods: { food_item_id: string; grams: number }[]) {
-    // Bangladeshi food database (static — replace with DB table later)
-    const BD_FOODS: Record<
-      string,
-      {
-        name: string;
-        cal: number;
-        protein: number;
-        carbs: number;
-        fat: number;
-        fiber: number;
+  async calculateNutrients(dto: CalculateNutrientsDto) {
+    let totalCal = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    let totalFiber = 0;
+
+    // Explicitly type the breakdown array so it's not "never[]"
+    const breakdown: NutrientBreakdownItem[] = [];
+
+    const foodIds = dto.foods.map((f) => f.food_item_id);
+
+    const foodRecords = await this.prisma.food_items.findMany({
+      where: {
+        id: { in: foodIds },
+        is_active: true,
+      },
+    });
+
+    // Explicitly tell TypeScript that this map holds <string, any> 
+    // so it stops saying "property does not exist on {}"
+    const foodMap = new Map<string, any>(foodRecords.map((f) => [f.id, f]));
+
+    for (const item of dto.foods) {
+      const food = foodMap.get(item.food_item_id);
+
+      if (!food) {
+        throw new NotFoundException(
+          `Food item with ID ${item.food_item_id} not found in database.`,
+        );
       }
-    > = {
-      'rice-white': {
-        name: 'Rice (White, Cooked)',
-        cal: 130,
-        protein: 2.7,
-        carbs: 28.2,
-        fat: 0.3,
-        fiber: 0.4,
-      },
-      ruti: {
-        name: 'Ruti (Whole Wheat)',
-        cal: 71,
-        protein: 2.7,
-        carbs: 14.8,
-        fat: 0.4,
-        fiber: 1.2,
-      },
-      'lentil-red': {
-        name: 'Red Lentil (Masur Dal)',
-        cal: 116,
-        protein: 9.0,
-        carbs: 20.1,
-        fat: 0.4,
-        fiber: 7.9,
-      },
-      'fish-hilsa': {
-        name: 'Hilsa Fish',
-        cal: 273,
-        protein: 21.8,
-        carbs: 0,
-        fat: 19.4,
-        fiber: 0,
-      },
-      'fish-rohu': {
-        name: 'Rohu Fish',
-        cal: 97,
-        protein: 16.6,
-        carbs: 0,
-        fat: 2.4,
-        fiber: 0,
-      },
-      'egg-chicken': {
-        name: 'Chicken Egg',
-        cal: 155,
-        protein: 13.0,
-        carbs: 1.1,
-        fat: 10.6,
-        fiber: 0,
-      },
-      chicken: {
-        name: 'Chicken (Cooked)',
-        cal: 165,
-        protein: 31.0,
-        carbs: 0,
-        fat: 3.6,
-        fiber: 0,
-      },
-      spinach: {
-        name: 'Spinach (Palak)',
-        cal: 23,
-        protein: 2.9,
-        carbs: 3.6,
-        fat: 0.4,
-        fiber: 2.2,
-      },
-      banana: {
-        name: 'Banana',
-        cal: 89,
-        protein: 1.1,
-        carbs: 22.8,
-        fat: 0.3,
-        fiber: 2.6,
-      },
-      milk: {
-        name: 'Whole Milk',
-        cal: 61,
-        protein: 3.2,
-        carbs: 4.8,
-        fat: 3.3,
-        fiber: 0,
-      },
-    };
 
-    let totalCal = 0,
-      totalProtein = 0,
-      totalCarbs = 0,
-      totalFat = 0,
-      totalFiber = 0;
-    const breakdown: {
-      name: string;
-      grams: number;
-      calories: number;
-      protein: number;
-      carbs: number;
-      fat: number;
-      fiber: number;
-    }[] = [];
-
-    for (const item of foods) {
-      const food = BD_FOODS[item.food_item_id];
-      if (!food) continue;
       const factor = item.grams / 100;
-      const cal = Math.round(food.cal * factor * 10) / 10;
-      const protein = Math.round(food.protein * factor * 10) / 10;
-      const carbs = Math.round(food.carbs * factor * 10) / 10;
-      const fat = Math.round(food.fat * factor * 10) / 10;
-      const fiber = Math.round(food.fiber * factor * 10) / 10;
+
+      const cal = Number((food.calories * factor).toFixed(1));
+      const protein = Number((food.protein * factor).toFixed(1));
+      const carbs = Number((food.carbs * factor).toFixed(1));
+      const fat = Number((food.fat * factor).toFixed(1));
+      const fiber = Number((food.fiber * factor).toFixed(1));
+
       totalCal += cal;
       totalProtein += protein;
       totalCarbs += carbs;
       totalFat += fat;
       totalFiber += fiber;
+
       breakdown.push({
-        name: food.name,
+        food_id: food.id,
+        name_en: food.name_en,
+        name_bn: food.name_bn,
         grams: item.grams,
         calories: cal,
         protein,
@@ -504,18 +441,14 @@ export class NutritionistService {
     }
 
     return {
-      breakdown,
-      totals: {
-        calories: Math.round(totalCal),
-        protein_g: Math.round(totalProtein * 10) / 10,
-        carbs_g: Math.round(totalCarbs * 10) / 10,
-        fat_g: Math.round(totalFat * 10) / 10,
-        fiber_g: Math.round(totalFiber * 10) / 10,
+      summary: {
+        totalCalories: Math.round(totalCal),
+        totalProtein: Math.round(totalProtein),
+        totalCarbs: Math.round(totalCarbs),
+        totalFat: Math.round(totalFat),
+        totalFiber: Math.round(totalFiber),
       },
-      available_foods: Object.entries(BD_FOODS).map(([id, f]) => ({
-        id,
-        name: f.name,
-      })),
+      breakdown,
     };
   }
 }
