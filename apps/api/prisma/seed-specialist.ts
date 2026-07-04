@@ -1,5 +1,6 @@
 // HHDMS Specialist Module Seed — run AFTER prisma/seed.ts
 // npx tsx prisma/seed-specialist.ts
+// ⚠️ Contains destructive operations. Do NOT run against production.
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -13,6 +14,15 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+// ── Safety guard: refuse to run on production ──────────────────────────
+const PRODUCTION_HOSTS = ['ep-steep-silence-ao9uma2e-pooler.c-2.ap-southeast-1.aws.neon.tech'];
+const dbUrl = process.env.DATABASE_URL ?? '';
+if (PRODUCTION_HOSTS.some((host) => dbUrl.includes(host))) {
+  console.error('❌ Refusing to run seed against the production database.');
+  console.error('   Set ALLOW_DESTRUCTIVE_SEED=true to override.');
+  if (!process.env.ALLOW_DESTRUCTIVE_SEED) process.exit(1);
+}
 
 async function main() {
   const SALT_ROUNDS = 12;
@@ -59,9 +69,8 @@ async function main() {
   );
   console.log('  Done: dr.kamal (NEURO)');
 
-  // ── Clear old specialist referrals to avoid duplicates on re-run ───
-  await prisma.referral_chain.deleteMany({ where: { step_type: 'SPECIALIST_CONSULTATION' } });
-  await prisma.specialist_referrals.deleteMany({});
+  // ── Note: previously cleared specialist referrals here to avoid duplicates on re-run.
+  // Removed the destructive deleteMany calls to prevent accidental data loss.
 
   // ── Referral 1: Rahim → Dr. Nusrat (CARD) ─ PENDING ────────────────
   console.log('Creating referrals...');

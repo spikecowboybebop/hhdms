@@ -50,6 +50,13 @@ export class MbbsController {
     return this.mbbsService.getPatientProfile(id);
   }
 
+  @Post('patients/:id/start-visit')
+  @HttpCode(HttpStatus.OK)
+  async startPatientVisit(@Param('id') id: string, @Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.startPatientVisit(doctorUserId, id);
+  }
+
   // ============================================================
   // Vital Signs Endpoints (MB-003)
   // ============================================================

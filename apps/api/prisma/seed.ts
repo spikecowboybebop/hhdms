@@ -1,5 +1,6 @@
 // HHDMS Seed Script — TypeScript version
 // Run via: npx tsx prisma/seed.ts
+// ⚠️ This file contains destructive operations. Do NOT run against production.
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -13,6 +14,15 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+// ── Safety guard: refuse to run on production ──────────────────────────
+const PRODUCTION_HOSTS = ['ep-steep-silence-ao9uma2e-pooler.c-2.ap-southeast-1.aws.neon.tech'];
+const dbUrl = process.env.DATABASE_URL ?? '';
+if (PRODUCTION_HOSTS.some((host) => dbUrl.includes(host))) {
+  console.error('❌ Refusing to run seed against the production database.');
+  console.error('   Set ALLOW_DESTRUCTIVE_SEED=true to override.');
+  if (!process.env.ALLOW_DESTRUCTIVE_SEED) process.exit(1);
+}
 
 async function main() {
   const SALT_ROUNDS = 12;
@@ -216,8 +226,8 @@ async function main() {
     create: { email: 'nutritionist.tanvir@hhdms.com', passwordHash, phoneNumber: '+8801700000002', firstNameEn: 'Tanvir', lastNameEn: 'Ahmed', firstNameBn: 'তানভীর', roleId: nutRole.id, status: 'ACTIVE' },
   });
   await prisma.$executeRawUnsafe(
-    `INSERT INTO nutritionist_profiles (user_id, license_number, specialization, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, specialization=$3, qualification=$4, years_of_experience=$5, consultation_fee=$6, is_available=$7`,
-    tanvir.id, 'NUT-2024-001', 'Clinical Dietetics & Obesity Management', 'BSc (Food & Nutrition), MSc (Dietetics)', 5, 500.0, true
+    `INSERT INTO nutritionist_profiles (id, user_id, created_at, updated_at) VALUES (gen_random_uuid(), $1, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`,
+    tanvir.id
   );
   console.log('  Done: tanvir (Nutritionist)');
 
@@ -532,13 +542,8 @@ async function main() {
 
   console.log('Assigning consultations for Dr. Arif...');
   
-  // Clean up old assignments so upserts could work gracefully, or just rely on the IDs.
-  // Wait, wait, simple creates will fail on re-run because they don't check for existence (it's random UUID PK but duplicate records keep appending).
-  // So we will delete previous clinical records for these patients to avoid clutter on re-running.
-  await prisma.patient_diagnoses.deleteMany({ where: { patient_id: { in: [patient1.id, patient2.id] } } });
-  await prisma.patient_vital_signs.deleteMany({ where: { patient_id: { in: [patient1.id, patient2.id] } } });
-  await prisma.prescriptions.deleteMany({ where: { patient_id: { in: [patient1.id, patient2.id] } } });
-  await prisma.specialist_referrals.deleteMany({ where: { patient_id: { in: [patient1.id, patient2.id] } } });
+  // Note: previously deleted clinical records here to avoid duplicates on re-run.
+  // Removed the destructive deleteMany calls to prevent accidental data loss.
 
   // Patient 1 Consultation
   await prisma.patient_vital_signs.create({
@@ -682,8 +687,7 @@ async function main() {
 
   // ── Seed Sonologist USG Studies ────────────────────────────
   console.log('Seeding sonologist USG studies...');
-  await prisma.sonologist_studies.deleteMany({ where: { sonologist_id: shahid.id } });
-  await prisma.sonologist_reports.deleteMany({ where: { sonologist_id: shahid.id } });
+  // Note: previously deleted sonologist records here. Removed to prevent data loss.
 
   const p1Study = await prisma.sonologist_studies.create({
     data: {

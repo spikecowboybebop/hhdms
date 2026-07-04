@@ -139,7 +139,12 @@ export class NotificationsService implements OnModuleInit {
 
   private async sendFcmPush(
     userId: string,
-    notification: { title: string; body: string; session_id?: string | null; type?: string | null },
+    notification: {
+      title: string;
+      body: string;
+      session_id?: string | null;
+      type?: string | null;
+    },
   ) {
     const tokens = await this.prisma.fcm_tokens.findMany({
       where: { user_id: userId },
