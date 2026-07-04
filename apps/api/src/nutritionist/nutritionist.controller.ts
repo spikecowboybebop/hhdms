@@ -112,6 +112,6 @@ export class NutritionistController {
   // POST /nutritionist/calculate-nutrients
   @Post('calculate-nutrients')
   calculateNutrients(@Body() dto: CalculateNutrientsDto) {
-    return this.nutritionistService.calculateNutrients(dto.foods);
+    return this.nutritionistService.calculateNutrients(dto);
   }
 }

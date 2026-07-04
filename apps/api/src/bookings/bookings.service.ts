@@ -138,9 +138,7 @@ export class BookingsService {
         caregiver_profiles: {
           select: { specializations: true },
         },
-        nutritionist_profiles: {
-          select: { specialization: true },
-        },
+        nutritionist_profiles: true,
       },
     });
 
@@ -176,7 +174,7 @@ export class BookingsService {
           svc === 'NUTRITIONIST' &&
           providerUser.nutritionist_profiles
         ) {
-          specialization = providerUser.nutritionist_profiles.specialization;
+          specialization = 'Nutritionist';
         }
       }
 

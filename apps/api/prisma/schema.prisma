@@ -18,31 +18,32 @@ model Role {
 }
 
 model User {
-  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                 String                 @unique @db.VarChar(255)
-  passwordHash          String                 @map("password_hash") @db.VarChar(255)
-  phoneNumber           String                 @unique @map("phone_number") @db.VarChar(20)
-  firstNameEn           String                 @map("first_name_en") @db.VarChar(100)
-  lastNameEn            String                 @map("last_name_en") @db.VarChar(100)
-  firstNameBn           String?                @map("first_name_bn") @db.VarChar(100)
-  lastNameBn            String?                @map("last_name_bn") @db.VarChar(100)
-  roleId                Int                    @map("role_id")
-  status                AccountStatusEnum      @default(ACTIVE)
-  mfaEnabled            Boolean                @default(false) @map("mfa_enabled")
-  mfaSecret             String?                @map("mfa_secret") @db.VarChar(128)
-  lastLoginAt           DateTime?              @map("last_login_at") @db.Timestamptz(6)
-  passwordChangedAt     DateTime?              @default(now()) @map("password_changed_at") @db.Timestamptz(6)
-  createdAt             DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime?              @default(now()) @map("updated_at") @db.Timestamptz(6)
-  mbbs_doctor_profiles  mbbs_doctor_profiles?
-  nutritionist_profiles nutritionist_profiles?
-  specialist_profiles   specialist_profiles?
-  caregiver_profiles    caregiver_profiles?
-  fcm_tokens            fcm_tokens[]
-  server_notifications  server_notifications[]
-  patients              patients[]
-  sonologist_profiles   sonologist_profiles?
-  role                  Role                   @relation(fields: [roleId], references: [id], onUpdate: NoAction)
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                   String                 @unique @db.VarChar(255)
+  passwordHash            String                 @map("password_hash") @db.VarChar(255)
+  phoneNumber             String                 @unique @map("phone_number") @db.VarChar(20)
+  firstNameEn             String                 @map("first_name_en") @db.VarChar(100)
+  lastNameEn              String                 @map("last_name_en") @db.VarChar(100)
+  firstNameBn             String?                @map("first_name_bn") @db.VarChar(100)
+  lastNameBn              String?                @map("last_name_bn") @db.VarChar(100)
+  roleId                  Int                    @map("role_id")
+  status                  AccountStatusEnum      @default(ACTIVE)
+  mfaEnabled              Boolean                @default(false) @map("mfa_enabled")
+  mfaSecret               String?                @map("mfa_secret") @db.VarChar(128)
+  lastLoginAt             DateTime?              @map("last_login_at") @db.Timestamptz(6)
+  passwordChangedAt       DateTime?              @default(now()) @map("password_changed_at") @db.Timestamptz(6)
+  createdAt               DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime?              @default(now()) @map("updated_at") @db.Timestamptz(6)
+  mbbs_doctor_profiles    mbbs_doctor_profiles?
+  nutritionist_profiles   nutritionist_profiles?
+  specialist_profiles     specialist_profiles?
+  caregiver_profiles      caregiver_profiles?
+  fcm_tokens              fcm_tokens[]
+  server_notifications    server_notifications[]
+  patients                patients[]
+  sonologist_profiles     sonologist_profiles?
+  role                    Role                   @relation(fields: [roleId], references: [id], onUpdate: NoAction)
+  nutritionist_profilesId String?
 
   @@map("users")
 }
@@ -75,15 +76,15 @@ model mbbs_doctor_profiles {
 }
 
 model provider_schedules {
-  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  provider_id String               @map("provider_id") @db.Uuid
-  day_of_week Int                  @map("day_of_week")
-  start_time  String               @map("start_time") @db.VarChar(5)
-  end_time    String               @map("end_time") @db.VarChar(5)
-  is_available Boolean             @default(true) @map("is_available")
-  created_at  DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at  DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
-  provider    mbbs_doctor_profiles @relation(fields: [provider_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_id  String               @map("provider_id") @db.Uuid
+  day_of_week  Int                  @map("day_of_week")
+  start_time   String               @map("start_time") @db.VarChar(5)
+  end_time     String               @map("end_time") @db.VarChar(5)
+  is_available Boolean              @default(true) @map("is_available")
+  created_at   DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at   DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  provider     mbbs_doctor_profiles @relation(fields: [provider_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([provider_id, day_of_week, start_time])
   @@map("provider_schedules")
@@ -118,113 +119,141 @@ model server_notifications {
   @@map("server_notifications")
 }
 
+// Add these to your schema.prisma file
+
 model nutritionist_profiles {
-  user_id                String                                @id @map("user_id") @db.Uuid
-  license_number         String?                               @unique @map("license_number") @db.VarChar(50)
-  specialization         String?                               @map("specialization") @db.VarChar(100)
-  qualification          String?                               @map("qualification") @db.VarChar(255)
-  years_of_experience    Int?                                  @map("years_of_experience")
-  consultation_fee       Decimal?                              @map("consultation_fee") @db.Decimal(10, 2)
-  is_available           Boolean                               @default(true) @map("is_available")
-  created_at             DateTime?                             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at             DateTime?                             @default(now()) @map("updated_at") @db.Timestamptz(6)
-  user                   User                                  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  anthropometric_records nutritionist_anthropometric_records[]
+  id      String @id @default(uuid())
+  user_id String @unique @db.Uuid // This is the physical column
+  user    User   @relation(fields: [user_id], references: [id]) // This is the Prisma relation
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
   diet_plans             nutritionist_diet_plans[]
   follow_ups             nutritionist_follow_ups[]
   adherence_logs         nutritionist_adherence_logs[]
-
-  @@map("nutritionist_profiles")
+  anthropometric_records nutritionist_anthropometric_records[]
 }
 
 model nutritionist_anthropometric_records {
-  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id   String                @map("patient_id") @db.Uuid
-  recorded_by  String                @map("recorded_by") @db.Uuid
-  height_cm    Decimal?              @map("height_cm") @db.Decimal(5, 1)
-  weight_kg    Decimal?              @map("weight_kg") @db.Decimal(5, 1)
-  waist_cm     Decimal?              @map("waist_cm") @db.Decimal(5, 1)
-  hip_cm       Decimal?              @map("hip_cm") @db.Decimal(5, 1)
-  bmi          Decimal?              @map("bmi") @db.Decimal(4, 1)
-  bmi_category String?               @map("bmi_category") @db.VarChar(30)
-  notes        String?               @map("notes")
-  recorded_at  DateTime?             @default(now()) @map("recorded_at") @db.Timestamptz(6)
-  patient      patients              @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nutritionist nutritionist_profiles @relation(fields: [recorded_by], references: [user_id], onUpdate: NoAction)
+  id           String   @id @default(uuid())
+  patient_id   String   @db.Uuid
+  recorded_by  String   @db.Uuid
+  height_cm    Float?
+  weight_kg    Float?
+  waist_cm     Float?
+  hip_cm       Float?
+  bmi          Float?
+  bmi_category String?
+  notes        String?
+  recorded_at  DateTime @default(now())
 
-  @@map("nutritionist_anthropometric_records")
+  patient      patients              @relation(fields: [patient_id], references: [id])
+  nutritionist nutritionist_profiles @relation(fields: [recorded_by], references: [user_id])
 }
 
 model nutritionist_diet_plans {
-  id              String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id      String                         @map("patient_id") @db.Uuid
-  nutritionist_id String                         @map("nutritionist_id") @db.Uuid
-  title           String?                        @map("title") @db.VarChar(255)
-  condition_name  String?                        @map("condition_name") @db.VarChar(100)
-  total_calories  Int?                           @map("total_calories")
-  language        String?                        @default("en") @map("language") @db.VarChar(10)
-  notes           String?                        @map("notes")
-  status          String                         @default("ACTIVE") @map("status") @db.VarChar(20)
-  created_at      DateTime?                      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at      DateTime?                      @default(now()) @map("updated_at") @db.Timestamptz(6)
-  patient         patients                       @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nutritionist    nutritionist_profiles          @relation(fields: [nutritionist_id], references: [user_id], onUpdate: NoAction)
-  meals           nutritionist_diet_plan_meals[]
-  follow_ups      nutritionist_follow_ups[]
-  adherence_logs  nutritionist_adherence_logs[]
+  id              String   @id @default(uuid())
+  patient_id      String   @db.Uuid
+  nutritionist_id String   @db.Uuid
+  title           String
+  condition_name  String?
+  total_calories  Int?
+  language        String   @default("en")
+  notes           String?
+  status          String   @default("ACTIVE")
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  @@map("nutritionist_diet_plans")
+  patient      patients                       @relation(fields: [patient_id], references: [id])
+  nutritionist nutritionist_profiles          @relation(fields: [nutritionist_id], references: [user_id])
+  meals        nutritionist_diet_plan_meals[]
+  follow_ups   nutritionist_follow_ups[]
 }
 
 model nutritionist_diet_plan_meals {
-  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  plan_id              String                  @map("plan_id") @db.Uuid
-  meal_slot            String                  @map("meal_slot") @db.VarChar(50)
-  calories             Int?                    @map("calories")
-  preparation_guidance String?                 @map("preparation_guidance")
-  foods_json           String                  @map("foods_json") @db.Text
-  sort_order           Int                     @default(0) @map("sort_order")
-  plan                 nutritionist_diet_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                   String  @id @default(uuid())
+  plan_id              String
+  meal_slot            String
+  calories             Int?
+  preparation_guidance String?
+  foods_json           String
+  sort_order           Int     @default(0)
 
-  @@map("nutritionist_diet_plan_meals")
+  plan nutritionist_diet_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
 }
 
 model nutritionist_follow_ups {
-  id               String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id       String                        @map("patient_id") @db.Uuid
-  nutritionist_id  String                        @map("nutritionist_id") @db.Uuid
-  plan_id          String?                       @map("plan_id") @db.Uuid
-  interval         String                        @map("interval") @db.VarChar(30)
-  follow_up_at     DateTime?                     @map("follow_up_at") @db.Timestamptz(6)
-  reminder_channel String?                       @default("SMS") @map("reminder_channel") @db.VarChar(20)
-  status           String                        @default("SCHEDULED") @map("status") @db.VarChar(20)
-  notes            String?                       @map("notes")
-  created_at       DateTime?                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  patient          patients                      @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nutritionist     nutritionist_profiles         @relation(fields: [nutritionist_id], references: [user_id], onUpdate: NoAction)
-  plan             nutritionist_diet_plans?      @relation(fields: [plan_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  adherence_logs   nutritionist_adherence_logs[]
+  id               String    @id @default(uuid())
+  patient_id       String    @db.Uuid
+  nutritionist_id  String    @db.Uuid
+  plan_id          String?
+  interval         String
+  follow_up_at     DateTime?
+  reminder_channel String    @default("SMS")
+  status           String    @default("SCHEDULED")
+  notes            String?
+  created_at       DateTime  @default(now())
 
-  @@map("nutritionist_follow_ups")
+  patient      patients                 @relation(fields: [patient_id], references: [id])
+  nutritionist nutritionist_profiles    @relation(fields: [nutritionist_id], references: [user_id])
+  plan         nutritionist_diet_plans? @relation(fields: [plan_id], references: [id])
 }
 
 model nutritionist_adherence_logs {
-  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id      String                   @map("patient_id") @db.Uuid
-  nutritionist_id String                   @map("nutritionist_id") @db.Uuid
-  plan_id         String?                  @map("plan_id") @db.Uuid
-  follow_up_id    String?                  @map("follow_up_id") @db.Uuid
-  adherence_score Int                      @map("adherence_score")
-  weight_kg       Decimal?                 @map("weight_kg") @db.Decimal(5, 1)
-  challenges      String?                  @map("challenges")
-  modifications   String?                  @map("modifications")
-  logged_at       DateTime?                @default(now()) @map("logged_at") @db.Timestamptz(6)
-  patient         patients                 @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nutritionist    nutritionist_profiles    @relation(fields: [nutritionist_id], references: [user_id], onUpdate: NoAction)
-  plan            nutritionist_diet_plans? @relation(fields: [plan_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  follow_up       nutritionist_follow_ups? @relation(fields: [follow_up_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id              String   @id @default(uuid())
+  patient_id      String   @db.Uuid
+  nutritionist_id String   @db.Uuid
+  plan_id         String?
+  follow_up_id    String?
+  adherence_score Int
+  weight_kg       Float?
+  challenges      String?
+  modifications   String?
+  logged_at       DateTime @default(now())
 
-  @@map("nutritionist_adherence_logs")
+  patient      patients              @relation(fields: [patient_id], references: [id])
+  nutritionist nutritionist_profiles @relation(fields: [nutritionist_id], references: [user_id])
+}
+
+model food_items {
+  id          String   @id @default(uuid())
+  name_en     String   // e.g., "White Rice (Boiled)"
+  name_bn     String?  // e.g., "সাদা ভাত"
+  calories    Float    // per 100g
+  protein     Float    // per 100g
+  carbs       Float    // per 100g
+  fat         Float    // per 100g
+  fiber       Float    // per 100g
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
+model diet_templates {
+  id               String                @id @default(uuid())
+  condition_name   String                @unique // e.g., "Diabetes Type 2", "Hypertension"
+  description      String?
+  total_calories   Int
+  language         String                @default("en")
+  is_active        Boolean               @default(true)
+  created_at       DateTime              @default(now())
+  updated_at       DateTime              @updatedAt
+
+  meals            diet_template_meals[]
+}
+
+model diet_template_meals {
+  id                   String          @id @default(uuid())
+  template_id          String
+  meal_slot            String          // e.g., "Breakfast", "Lunch"
+  calories             Int?
+  preparation_guidance String?
+  foods_json           String          // Array of { food_id, grams }
+  sort_order           Int             @default(0)
+
+  template             diet_templates  @relation(fields: [template_id], references: [id], onDelete: Cascade)
 }
 
 model specialist_profiles {
@@ -247,17 +276,17 @@ model specialist_profiles {
 }
 
 model sonologist_profiles {
-  user_id             String    @id @map("user_id") @db.Uuid
-  license_number      String?   @unique @map("license_number") @db.VarChar(50)
-  qualification       String?   @map("qualification") @db.VarChar(255)
-  years_of_experience Int?      @map("years_of_experience")
-  consultation_fee    Decimal?  @map("consultation_fee") @db.Decimal(10, 2)
-  equipment_ids       String?   @map("equipment_ids") @db.VarChar(500)
-  usg_specializations String?   @map("usg_specializations") @db.VarChar(255)
-  is_available        Boolean   @default(true) @map("is_available")
-  created_at          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at          DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-  user                User      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  user_id             String               @id @map("user_id") @db.Uuid
+  license_number      String?              @unique @map("license_number") @db.VarChar(50)
+  qualification       String?              @map("qualification") @db.VarChar(255)
+  years_of_experience Int?                 @map("years_of_experience")
+  consultation_fee    Decimal?             @map("consultation_fee") @db.Decimal(10, 2)
+  equipment_ids       String?              @map("equipment_ids") @db.VarChar(500)
+  usg_specializations String?              @map("usg_specializations") @db.VarChar(255)
+  is_available        Boolean              @default(true) @map("is_available")
+  created_at          DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at          DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user                User                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
   studies             sonologist_studies[]
   reports             sonologist_reports[]
 
@@ -265,41 +294,41 @@ model sonologist_profiles {
 }
 
 model sonologist_studies {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sonologist_id  String             @map("sonologist_id") @db.Uuid
-  patient_id     String             @map("patient_id") @db.Uuid
-  modality       String             @default("USG") @map("modality") @db.VarChar(20)
-  body_part      String?            @map("body_part") @db.VarChar(100)
-  study_date     DateTime?          @default(now()) @map("study_date") @db.Timestamptz(6)
-  dicom_series_uids String?         @map("dicom_series_uids") @db.Text
-  storage_url    String?            @map("storage_url") @db.VarChar(2000)
-  findings       String?            @map("findings") @db.Text
-  impression     String?            @map("impression") @db.Text
-  is_abnormal    Boolean            @default(false) @map("is_abnormal")
-  status         String             @default("COMPLETED") @map("status") @db.VarChar(20)
-  created_at     DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at     DateTime?          @default(now()) @map("updated_at") @db.Timestamptz(6)
-  sonologist     sonologist_profiles @relation(fields: [sonologist_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
-  patient        patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  reports        sonologist_reports[]
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sonologist_id     String               @map("sonologist_id") @db.Uuid
+  patient_id        String               @map("patient_id") @db.Uuid
+  modality          String               @default("USG") @map("modality") @db.VarChar(20)
+  body_part         String?              @map("body_part") @db.VarChar(100)
+  study_date        DateTime?            @default(now()) @map("study_date") @db.Timestamptz(6)
+  dicom_series_uids String?              @map("dicom_series_uids") @db.Text
+  storage_url       String?              @map("storage_url") @db.VarChar(2000)
+  findings          String?              @map("findings") @db.Text
+  impression        String?              @map("impression") @db.Text
+  is_abnormal       Boolean              @default(false) @map("is_abnormal")
+  status            String               @default("COMPLETED") @map("status") @db.VarChar(20)
+  created_at        DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at        DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  sonologist        sonologist_profiles  @relation(fields: [sonologist_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient           patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reports           sonologist_reports[]
 
   @@map("sonologist_studies")
 }
 
 model sonologist_reports {
-  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  study_id        String             @map("study_id") @db.Uuid
-  sonologist_id   String             @map("sonologist_id") @db.Uuid
-  patient_id      String             @map("patient_id") @db.Uuid
-  findings        String             @map("findings") @db.Text
-  impression      String?            @map("impression") @db.Text
-  annotated_images String?           @map("annotated_images") @db.Text
-  digital_signature_url String?      @map("digital_signature_url") @db.VarChar(512)
-  report_date     DateTime?          @default(now()) @map("report_date") @db.Timestamptz(6)
-  created_at      DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
-  study           sonologist_studies  @relation(fields: [study_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  sonologist      sonologist_profiles @relation(fields: [sonologist_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
-  patient         patients            @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  study_id              String              @map("study_id") @db.Uuid
+  sonologist_id         String              @map("sonologist_id") @db.Uuid
+  patient_id            String              @map("patient_id") @db.Uuid
+  findings              String              @map("findings") @db.Text
+  impression            String?             @map("impression") @db.Text
+  annotated_images      String?             @map("annotated_images") @db.Text
+  digital_signature_url String?             @map("digital_signature_url") @db.VarChar(512)
+  report_date           DateTime?           @default(now()) @map("report_date") @db.Timestamptz(6)
+  created_at            DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
+  study                 sonologist_studies  @relation(fields: [study_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sonologist            sonologist_profiles @relation(fields: [sonologist_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient               patients            @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("sonologist_reports")
 }
@@ -414,52 +443,52 @@ model ticket_specific_details {
 }
 
 model patients {
-  id                                String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  mrn                               String                                @unique @map("mrn") @db.VarChar(50)
-  first_name_en                     String                                @map("first_name_en") @db.VarChar(100)
-  last_name_en                      String                                @map("last_name_en") @db.VarChar(100)
-  first_name_bn                     String?                               @map("first_name_bn") @db.VarChar(100)
-  last_name_bn                      String?                               @map("last_name_bn") @db.VarChar(100)
-  date_of_birth                     DateTime?                             @map("date_of_birth") @db.Date
-  sex                               String                                @map("sex") @db.VarChar(1)
-  blood_group                       String?                               @map("blood_group") @db.VarChar(5)
-  phone_number                      String?                               @map("phone_number") @db.VarChar(20)
-  email                             String?                               @map("email") @db.VarChar(255)
-  address_line1                     String?                               @map("address_line1") @db.VarChar(255)
-  address_line2                     String?                               @map("address_line2") @db.VarChar(255)
-  district                          String?                               @map("district") @db.VarChar(100)
-  emergency_contact                 String?                               @map("emergency_contact") @db.VarChar(20)
-  known_allergies                   String?                               @map("known_allergies")
-  current_medications               String?                               @map("current_medications")
-  past_medical_history              String?                               @map("past_medical_history")
-  family_history                    String?                               @map("family_history")
-  height_cm                         Decimal?                              @map("height_cm") @db.Decimal(5, 1)
-  weight_kg                         Decimal?                              @map("weight_kg") @db.Decimal(5, 1)
-  booked_by                         String?                               @map("booked_by") @db.VarChar(255)
-  user_id                           String?                               @map("user_id") @db.Uuid
-  has_emergency_flag                Boolean                               @default(false) @map("has_emergency_flag")
-  created_at                        DateTime?                             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at                        DateTime?                             @default(now()) @map("updated_at") @db.Timestamptz(6)
-  test_orders                       diagnostic_test_orders[]
-  doctor_assignments                doctor_patient_assignments[]
-  emergency_flags                   emergency_flags[]
-  diagnoses                         patient_diagnoses[]
-  vital_signs                       patient_vital_signs[]
-  prescriptions                     prescriptions[]
-  referral_chain_events             referral_chain[]
-  referrals                         specialist_referrals[]
-  documents                         patient_documents[]
-  caregiver_assignments             caregiver_patient_assignments[]
-  caregiver_activity_logs           caregiver_activity_logs[]
-  caregiver_condition_reports       caregiver_condition_reports[]
-  nutritionistAnthropometricRecords nutritionist_anthropometric_records[]
-  nutritionistDietPlans             nutritionist_diet_plans[]
-  nutritionistFollowUps             nutritionist_follow_ups[]
-  nutritionistAdherenceLogs         nutritionist_adherence_logs[]
-  bookingSessions                   booking_sessions[]
-  user                              User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  sonologist_studies                sonologist_studies[]
-  sonologist_reports                sonologist_reports[]
+  id                           String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mrn                          String                                @unique @map("mrn") @db.VarChar(50)
+  first_name_en                String                                @map("first_name_en") @db.VarChar(100)
+  last_name_en                 String                                @map("last_name_en") @db.VarChar(100)
+  first_name_bn                String?                               @map("first_name_bn") @db.VarChar(100)
+  last_name_bn                 String?                               @map("last_name_bn") @db.VarChar(100)
+  date_of_birth                DateTime?                             @map("date_of_birth") @db.Date
+  sex                          String                                @map("sex") @db.VarChar(1)
+  blood_group                  String?                               @map("blood_group") @db.VarChar(5)
+  phone_number                 String?                               @map("phone_number") @db.VarChar(20)
+  email                        String?                               @map("email") @db.VarChar(255)
+  address_line1                String?                               @map("address_line1") @db.VarChar(255)
+  address_line2                String?                               @map("address_line2") @db.VarChar(255)
+  district                     String?                               @map("district") @db.VarChar(100)
+  emergency_contact            String?                               @map("emergency_contact") @db.VarChar(20)
+  known_allergies              String?                               @map("known_allergies")
+  current_medications          String?                               @map("current_medications")
+  past_medical_history         String?                               @map("past_medical_history")
+  family_history               String?                               @map("family_history")
+  height_cm                    Decimal?                              @map("height_cm") @db.Decimal(5, 1)
+  weight_kg                    Decimal?                              @map("weight_kg") @db.Decimal(5, 1)
+  booked_by                    String?                               @map("booked_by") @db.VarChar(255)
+  user_id                      String?                               @map("user_id") @db.Uuid
+  has_emergency_flag           Boolean                               @default(false) @map("has_emergency_flag")
+  created_at                   DateTime?                             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at                   DateTime?                             @default(now()) @map("updated_at") @db.Timestamptz(6)
+  test_orders                  diagnostic_test_orders[]
+  doctor_assignments           doctor_patient_assignments[]
+  emergency_flags              emergency_flags[]
+  diagnoses                    patient_diagnoses[]
+  vital_signs                  patient_vital_signs[]
+  prescriptions                prescriptions[]
+  referral_chain_events        referral_chain[]
+  referrals                    specialist_referrals[]
+  documents                    patient_documents[]
+  caregiver_assignments        caregiver_patient_assignments[]
+  caregiver_activity_logs      caregiver_activity_logs[]
+  caregiver_condition_reports  caregiver_condition_reports[]
+  nutritionist_diet_plans      nutritionist_diet_plans[]
+  nutritionist_follow_ups      nutritionist_follow_ups[]
+  nutritionist_adherence_logs  nutritionist_adherence_logs[]
+  nutritionist_anthropometrics nutritionist_anthropometric_records[]
+  bookingSessions              booking_sessions[]
+  user                         User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  sonologist_studies           sonologist_studies[]
+  sonologist_reports           sonologist_reports[]
 
   @@map("patients")
 }
