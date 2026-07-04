@@ -226,8 +226,8 @@ async function main() {
     create: { email: 'nutritionist.tanvir@hhdms.com', passwordHash, phoneNumber: '+8801700000002', firstNameEn: 'Tanvir', lastNameEn: 'Ahmed', firstNameBn: 'তানভীর', roleId: nutRole.id, status: 'ACTIVE' },
   });
   await prisma.$executeRawUnsafe(
-    `INSERT INTO nutritionist_profiles (user_id, license_number, specialization, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, specialization=$3, qualification=$4, years_of_experience=$5, consultation_fee=$6, is_available=$7`,
-    tanvir.id, 'NUT-2024-001', 'Clinical Dietetics & Obesity Management', 'BSc (Food & Nutrition), MSc (Dietetics)', 5, 500.0, true
+    `INSERT INTO nutritionist_profiles (id, user_id, created_at, updated_at) VALUES (gen_random_uuid(), $1, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`,
+    tanvir.id
   );
   console.log('  Done: tanvir (Nutritionist)');
 

@@ -85,12 +85,7 @@ async function main() {
       profile: {
         table: 'nutritionist_profiles',
         data: {
-          license_number: 'NUT-2024-001',
-          specialization: 'Clinical Dietetics & Obesity Management',
-          qualification: 'BSc (Food & Nutrition), MSc (Dietetics)',
-          years_of_experience: 5,
-          consultation_fee: 500.0,
-          is_available: true,
+          // Note: current schema only has id, user_id, created_at, updated_at
         },
       },
     },
@@ -146,6 +141,16 @@ async function main() {
     // Create the profile row using raw SQL to stay type-safe across models
     const profileTable = u.profile.table;
     const profileData = u.profile.data;
+
+    // Special case: nutritionist_profiles with schema mismatch
+    if (profileTable === 'nutritionist_profiles' && Object.keys(profileData).length === 0) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO nutritionist_profiles (id, user_id, created_at, updated_at) VALUES (gen_random_uuid(), $1, NOW(), NOW()) ON CONFLICT (user_id) DO NOTHING`,
+        user.id,
+      );
+      console.log(`   ✅ Profile created in ${profileTable}`);
+      return;
+    }
 
     // Build the upsert using the Prisma client's dynamic $queryRawUnsafe
     // (Prisma client doesn't expose dynamic model access easily, so we use raw SQL)
