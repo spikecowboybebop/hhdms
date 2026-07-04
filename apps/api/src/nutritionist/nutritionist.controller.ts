@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   Req,
+  Res as NestRes,
   UseGuards,
 } from '@nestjs/common';
 import { NutritionistService } from './nutritionist.service';
@@ -114,4 +115,37 @@ export class NutritionistController {
   calculateNutrients(@Body() dto: CalculateNutrientsDto) {
     return this.nutritionistService.calculateNutrients(dto);
   }
+
+  // ─── Diet Templates ──────────────────────────────────────────────────────
+
+  // GET /nutritionist/templates
+  @Get('templates')
+  getTemplates() {
+    return this.nutritionistService.getDietTemplates();
+  }
+
+  // GET /nutritionist/templates/:templateId
+  @Get('templates/:templateId')
+  getTemplateById(@Param('templateId') templateId: string) {
+    return this.nutritionistService.getDietTemplateById(templateId);
+  }
+
+  // GET /nutritionist/diet-plan/:planId/pdf
+  @Get('diet-plan/:planId/pdf')
+  async downloadDietPlanPdf(@Param('planId') planId: string, @Res() res: any) {
+    const pdfStream = await this.nutritionistService.generateDietPlanPdf(planId);
+    
+    // Set headers specifying attachment type and filename matching the unique record
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="diet-plan-${planId}.pdf"`,
+    });
+
+    // Directly pipe the document execution data array into the network interface output stream
+    pdfStream.pipe(res);
+  }
 }
+function Res(): ParameterDecorator {
+  return NestRes();
+}
+
