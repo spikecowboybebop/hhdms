@@ -44,6 +44,11 @@ async function main() {
       update: {},
       create: { name: 'SPECIALIST', description: 'Referred specialist consultant' },
     }),
+    prisma.role.upsert({
+      where: { name: 'CALL_CENTER_AGENT' },
+      update: {},
+      create: { name: 'CALL_CENTER_AGENT', description: 'Call Center Agent' },
+    }),
   ]);
 
   const roleMap = {};
@@ -109,6 +114,15 @@ async function main() {
         },
       },
     },
+    {
+      email: 'agent.rahiman@hhdms.com',
+      phone: '+8801700000040',
+      firstNameEn: 'Rahiman',
+      lastNameEn: 'Ahmed',
+      firstNameBn: 'রহিমান',
+      roleName: 'CALL_CENTER_AGENT',
+      profile: null,
+    },
   ];
 
   for (const u of usersToCreate) {
@@ -137,6 +151,12 @@ async function main() {
         status: 'ACTIVE',
       },
     });
+
+    // Skip profile creation for roles without a dedicated profile table
+    if (!u.profile) {
+      console.log(`   ✅ User created (no profile table needed)`);
+      continue;
+    }
 
     // Create the profile row using raw SQL to stay type-safe across models
     const profileTable = u.profile.table;

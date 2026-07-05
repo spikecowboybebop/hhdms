@@ -64,7 +64,13 @@ async function main() {
     update: {},
     create: { name: 'SONOLOGIST', description: 'Sonologist (USG Specialist)' },
   });
-  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER, MOBILE_USER, SONOLOGIST');
+  // CALL CENTER AGENT role
+  const callCenterRole = await prisma.role.upsert({
+    where: { name: 'CALL_CENTER_AGENT' },
+    update: {},
+    create: { name: 'CALL_CENTER_AGENT', description: 'Call Center Agent' },
+  });
+  console.log('Roles: MBBS_DOCTOR, NUTRITIONIST, SPECIALIST, CAREGIVER, MOBILE_USER, SONOLOGIST, CALL_CENTER_AGENT');
 
   // --- Caregiver (Shamima) ---
   console.log('Creating caregiver.shamima@hhdms.com (Caregiver)...');
@@ -91,6 +97,15 @@ async function main() {
     shahid.id, 'SONO-2024-001', 'MBBS, DMRD (Ultrasound), FCPS (Radiology)', 7, 1200.0, 'USG-001 (Samsung RS85), USG-002 (GE Logiq P7)', 'Whole Abdomen, Obstetric, Pelvic, Renal, Thyroid, Musculoskeletal', true
   );
   console.log('  Done: dr.shahid (Sonologist)');
+
+  // --- Agent Rahiman (Call Center Agent) ---
+  console.log('Creating agent.rahiman@hhdms.com (Call Center Agent)...');
+  await prisma.user.upsert({
+    where: { email: 'agent.rahiman@hhdms.com' },
+    update: { passwordHash, roleId: callCenterRole.id, phoneNumber: '+8801700000040', firstNameEn: 'Rahiman', lastNameEn: 'Ahmed', firstNameBn: 'রহিমান', status: 'ACTIVE' },
+    create: { email: 'agent.rahiman@hhdms.com', passwordHash, phoneNumber: '+8801700000040', firstNameEn: 'Rahiman', lastNameEn: 'Ahmed', firstNameBn: 'রহিমান', roleId: callCenterRole.id, status: 'ACTIVE' },
+  });
+  console.log('  Done: agent.rahiman (Call Center Agent)');
 
   // --- Dr. Arif (MBBS) — Gulshan, Dhaka ---
   console.log('Creating dr.arif@hhdms.com (MBBS)...');

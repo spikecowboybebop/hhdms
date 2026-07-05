@@ -399,4 +399,20 @@ export const mbbsApi = {
   // Available Providers
   getAvailableProviders: (params: { serviceType: string; district?: string; thana?: string; date?: string }) =>
     apiFetch<AvailableMbbsResponse>(`/providers/available?serviceType=${encodeURIComponent(params.serviceType)}${params.district ? `&district=${encodeURIComponent(params.district)}` : ''}${params.thana ? `&thana=${encodeURIComponent(params.thana)}` : ''}${params.date ? `&date=${encodeURIComponent(params.date)}` : ''}`),
+
+  // Start Visit
+  startVisit: (patientId: string) =>
+    apiFetch<{ message: string; doctor_name: string }>(`/mbbs/patients/${patientId}/start-visit`, {
+      method: 'POST',
+    }),
 };
+
+export interface PendingNotification {
+  id: string;
+  title: string;
+  body: string;
+  session_id?: string;
+  type?: string;
+  delivered: boolean;
+  created_at: string;
+}

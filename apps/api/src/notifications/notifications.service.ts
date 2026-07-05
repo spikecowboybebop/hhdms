@@ -122,19 +122,50 @@ export class NotificationsService implements OnModuleInit {
       orderBy: { created_at: 'desc' },
     });
 
-    // Send FCM pushes for pending notifications so the device gets a
-    // system-tray notification. This runs before marking them delivered
-    // so the push is not lost even if the client races ahead.
-    if (notifications.length > 0) {
-      await this.sendFcmPush(userId, notifications[0]).catch(() => {});
+    // Prune stale doctor_coming notifications that have no active booking
+    // session — only if the notification is older than 30 minutes.
+    // Recent notifications are kept so the patient can see them before
+    // the booking session is reflected in the database.
+    if (notifications.some((n) => n.type === 'doctor_coming')) {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const recentDoctorComing = notifications.some(
+        (n) => n.type === 'doctor_coming' && n.created_at > thirtyMinutesAgo,
+      );
+      if (!recentDoctorComing) {
+        const activeSession =
+          await this.prisma.booking_sessions.findFirst({
+            where: {
+              patient: { user_id: userId },
+              status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            },
+          });
+        if (!activeSession) {
+          await this.prisma.server_notifications.deleteMany({
+            where: {
+              user_id: userId,
+              type: 'doctor_coming',
+              delivered: false,
+            },
+          });
+        }
+      }
     }
 
+    // Re-fetch after possible deletion of stale entries
+    const remaining = await this.prisma.server_notifications.findMany({
+      where: { user_id: userId, delivered: false },
+      orderBy: { created_at: 'desc' },
+    });
+
+    // Don't send FCM push here — sendToUser() already handles push for
+    // newly created notifications. This endpoint only returns the pending
+    // data to the client so it can update its in-app state.
     await this.prisma.server_notifications.updateMany({
       where: { user_id: userId, delivered: false },
       data: { delivered: true },
     });
 
-    return notifications;
+    return remaining;
   }
 
   private async sendFcmPush(

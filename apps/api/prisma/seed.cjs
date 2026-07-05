@@ -49,6 +49,13 @@ async function main() {
   });
   console.log('   SPECIALIST:', specRole.id);
 
+  const callCenterRole = await prisma.role.upsert({
+    where: { name: 'CALL_CENTER_AGENT' },
+    update: {},
+    create: { name: 'CALL_CENTER_AGENT', description: 'Call Center Agent' },
+  });
+  console.log('   CALL_CENTER_AGENT:', callCenterRole.id);
+
   // -------------------------------------------------------
   // 3) Upsert MBBS Doctor — dr.arif@hhdms.com
   // -------------------------------------------------------
@@ -162,7 +169,36 @@ async function main() {
   console.log('   ✅ specialist_profiles created');
 
   // -------------------------------------------------------
-  // 6) Summary
+  // 6) Upsert Call Center Agent — agent.rahiman@hhdms.com
+  // -------------------------------------------------------
+  console.log('\n👤 Creating Call Center Agent: agent.rahiman@hhdms.com ...');
+  const rahiman = await prisma.user.upsert({
+    where: { email: 'agent.rahiman@hhdms.com' },
+    update: {
+      passwordHash,
+      roleId: callCenterRole.id,
+      phoneNumber: '+8801700000040',
+      firstNameEn: 'Rahiman',
+      lastNameEn: 'Ahmed',
+      firstNameBn: 'রহিমান',
+      status: 'ACTIVE',
+    },
+    create: {
+      email: 'agent.rahiman@hhdms.com',
+      passwordHash,
+      phoneNumber: '+8801700000040',
+      firstNameEn: 'Rahiman',
+      lastNameEn: 'Ahmed',
+      firstNameBn: 'রহিমান',
+      roleId: callCenterRole.id,
+      status: 'ACTIVE',
+    },
+  });
+  console.log('   User ID:', rahiman.id);
+  console.log('   ✅ Call Center Agent created (no profile table needed)');
+
+  // -------------------------------------------------------
+  // 7) Summary
   // -------------------------------------------------------
   console.log('\n' + '='.repeat(50));
   console.log('✅ Seed complete!');

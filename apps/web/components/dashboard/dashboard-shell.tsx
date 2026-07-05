@@ -9,6 +9,10 @@ import {
   roleLabel,
   type StoredSession,
 } from "@/lib/auth";
+import {
+  notificationsApi,
+  type PendingNotification,
+} from "@/lib/notifications";
 
 export interface DashboardNavItem {
   label: string;
@@ -80,8 +84,11 @@ export function DashboardShell({
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState<PendingNotification[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -94,6 +101,34 @@ export function DashboardShell({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [userMenuOpen]);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [notifOpen]);
+
+  // Poll for pending notifications every 30s
+  useEffect(() => {
+    if (!hydrated) return;
+    const poll = async () => {
+      try {
+        const data = await notificationsApi.getPending();
+        setNotifications(data);
+      } catch {
+        // silently ignore poll errors
+      }
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
+  }, [hydrated]);
 
   const colors = accentMap[accent];
 
@@ -239,6 +274,61 @@ export function DashboardShell({
             >
               <HomeIcon /> Home
             </Link>
+
+            {/* Notification Bell */}
+            <div ref={notifRef} className="relative">
+              <button
+                onClick={() => setNotifOpen((v) => !v)}
+                className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200/60 text-[#2D3A4A] transition-all hover:border-[#0A2540] hover:text-[#0A2540]"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {notifications.length > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-[#FF9900] text-[8px] font-bold text-white">
+                    {notifications.length > 9 ? '9+' : notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 origin-top-right rounded-2xl border border-slate-200/60 bg-white shadow-xl ring-1 ring-slate-900/5">
+                  <div className="border-b border-slate-200/60 px-4 py-3">
+                    <span className="text-xs font-bold text-[#0A2540]">Notifications</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-2">
+                    {notifications.length === 0 ? (
+                      <p className="px-3 py-6 text-center text-xs text-[#2D3A4A]">
+                        No new notifications
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col gap-1">
+                        {notifications.map((n) => (
+                          <li key={n.id}>
+                            <button
+                              onClick={() => setNotifOpen(false)}
+                              className="flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-all hover:bg-[#F8F9FA]"
+                            >
+                              <span className="text-xs font-semibold text-[#0A2540]">
+                                {n.title}
+                              </span>
+                              <span className="text-[11px] text-[#2D3A4A] leading-snug">
+                                {n.body}
+                              </span>
+                              <span className="text-[9px] text-[#2D3A4A]/60">
+                                {new Date(n.created_at).toLocaleString()}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div ref={userMenuRef} className="relative">
               <button
                 onClick={() => setUserMenuOpen((v) => !v)}
