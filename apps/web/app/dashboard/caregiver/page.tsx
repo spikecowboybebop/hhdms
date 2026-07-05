@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DashboardShell,
@@ -140,6 +140,7 @@ export default function CaregiverDashboardPage() {
     if (!hydrated) return;
     const hash = window.location.hash.replace("#", "");
     if (["activity", "reports"].includes(hash)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setActiveTab(hash as any);
     } else {
       setActiveTab("overview");
@@ -196,7 +197,7 @@ export default function CaregiverDashboardPage() {
       setActNotes("");
       const logs = await caregiverApi.getActivityLogs(selectedPatient.id);
       setActivityLogs(logs);
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setActSuccess("Error: " + (err.message || "Failed to log activity"));
     } finally {
       setActSubmitting(false);
@@ -219,7 +220,7 @@ export default function CaregiverDashboardPage() {
       setRepDesc("");
       const reports = await caregiverApi.getConditionReports(selectedPatient.id);
       setConditionReports(reports);
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setRepSuccess("Error: " + (err.message || "Failed to submit report"));
     } finally {
       setRepSubmitting(false);
@@ -232,7 +233,7 @@ export default function CaregiverDashboardPage() {
       await caregiverApi.sendAlert(reportId, target);
       const reports = await caregiverApi.getConditionReports(selectedPatient?.id);
       setConditionReports(reports);
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       alert("Failed to send alert: " + (err.message || "Unknown error"));
     } finally {
       setSendingAlert(null);

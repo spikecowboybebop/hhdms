@@ -184,7 +184,7 @@ export default function DicomLibraryPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-[#00D4B2] bg-[#00D4B2]/10 px-2 py-0.5 rounded">
                     PACS NODE ONLINE
                   </span>
-                  <h3 className="text-sm font-mono text-slate-400">{activeStudy.id} // {activeStudy.patient}</h3>
+                  <h3 className="text-sm font-mono text-slate-400">{activeStudy.id}{` // `}{activeStudy.patient}</h3>
                 </div>
               </div>
               <button 
@@ -229,9 +229,9 @@ export default function DicomLibraryPage() {
             </div>
 
             <div className="absolute bottom-4 right-4 font-mono text-[10px] text-[#00D4B2] bg-black/60 p-2 rounded text-right pointer-events-none">
-                <div>FRAME: 1 / {activeStudy.instances}</div>
-                <div>ZOOM: {zoom}%</div> {/* Bind this display to showcase the live zoom value changing! */}
-            </div>
+                    <div>FRAME: 1 / {activeStudy.instances}</div>
+                    <div>ZOOM: {zoom}%</div>
+                    </div>
             </div>
               {/* Right Diagnostic Tools Control Column */}
               <div className="w-64 border-l border-slate-800 bg-[#111416] p-4 text-xs font-mono space-y-4 text-slate-400">

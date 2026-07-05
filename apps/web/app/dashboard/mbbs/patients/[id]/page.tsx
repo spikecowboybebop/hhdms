@@ -6,7 +6,7 @@ import {
   DashboardShell,
   type DashboardNavItem,
 } from "@/components/dashboard/dashboard-shell";
-import { SectionCard, StatCard } from "@/components/dashboard/dashboard-cards";
+import { SectionCard } from "@/components/dashboard/dashboard-cards";
 import { PatientHeader } from "@/components/mbbs/patient-header";
 import { VitalsForm } from "@/components/mbbs/vitals-form";
 import { VitalsDisplay } from "@/components/mbbs/vitals-display";
@@ -26,9 +26,6 @@ import {
   type PatientDocument,
   type CreateVitalsPayload,
   type TestCatalogItem,
-  type Diagnosis,
-  type Prescription,
-  type Referral,
 } from "@/lib/mbbs-api";
 const DownloadPrescriptionBtn = dynamic(
   () => import("@/components/mbbs/download-prescription"),
@@ -133,6 +130,19 @@ export default function MbbsPatientDetailPage() {
   // Document viewer state
   const [selectedDocument, setSelectedDocument] = useState<PatientDocument | null>(null);
 
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await mbbsApi.getPatientProfile(patientId);
+      setProfile(data);
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      setError(err.message || 'Failed to load patient profile.');
+    } finally {
+      setLoading(false);
+    }
+  }, [patientId]);
+
   useEffect(() => {
     const s = loadSession();
     setSession(s);
@@ -140,7 +150,7 @@ export default function MbbsPatientDetailPage() {
     if (!s) { router.replace("/signin"); return; }
     if (s.user.role !== "MBBS_DOCTOR") { router.replace(dashboardPathForRole(s.user.role)); return; }
     loadProfile();
-  }, [patientId]);
+  }, [patientId, loadProfile, router]);
 
   // Read URL hash (fragment) to select the appropriate tab and scroll
   useEffect(() => {
@@ -174,19 +184,6 @@ export default function MbbsPatientDetailPage() {
     return () => window.removeEventListener('hashchange', applyHash);
   }, [patientId]);
 
-  const loadProfile = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await mbbsApi.getPatientProfile(patientId);
-      setProfile(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load patient profile.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 4000);
@@ -199,12 +196,12 @@ export default function MbbsPatientDetailPage() {
       await mbbsApi.recordVitals(patientId, data);
       showSuccess('Vital signs recorded successfully.');
       await loadProfile();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
     } finally {
       setActionLoading(false);
     }
-  }, [patientId]);
+  }, [patientId, loadProfile]);
 
   // ---- Diagnosis ----
   const handleDiagnosisSubmit = async (e: React.FormEvent) => {
@@ -224,7 +221,7 @@ export default function MbbsPatientDetailPage() {
       setChiefComplaint(''); setHpi(''); setRos(''); setExamFindings('');
       setPreliminaryDiagnosis(''); setSelectedIcd10(null);
       await loadProfile();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -236,7 +233,7 @@ export default function MbbsPatientDetailPage() {
     try {
       const data = await mbbsApi.getTestCatalog();
       setTestCatalog(data);
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message || 'Failed to load test catalog.');
     }
   };
@@ -269,7 +266,7 @@ export default function MbbsPatientDetailPage() {
       setSelectedTests(new Set());
       setTestNotes('');
       await loadProfile();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -291,7 +288,7 @@ export default function MbbsPatientDetailPage() {
       showSuccess('Referral created successfully.');
       setRefSpecialty(''); setRefReason(''); setRefSummary(''); setRefEmergency(false);
       await loadProfile();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -305,7 +302,7 @@ export default function MbbsPatientDetailPage() {
       await mbbsApi.setEmergencyFlag(patientId, 'Emergency flag raised by attending MBBS doctor');
       showSuccess('🚨 Emergency flag activated!');
       await loadProfile();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -346,7 +343,7 @@ export default function MbbsPatientDetailPage() {
       setPrescriptionMeds([]);
       setPrescriptionNotes('');
       await loadProfile();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -640,7 +637,7 @@ export default function MbbsPatientDetailPage() {
                 </div>
               )}
               {testCatalog.length === 0 && (
-                <p className="text-xs text-[#2D3A4A] italic">Click "Load Catalog" to browse available tests.</p>
+                <p className="text-xs text-[#2D3A4A] italic">Click &quot;Load Catalog&quot; to browse available tests.</p>
               )}
             </SectionCard>
 
@@ -960,6 +957,7 @@ export default function MbbsPatientDetailPage() {
                         <div className="flex items-center gap-3">
                           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
                             {isImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={fileUrl}
                                 alt={doc.file_name}

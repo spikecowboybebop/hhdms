@@ -2,24 +2,39 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Apple, FileText, ArrowUpRight, CheckCircle, Clock } from 'lucide-react';
+import { nutritionistApi } from '@/lib/nutritionist-api';
+import PatientFile from './components/PatientFile';
+import DietBuilder from './components/DietBuilder';
+
+type View = 'dashboard' | 'patient-file' | 'diet-builder';
 
 export default function NutritionistDashboard() {
   const [metrics, setMetrics] = useState({ activePlans: 0, upcomingFollowUps: 0, foodItems: 0, templates: 0 });
-  const [patients, setPatients] = useState([]);
+  const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<View>('dashboard');
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulated unified fetch for dashboard datasets
-    // Replace with your secure axios/fetch wrappers hitting: /nutritionist/dashboard & /nutritionist/patients
     const fetchDashboardData = async () => {
       try {
-        // Mock data matching backend response schemas
-        setMetrics({ activePlans: 12, upcomingFollowUps: 4, foodItems: 245, templates: 8 });
-        setPatients([
-          { id: '1', mrn: 'HHDMS-20260704-8841', name: 'Rahima Begum', condition: 'Diabetes Type 2', status: 'Adherent' },
-          { id: '2', mrn: 'HHDMS-20260618-3291', name: 'Tamim Iqbal', condition: 'Hypertension', status: 'Lapsing' },
-          { id: '3', mrn: 'HHDMS-20260701-4402', name: 'Zayan Ahmed', condition: 'CKD Stage 3', status: 'Excellent' },
+        const [dashboard, patientList] = await Promise.all([
+          nutritionistApi.getDashboard(),
+          nutritionistApi.getPatients(),
         ]);
+        setMetrics({
+          activePlans: dashboard.active_plans,
+          upcomingFollowUps: dashboard.upcoming_follow_ups,
+          foodItems: dashboard.food_items,
+          templates: dashboard.templates,
+        });
+        setPatients(patientList.map(p => ({
+          id: p.id,
+          mrn: p.mrn,
+          name: `${p.first_name_en} ${p.last_name_en}`,
+          condition: 'Active',
+          status: 'Active',
+        })));
       } catch (err) {
         console.error("Failed loading dashboard metrics", err);
       } finally {
@@ -28,6 +43,29 @@ export default function NutritionistDashboard() {
     };
     fetchDashboardData();
   }, []);
+
+  const openPatientFile = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setView('patient-file');
+  };
+
+  const openDietBuilder = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setView('diet-builder');
+  };
+
+  const backToDashboard = () => {
+    setView('dashboard');
+    setSelectedPatientId(null);
+  };
+
+  if (view === 'patient-file' && selectedPatientId) {
+    return <PatientFile patientId={selectedPatientId} onBack={backToDashboard} onOpenDietBuilder={openDietBuilder} />;
+  }
+
+  if (view === 'diet-builder' && selectedPatientId) {
+    return <DietBuilder patientId={selectedPatientId} onBack={backToDashboard} />;
+  }
 
   if (loading) return <div className="p-8 text-slate-500 animate-pulse">Loading Clinical Workspace...</div>;
 
@@ -83,17 +121,25 @@ export default function NutritionistDashboard() {
             <button className="text-xs font-medium text-blue-600 flex items-center hover:underline">View All Patients <ArrowUpRight size={14} className="ml-0.5" /></button>
           </div>
           <div className="divide-y divide-slate-100">
+            {patients.length === 0 && (
+              <div className="p-8 text-center text-sm text-slate-400">No patients assigned yet. Create a diet plan to get started.</div>
+            )}
             {patients.map((patient: any) => (
               <div key={patient.id} className="p-4 hover:bg-slate-50/70 transition flex justify-between items-center">
                 <div className="space-y-0.5">
                   <p className="font-medium text-slate-800 text-sm">{patient.name}</p>
                   <p className="text-xs text-slate-400 font-mono">{patient.mrn} • <span className="text-slate-500 font-sans">{patient.condition}</span></p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                     patient.status === 'Lapsing' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
                   }`}>{patient.status}</span>
-                  <button className="text-xs border border-slate-200 hover:bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700 font-medium transition">
+                  <button onClick={() => openDietBuilder(patient.id)}
+                    className="text-xs border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-blue-700 font-medium transition">
+                    Diet Plan
+                  </button>
+                  <button onClick={() => openPatientFile(patient.id)}
+                    className="text-xs border border-slate-200 hover:bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700 font-medium transition">
                     Open File
                   </button>
                 </div>
@@ -104,7 +150,7 @@ export default function NutritionistDashboard() {
 
         {/* Quick Follow-up Action List */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-4">
-          <h3 className="font-semibold text-slate-800">Today's Reminders</h3>
+          <h3 className="font-semibold text-slate-800">Today&apos;s Reminders</h3>
           <div className="space-y-3">
             <div className="flex items-start space-x-3 p-3 bg-amber-50/50 border border-amber-100 rounded-lg">
               <Clock size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />

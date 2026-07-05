@@ -177,6 +177,7 @@ export default function SignatureUploadModal({ open, onClose }: Props) {
 
           {preview ? (
             <div className="flex flex-col items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={preview}
                 alt="Signature preview"

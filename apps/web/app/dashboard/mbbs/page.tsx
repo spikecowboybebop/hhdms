@@ -17,7 +17,7 @@ import {
   loadSession,
   type StoredSession,
 } from "@/lib/auth";
-import { mbbsApi, type Patient, type VitalSigns } from "@/lib/mbbs-api";
+import { mbbsApi, type Patient } from "@/lib/mbbs-api";
 import SignatureUploadModal from "@/components/dashboard/signature-modal";
 
 const navItems: DashboardNavItem[] = [
@@ -76,7 +76,7 @@ export default function MbbsDashboardPage() {
       onClick: () => setSignatureModalOpen(true),
     },
   ], []);
-  const [icdQuery, setIcdQuery] = useState("");
+  const [icdQuery, setIcdQuery] = useState(""); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   useEffect(() => {
     const s = loadSession();
@@ -113,7 +113,7 @@ export default function MbbsDashboardPage() {
       }
     };
     load();
-  }, [hydrated, session]);
+  }, [hydrated, session, selected]);
 
   const waitingCount = useMemo(() => patients.filter((p) => !p.has_emergency_flag).length, [patients]);
   const emergencyCount = useMemo(() => patients.filter((p) => p.has_emergency_flag).length, [patients]);

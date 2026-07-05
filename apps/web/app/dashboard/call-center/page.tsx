@@ -101,6 +101,7 @@ export default function CallCenterDashboardPage() {
   const [incomingCall, setIncomingCall] = useState<{
     patientEmail: string;
     patientSocketId: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sdpOffer: any;
   } | null>(null);
   const [patientPhone, setPatientPhone] = useState<string>("");
@@ -118,6 +119,7 @@ export default function CallCenterDashboardPage() {
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   
   // Track dynamic current call state across async triggers inside a clean React ref
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentIncomingCallRef = useRef<any>(null);
   useEffect(() => {
     currentIncomingCallRef.current = incomingCall;
@@ -278,6 +280,7 @@ export default function CallCenterDashboardPage() {
     });
 
     // Robust ICE payload parser matching the nested structure from Android
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleIncomingIce = async (data: any) => {
       if (peerConnection.current) {
         try {
@@ -313,7 +316,7 @@ export default function CallCenterDashboardPage() {
       socketClient.disconnect();
       socketRef.current = null;
     };
-  }, [router]);
+  }, [router, cleanupCall]);
 
   // ACTION: Click "Pick Up / Answer" on Modal Trigger
   const handleAnswerCall = async () => {
@@ -447,7 +450,7 @@ export default function CallCenterDashboardPage() {
       pageTitle="Call Intake & Routing Hub"
       pageSubtitle="Real-time emergency triage queue and clinician dispatch console"
     >
-      <audio id="patientAudioDriver" autoPlay playsInline />
+      <audio id="patientAudioDriver" autoPlay />
 
       {callConnected && (
         <div className="mb-6 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-6 py-4 animate-bounce">

@@ -17,6 +17,8 @@ import {
   CreateFollowUpDto,
   CreateAdherenceLogDto,
   CalculateNutrientsDto,
+  BookConsultationDto,
+  CreateEducationMaterialDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -28,13 +30,19 @@ export class NutritionistController {
   // GET /nutritionist/dashboard
   @Get('dashboard')
   getDashboard(@Req() req: any) {
-    return this.nutritionistService.getDashboardMetrics(req.user.userId);
+    return this.nutritionistService.getDashboardMetrics(req.user.sub);
+  }
+
+  // GET /nutritionist/food-items
+  @Get('food-items')
+  getFoodItems() {
+    return this.nutritionistService.getFoodItems();
   }
 
   // GET /nutritionist/patients
   @Get('patients')
   getMyPatients(@Req() req: any) {
-    return this.nutritionistService.getMyPatients(req.user.userId);
+    return this.nutritionistService.getMyPatients(req.user.sub);
   }
 
   // GET /nutritionist/patient/:patientId/history
@@ -43,12 +51,26 @@ export class NutritionistController {
     return this.nutritionistService.getPatientMedicalHistory(patientId);
   }
 
+  // ─── Consultation Booking (NU-001) ─────────────────────────────────────
+
+  // POST /nutritionist/consultation/check-availability
+  @Post('consultation/check-availability')
+  checkAvailability(@Body() body: { patient_id: string; consultation_type: string }) {
+    return this.nutritionistService.checkAvailability(body.patient_id, body.consultation_type as any);
+  }
+
+  // POST /nutritionist/consultation/book
+  @Post('consultation/book')
+  bookConsultation(@Req() req: any, @Body() dto: BookConsultationDto) {
+    return this.nutritionistService.bookConsultation(req.user.sub, dto);
+  }
+
   // ─── Anthropometrics ───────────────────────────────────────────────────
 
   // POST /nutritionist/metrics
   @Post('metrics')
   recordMetrics(@Req() req: any, @Body() dto: CreateAnthropometricRecordDto) {
-    return this.nutritionistService.recordAnthropometrics(req.user.userId, dto);
+    return this.nutritionistService.recordAnthropometrics(req.user.sub, dto);
   }
 
   // GET /nutritionist/metrics/:patientId
@@ -62,13 +84,13 @@ export class NutritionistController {
   // POST /nutritionist/diet-plan
   @Post('diet-plan')
   createDietPlan(@Req() req: any, @Body() dto: CreateDietPlanDto) {
-    return this.nutritionistService.createDietPlan(req.user.userId, dto);
+    return this.nutritionistService.createDietPlan(req.user.sub, dto);
   }
 
   // GET /nutritionist/diet-plans?patientId=xxx
   @Get('diet-plans')
   getDietPlans(@Req() req: any, @Query('patientId') patientId?: string) {
-    return this.nutritionistService.getDietPlans(req.user.userId, patientId);
+    return this.nutritionistService.getDietPlans(req.user.sub, patientId);
   }
 
   // GET /nutritionist/diet-plan/:planId
@@ -82,13 +104,13 @@ export class NutritionistController {
   // POST /nutritionist/follow-up
   @Post('follow-up')
   scheduleFollowUp(@Req() req: any, @Body() dto: CreateFollowUpDto) {
-    return this.nutritionistService.scheduleFollowUp(req.user.userId, dto);
+    return this.nutritionistService.scheduleFollowUp(req.user.sub, dto);
   }
 
   // GET /nutritionist/follow-ups
   @Get('follow-ups')
   getFollowUps(@Req() req: any) {
-    return this.nutritionistService.getFollowUps(req.user.userId);
+    return this.nutritionistService.getFollowUps(req.user.sub);
   }
 
   // ─── Adherence ─────────────────────────────────────────────────────────
@@ -96,14 +118,14 @@ export class NutritionistController {
   // POST /nutritionist/adherence
   @Post('adherence')
   logAdherence(@Req() req: any, @Body() dto: CreateAdherenceLogDto) {
-    return this.nutritionistService.submitAdherence(req.user.userId, dto);
+    return this.nutritionistService.submitAdherence(req.user.sub, dto);
   }
 
   // GET /nutritionist/adherence?patientId=xxx
   @Get('adherence')
   getAdherenceLogs(@Req() req: any, @Query('patientId') patientId?: string) {
     return this.nutritionistService.getAdherenceLogs(
-      req.user.userId,
+      req.user.sub,
       patientId,
     );
   }
@@ -114,6 +136,20 @@ export class NutritionistController {
   @Post('calculate-nutrients')
   calculateNutrients(@Body() dto: CalculateNutrientsDto) {
     return this.nutritionistService.calculateNutrients(dto);
+  }
+
+  // ─── Patient Education Materials (NU-010) ──────────────────────────────
+
+  // POST /nutritionist/education-materials
+  @Post('education-materials')
+  createEducationMaterial(@Req() req: any, @Body() dto: CreateEducationMaterialDto) {
+    return this.nutritionistService.createEducationMaterial(req.user.sub, dto);
+  }
+
+  // GET /nutritionist/education-materials/:patientId
+  @Get('education-materials/:patientId')
+  getEducationMaterials(@Param('patientId') patientId: string) {
+    return this.nutritionistService.getEducationMaterials(patientId);
   }
 
   // ─── Diet Templates ──────────────────────────────────────────────────────
@@ -133,8 +169,9 @@ export class NutritionistController {
   // GET /nutritionist/diet-plan/:planId/pdf
   @Get('diet-plan/:planId/pdf')
   async downloadDietPlanPdf(@Param('planId') planId: string, @Res() res: any) {
-    const pdfStream = await this.nutritionistService.generateDietPlanPdf(planId);
-    
+    const pdfStream =
+      await this.nutritionistService.generateDietPlanPdf(planId);
+
     // Set headers specifying attachment type and filename matching the unique record
     res.set({
       'Content-Type': 'application/pdf',
@@ -148,4 +185,3 @@ export class NutritionistController {
 function Res(): ParameterDecorator {
   return NestRes();
 }
-

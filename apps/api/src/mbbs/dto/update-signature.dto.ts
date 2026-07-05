@@ -4,5 +4,5 @@ export class UpdateSignatureDto {
   @IsString()
   @IsNotEmpty()
   @IsUrl()
-  signature_url: string;
+  signature_url!: string;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DashboardShell,
@@ -11,9 +11,7 @@ import {
   StatCard,
 } from "@/components/dashboard/dashboard-cards";
 import {
-  dashboardPathForRole,
   loadSession,
-  type StoredSession,
 } from "@/lib/auth";
 
 type ViewMode = "X_RAY" | "ULTRASOUND" | "CT_SCAN";
@@ -86,6 +84,7 @@ const modalityLabels: Record<ViewMode, string> = {
 function SpecialistDashboardContent() {
   const searchParams = useSearchParams();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [session, setSession] = useState<any | null>(null);
   const specialistId = useMemo(() => {
     return searchParams.get("specialistId") || session?.user?.id || "9a5b3c2d-1122-3344-5566-778899aabbcc";
@@ -118,7 +117,7 @@ function SpecialistDashboardContent() {
     setHydrated(true);
   }, [specialistId]);
 
-  const fetchReferrals = async () => {
+  const fetchReferrals = useCallback(async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/referrals?specialistId=${specialistId}`);
 
@@ -137,13 +136,13 @@ function SpecialistDashboardContent() {
       setReferrals([]);
       setActiveReferralId("");
     }
-  };
+  }, [specialistId]);
 
   useEffect(() => {
     if (hydrated && session) {
       fetchReferrals();
     }
-  }, [hydrated, session, specialistId]);
+  }, [hydrated, session, fetchReferrals]);
 
   const activeReferral = useMemo<IncomingReferral | undefined>(() => {
     return referrals.find((r) => r.id === activeReferralId);

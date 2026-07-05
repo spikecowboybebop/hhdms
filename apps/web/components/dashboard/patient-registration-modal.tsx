@@ -979,7 +979,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                     </div>
                     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
                       <p className="text-[14px] font-medium text-amber-800">
-                        This is the base cost. The final amount may increase based on the assigned doctor's consultation fee, miscellaneous charges, and other applicable fees.
+                        This is the base cost. The final amount may increase based on the assigned doctor&apos;s consultation fee, miscellaneous charges, and other applicable fees.
                       </p>
                     </div>
                   </div>
