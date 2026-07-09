@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { io, type Socket } from "socket.io-client";
 import {
   DashboardShell,
   type DashboardNavItem,
@@ -17,7 +18,7 @@ import {
   loadSession,
   type StoredSession,
 } from "@/lib/auth";
-import { mbbsApi, type Patient, type VitalSigns } from "@/lib/mbbs-api";
+import { mbbsApi, type Patient } from "@/lib/mbbs-api";
 import SignatureUploadModal from "@/components/dashboard/signature-modal";
 
 const navItems: DashboardNavItem[] = [
@@ -113,6 +114,41 @@ export default function MbbsDashboardPage() {
       }
     };
     load();
+  }, [hydrated, session]);
+
+  // Socket.IO connection for real-time visit state updates
+  const socketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    if (!hydrated || !session) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+    const socketUrl = apiUrl.replace(/\/+$/, '');
+    const socket = io(`${socketUrl}/visit`, {
+      auth: { token: session.token },
+      transports: ['websocket', 'polling'],
+    });
+    socketRef.current = socket;
+
+    socket.on('visit_state_changed', (data: { patientId: string; state: string; patient_consent?: string | null }) => {
+      setPatients((prev) =>
+        prev.map((p) =>
+          p.id === data.patientId
+            ? { ...p, appointment_activity: data.state, patient_consent: data.patient_consent ?? p.patient_consent }
+            : p,
+        ),
+      );
+      setSelected((prev) =>
+        prev && prev.id === data.patientId
+          ? { ...prev, appointment_activity: data.state, patient_consent: data.patient_consent ?? prev.patient_consent }
+          : prev,
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, session]);
 
   const waitingCount = useMemo(() => patients.filter((p) => !p.has_emergency_flag).length, [patients]);
@@ -212,9 +248,26 @@ export default function MbbsDashboardPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[10px] uppercase tracking-widest opacity-70">
-                        {p.mrn}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] uppercase tracking-widest opacity-70">
+                          {p.mrn}
+                        </span>
+                        <span className={`
+                          inline-block rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider
+                          ${p.appointment_activity === 'arrived'
+                            ? 'bg-green-100 text-green-700'
+                            : p.appointment_activity === 'arriving'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-slate-100 text-slate-500'
+                          }
+                        `}>
+                          {p.appointment_activity === 'arrived'
+                            ? 'Arrived'
+                            : p.appointment_activity === 'arriving'
+                              ? 'Arriving'
+                              : 'Not Visited'}
+                        </span>
+                      </div>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
                           p.has_emergency_flag
@@ -242,6 +295,48 @@ export default function MbbsDashboardPage() {
                     >
                       {p.known_allergies ? `Allergies: ${p.known_allergies}` : 'No known allergies'}
                     </span>
+                    {p.appointment_activity === 'arrived' && p.patient_consent === null && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          mbbsApi.requestConsent(p.id).then(() => {
+                            setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, patient_consent: 'pending' } : x));
+                          }).catch(() => {});
+                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); mbbsApi.requestConsent(p.id).then(() => { setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, patient_consent: 'pending' } : x)); }).catch(() => {}); } }}
+                        className="mt-1 inline-block cursor-pointer self-start rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-teal-600 transition-all hover:bg-teal-50"
+                      >
+                        Ask for Consent
+                      </span>
+                    )}
+                    {p.appointment_activity === 'arrived' && p.patient_consent === 'pending' && (
+                      <span className="mt-1 self-start rounded-full bg-amber-100 px-3 py-1 text-[10px] font-semibold text-amber-700">
+                        Waiting for consent...
+                      </span>
+                    )}
+                    {p.appointment_activity === 'arrived' && p.patient_consent === 'denied' && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          mbbsApi.requestConsent(p.id).then(() => {
+                            setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, patient_consent: 'pending' } : x));
+                          }).catch(() => {});
+                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); mbbsApi.requestConsent(p.id).then(() => { setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, patient_consent: 'pending' } : x)); }).catch(() => {}); } }}
+                        className="mt-1 inline-block cursor-pointer self-start rounded-full bg-[#FF9900] px-3 py-1 text-[10px] font-semibold text-white transition-all hover:bg-[#FF9900]/90"
+                      >
+                        Consent Denied — Ask Again
+                      </span>
+                    )}
+                    {p.appointment_activity === 'arrived' && p.patient_consent === 'granted' && (
+                      <span className="mt-1 self-start rounded-full bg-green-100 px-3 py-1 text-[10px] font-semibold text-green-700">
+                        ✓ Consented
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -254,21 +349,33 @@ export default function MbbsDashboardPage() {
           {selected && (
             <SectionCard
               title={`Patient — ${selected.first_name_en} ${selected.last_name_en}`}
-              description={`MRN: ${selected.mrn} • ${selected.sex === 'M' ? 'Male' : 'Female'} • ${selected.blood_group || 'N/A'}`}
+              description={`MRN: ${selected.mrn} • ${selected.sex === 'M' ? 'Male' : 'Female'} • ${selected.blood_group || 'N/A'} • ${selected.appointment_activity === 'arrived' ? 'Arrived' : selected.appointment_activity === 'arriving' ? 'Arriving' : 'Not Visited'}`}
               action={
                 <div className="flex gap-2">
-                  <Link
-                    href={`/dashboard/mbbs/patients/${selected.id}`}
-                    className="rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-[#2D3A4A] transition-all hover:border-[#0A2540] hover:text-[#0A2540]"
-                  >
-                    Full Record →
-                  </Link>
-                  <Link
-                    href={`/dashboard/mbbs/patients/${selected.id}`}
-                    className="rounded-lg bg-[#00D4B2] px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:shadow-md"
-                  >
-                    Start Consult
-                  </Link>
+                  {selected.appointment_activity === 'arrived' && selected.patient_consent === 'granted' ? (
+                    <Link
+                      href={`/dashboard/mbbs/patients/${selected.id}`}
+                      className="rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-[#2D3A4A] transition-all hover:border-[#0A2540] hover:text-[#0A2540]"
+                    >
+                      Full Record
+                    </Link>
+                  ) : (
+                    <span className="inline-block cursor-not-allowed rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
+                      Full Record
+                    </span>
+                  )}
+                  {selected.appointment_activity === 'arrived' && selected.patient_consent === 'granted' ? (
+                    <Link
+                      href={`/dashboard/mbbs/patients/${selected.id}`}
+                      className="rounded-lg bg-[#00D4B2] px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:shadow-md"
+                    >
+                      Start Consult
+                    </Link>
+                  ) : (
+                    <span className="inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
+                      {selected.appointment_activity === 'arrived' ? 'Awaiting Consent' : 'Waiting for Arrival'}
+                    </span>
+                  )}
                 </div>
               }
             >
@@ -332,37 +439,51 @@ export default function MbbsDashboardPage() {
 
           {/* Quick Actions */}
           {selected && (
-            <SectionCard title="Quick Actions" description="Common workflows for this patient">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}#vitals`}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
-                >
-                  <span className="text-lg">🩺</span>
-                  <span className="text-[10px] font-semibold text-[#0A2540]">Vital Signs</span>
-                </Link>
-                <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}#diagnosis`}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
-                >
-                  <span className="text-lg">📋</span>
-                  <span className="text-[10px] font-semibold text-[#0A2540]">Diagnosis</span>
-                </Link>
-                <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}#prescriptions`}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
-                >
-                  <span className="text-lg">💊</span>
-                  <span className="text-[10px] font-semibold text-[#0A2540]">Prescription</span>
-                </Link>
-                <Link
-                  href={`/dashboard/mbbs/patients/${selected.id}#referral`}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
-                >
-                  <span className="text-lg">🏥</span>
-                  <span className="text-[10px] font-semibold text-[#0A2540]">Referral</span>
-                </Link>
-              </div>
+            <SectionCard title="Quick Actions" description={
+              selected.appointment_activity === 'arrived' && selected.patient_consent === 'granted'
+                ? 'Common workflows for this patient'
+                : 'Unavailable until patient arrives and gives consent'
+            }>
+              {selected.appointment_activity === 'arrived' && selected.patient_consent === 'granted' ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Link
+                    href={`/dashboard/mbbs/patients/${selected.id}#vitals`}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                  >
+                    <span className="text-lg">🩺</span>
+                    <span className="text-[10px] font-semibold text-[#0A2540]">Vital Signs</span>
+                  </Link>
+                  <Link
+                    href={`/dashboard/mbbs/patients/${selected.id}#diagnosis`}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                  >
+                    <span className="text-lg">📋</span>
+                    <span className="text-[10px] font-semibold text-[#0A2540]">Diagnosis</span>
+                  </Link>
+                  <Link
+                    href={`/dashboard/mbbs/patients/${selected.id}#prescriptions`}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                  >
+                    <span className="text-lg">💊</span>
+                    <span className="text-[10px] font-semibold text-[#0A2540]">Prescription</span>
+                  </Link>
+                  <Link
+                    href={`/dashboard/mbbs/patients/${selected.id}#referral`}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200/60 bg-[#F8F9FA] px-3 py-3 text-center hover:border-[#0A2540]/40 transition-all"
+                  >
+                    <span className="text-lg">🏥</span>
+                    <span className="text-[10px] font-semibold text-[#0A2540]">Referral</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200/60 bg-slate-50 px-4 py-6 text-center">
+                  <p className="text-xs text-slate-400">
+                    {selected.appointment_activity !== 'arrived'
+                      ? 'Quick actions are available once the patient has arrived.'
+                      : 'Quick actions are available once the patient grants consent.'}
+                  </p>
+                </div>
+              )}
             </SectionCard>
           )}
         </div>

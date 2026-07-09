@@ -31,6 +31,10 @@ export class NotificationsService implements OnModuleInit {
   }
 
   async registerToken(userId: string, token: string, deviceType = 'android') {
+    console.log(
+      `[NOTIFICATION] registerToken userId=${userId}, deviceType=${deviceType}`,
+    );
+
     // Remove stale entries for this token from other users (same device,
     // previous user logged out). This ensures only the active user gets
     // push notifications on this device.
@@ -49,6 +53,11 @@ export class NotificationsService implements OnModuleInit {
     // Subscribe MBBS/doctor tokens to a topic so topic broadcasts
     // reach them even if individual push fails.
     await this.subscribeToRoleTopic(userId, token);
+
+    // Flush any undelivered notifications that were created before this
+    // user registered a device token (e.g. provider_assigned created when
+    // the booking was made before the doctor ever logged in).
+    await this.flushUndelivered(userId);
   }
 
   private async subscribeToRoleTopic(userId: string, token: string) {
@@ -64,6 +73,7 @@ export class NotificationsService implements OnModuleInit {
       // Map role to FCM topic name
       const topicMap: Record<string, string> = {
         mbbs: 'mbbs_doctors',
+        mbbs_doctor: 'mbbs_doctors',
         specialist: 'specialists',
         caregiver: 'caregivers',
         nutritionist: 'nutritionists',
@@ -103,6 +113,7 @@ export class NotificationsService implements OnModuleInit {
 
       const topicMap: Record<string, string> = {
         mbbs: 'mbbs_doctors',
+        mbbs_doctor: 'mbbs_doctors',
         specialist: 'specialists',
         caregiver: 'caregivers',
         nutritionist: 'nutritionists',
@@ -122,6 +133,10 @@ export class NotificationsService implements OnModuleInit {
       orderBy: { created_at: 'desc' },
     });
 
+    console.log(
+      `[NOTIFICATION] getPendingNotifications userId=${userId}, found=${notifications.length}, types=[${notifications.map((n) => n.type).join(', ')}]`,
+    );
+
     // Prune stale doctor_coming notifications that have no active booking
     // session — only if the notification is older than 30 minutes.
     // Recent notifications are kept so the patient can see them before
@@ -132,13 +147,12 @@ export class NotificationsService implements OnModuleInit {
         (n) => n.type === 'doctor_coming' && n.created_at > thirtyMinutesAgo,
       );
       if (!recentDoctorComing) {
-        const activeSession =
-          await this.prisma.booking_sessions.findFirst({
-            where: {
-              patient: { user_id: userId },
-              status: { notIn: ['COMPLETED', 'CANCELLED'] },
-            },
-          });
+        const activeSession = await this.prisma.booking_sessions.findFirst({
+          where: {
+            patient: { user_id: userId },
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+          },
+        });
         if (!activeSession) {
           await this.prisma.server_notifications.deleteMany({
             where: {
@@ -175,6 +189,7 @@ export class NotificationsService implements OnModuleInit {
       body: string;
       session_id?: string | null;
       type?: string | null;
+      patient_id?: string | null;
     },
   ) {
     const tokens = await this.prisma.fcm_tokens.findMany({
@@ -186,6 +201,7 @@ export class NotificationsService implements OnModuleInit {
     const data: Record<string, string> = {};
     if (notification.session_id) data.session_id = notification.session_id;
     if (notification.type) data.type = notification.type;
+    if (notification.patient_id) data.patient_id = notification.patient_id;
 
     await getMessaging().sendEachForMulticast({
       tokens: tokens.map((t) => t.token),
@@ -198,11 +214,38 @@ export class NotificationsService implements OnModuleInit {
     });
   }
 
+  private async flushUndelivered(userId: string) {
+    const pending = await this.prisma.server_notifications.findMany({
+      where: { user_id: userId, delivered: false },
+    });
+    if (pending.length === 0) return;
+
+    // Do NOT mark as delivered — let getPendingNotifications (polling loop)
+    // be the sole owner of the delivered flag. This ensures the polling loop
+    // serves as a reliable fallback when FCM delivery fails.
+    console.log(
+      `[NOTIFICATION] flushUndelivered userId=${userId}, count=${pending.length}`,
+    );
+    for (const n of pending) {
+      await this.sendFcmPush(userId, {
+        title: n.title,
+        body: n.body,
+        session_id: n.session_id,
+        type: n.type,
+        patient_id: n.patient_id,
+      }).catch(() => {});
+    }
+  }
+
   async sendToUser(
     userId: string,
     notification: { title: string; body: string },
     data?: Record<string, string>,
   ) {
+    console.log(
+      `[NOTIFICATION] sendToUser userId=${userId}, title="${notification.title}", type=${data?.type ?? 'none'}, session_id=${data?.session_id ?? 'none'}, patient_id=${data?.patient_id ?? 'none'}`,
+    );
+
     // Always persist to DB for offline delivery
     await this.prisma.server_notifications
       .create({
@@ -212,6 +255,7 @@ export class NotificationsService implements OnModuleInit {
           body: notification.body,
           session_id: data?.session_id ?? null,
           type: data?.type ?? null,
+          patient_id: data?.patient_id ?? null,
         },
       })
       .catch((err) =>
@@ -229,6 +273,10 @@ export class NotificationsService implements OnModuleInit {
       );
       return;
     }
+
+    console.log(
+      `[NOTIFICATION] Sending FCM push to user ${userId}, tokens=${tokens.length}`,
+    );
 
     const registrationTokens = tokens.map((t) => t.token);
 

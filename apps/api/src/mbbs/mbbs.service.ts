@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { VisitGateway } from './visit.gateway';
 import { CreateVitalsDto } from './dto/create-vitals.dto';
 import { CreateDiagnosisDto } from './dto/create-diagnosis.dto';
 import { CreateTestOrderDto } from './dto/create-test-order.dto';
@@ -32,6 +33,7 @@ export class MbbsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly visitGateway: VisitGateway,
   ) {}
 
   onModuleInit() {
@@ -78,9 +80,13 @@ export class MbbsService implements OnModuleInit {
     }
 
     return assignments
-      .map((a) => a.patient)
+      .map((a) => ({
+        ...a.patient,
+        appointment_activity: a.appointment_activity,
+        patient_consent: a.patient_consent,
+      }))
       .sort(
-        (a, b) =>
+        (a: any, b: any) =>
           new Date(b.updated_at ?? 0).getTime() -
           new Date(a.updated_at ?? 0).getTime(),
       )
@@ -176,7 +182,8 @@ export class MbbsService implements OnModuleInit {
 
   /**
    * Start a patient visit — sends a push notification to the patient
-   * that the doctor is on their way.
+   * that the doctor is on their way, updates appointment_activity to
+   * 'arriving', and emits a real-time event to the doctor's web portal.
    */
   async startPatientVisit(doctorUserId: string, patientId: string) {
     const patient = await this.prisma.patients.findUnique({
@@ -202,10 +209,160 @@ export class MbbsService implements OnModuleInit {
         title: 'Doctor on the Way',
         body: `${doctorName} is coming to visit you.`,
       },
-      { type: 'doctor_coming' },
+      { type: 'doctor_coming', patient_id: patientId },
+    );
+
+    // Update appointment activity
+    await this.prisma.doctor_patient_assignments.updateMany({
+      where: { doctor_id: doctorUserId, patient_id: patientId },
+      data: { appointment_activity: 'arriving' },
+    });
+
+    // Emit real-time event to the doctor's web portal
+    this.visitGateway.emitVisitStateChanged(
+      doctorUserId,
+      patientId,
+      'arriving',
     );
 
     return { message: 'Visit started', doctor_name: doctorName };
+  }
+
+  /**
+   * Mark a patient visit as arrived — updates appointment_activity to
+   * 'arrived' and emits a real-time event.
+   * Called by the patient's device after the doctor tracking animation completes.
+   */
+  async markArrived(patientId: string) {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+    });
+    if (!patient) throw new NotFoundException('Patient not found.');
+
+    // Find the most recent active assignment for this patient
+    const assignment = await this.prisma.doctor_patient_assignments.findFirst({
+      where: { patient_id: patientId },
+      orderBy: { assigned_at: 'desc' },
+    });
+    if (!assignment)
+      throw new NotFoundException(
+        'No doctor assignment found for this patient.',
+      );
+
+    await this.prisma.doctor_patient_assignments.update({
+      where: { id: assignment.id },
+      data: { appointment_activity: 'arrived' },
+    });
+
+    this.visitGateway.emitVisitStateChanged(
+      assignment.doctor_id,
+      patientId,
+      'arrived',
+    );
+
+    return { message: 'Visit marked as arrived' };
+  }
+
+  /**
+   * Request patient consent — sets patient_consent to 'pending' and
+   * sends a push notification to the patient's device asking for consent.
+   */
+  async requestConsent(doctorUserId: string, patientId: string) {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+    });
+    if (!patient) throw new NotFoundException('Patient not found.');
+    if (!patient.user_id)
+      throw new BadRequestException('Patient has no associated user account.');
+
+    const assignment = await this.prisma.doctor_patient_assignments.findFirst({
+      where: { doctor_id: doctorUserId, patient_id: patientId },
+      orderBy: { assigned_at: 'desc' },
+    });
+    if (!assignment)
+      throw new NotFoundException('No assignment found for this patient.');
+    if (assignment.appointment_activity !== 'arrived')
+      throw new BadRequestException(
+        'Cannot request consent until the patient has arrived.',
+      );
+
+    // Allow re-asking if previously denied
+    await this.prisma.doctor_patient_assignments.update({
+      where: { id: assignment.id },
+      data: { patient_consent: 'pending' },
+    });
+
+    await this.notificationsService.sendToUser(
+      patient.user_id,
+      {
+        title: 'Consent Required',
+        body: 'Your doctor is requesting your consent to begin the consultation.',
+      },
+      {
+        type: 'consent_request',
+        patient_id: patientId,
+      },
+    );
+
+    this.visitGateway.emitVisitStateChanged(
+      doctorUserId,
+      patientId,
+      'arrived',
+      {
+        patient_consent: 'pending',
+      },
+    );
+
+    return { message: 'Consent request sent to patient' };
+  }
+
+  /**
+   * Respond to a consent request — updates patient_consent to
+   * 'granted' or 'denied' and notifies the web portal via Socket.IO.
+   */
+  async respondConsent(patientId: string, answer: 'granted' | 'denied') {
+    const assignment = await this.prisma.doctor_patient_assignments.findFirst({
+      where: { patient_id: patientId },
+      orderBy: { assigned_at: 'desc' },
+    });
+    if (!assignment)
+      throw new NotFoundException('No assignment found for this patient.');
+
+    await this.prisma.doctor_patient_assignments.update({
+      where: { id: assignment.id },
+      data: { patient_consent: answer },
+    });
+
+    this.visitGateway.emitVisitStateChanged(
+      assignment.doctor_id,
+      patientId,
+      'arrived',
+      { patient_consent: answer },
+    );
+
+    return { message: `Consent ${answer}` };
+  }
+
+  /**
+   * Ensure the patient's appointment_activity is 'arrived' AND
+   * patient_consent is 'granted', meaning the doctor can begin
+   * clinical consultation. Throws BadRequestException otherwise.
+   */
+  private async ensurePatientArrived(doctorUserId: string, patientId: string) {
+    const assignment = await this.prisma.doctor_patient_assignments.findFirst({
+      where: { doctor_id: doctorUserId, patient_id: patientId },
+      orderBy: { assigned_at: 'desc' },
+    });
+    if (!assignment || assignment.appointment_activity !== 'arrived') {
+      throw new BadRequestException(
+        'Consultation cannot begin until the doctor has arrived at the patient location.',
+      );
+    }
+    if (assignment.patient_consent !== 'granted') {
+      throw new BadRequestException(
+        'Consultation cannot begin until the patient has granted consent.',
+      );
+    }
   }
 
   // ============================================================
@@ -226,6 +383,8 @@ export class MbbsService implements OnModuleInit {
       where: { id: patientId },
     });
     if (!patient) throw new NotFoundException('Patient not found.');
+
+    await this.ensurePatientArrived(doctorUserId, patientId);
 
     // Verify doctor profile
     const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({
@@ -380,6 +539,8 @@ export class MbbsService implements OnModuleInit {
     });
     if (!patient) throw new NotFoundException('Patient not found.');
 
+    await this.ensurePatientArrived(doctorUserId, patientId);
+
     // Verify ICD-10 code exists; if not, insert it as a custom entry
     let icd10 = await this.prisma.icd10_codes.findUnique({
       where: { code: dto.icd10_code },
@@ -462,6 +623,8 @@ export class MbbsService implements OnModuleInit {
       where: { id: patientId },
     });
     if (!patient) throw new NotFoundException('Patient not found.');
+
+    await this.ensurePatientArrived(doctorUserId, patientId);
 
     // Verify all test IDs exist
     const tests = await this.prisma.diagnostic_test_catalog.findMany({
@@ -590,6 +753,8 @@ export class MbbsService implements OnModuleInit {
     });
     if (!patient) throw new NotFoundException('Patient not found.');
 
+    await this.ensurePatientArrived(doctorUserId, patientId);
+
     // Validate specialty code
     const validSpecialties = [
       'CARDIOLOGY',
@@ -705,6 +870,8 @@ export class MbbsService implements OnModuleInit {
       where: { id: patientId },
     });
     if (!patient) throw new NotFoundException('Patient not found.');
+
+    await this.ensurePatientArrived(doctorUserId, patientId);
 
     // Get doctor's digital signature URL (MB-012)
     const doctor = await this.prisma.mbbs_doctor_profiles.findUnique({

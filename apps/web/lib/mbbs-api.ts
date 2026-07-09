@@ -50,6 +50,8 @@ export interface Patient {
   height_cm?: number;
   weight_kg?: number;
   has_emergency_flag: boolean;
+  appointment_activity?: string;
+  patient_consent?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -403,6 +405,12 @@ export const mbbsApi = {
   // Start Visit
   startVisit: (patientId: string) =>
     apiFetch<{ message: string; doctor_name: string }>(`/mbbs/patients/${patientId}/start-visit`, {
+      method: 'POST',
+    }),
+
+  // Consent
+  requestConsent: (patientId: string) =>
+    apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/request-consent`, {
       method: 'POST',
     }),
 };

@@ -480,7 +480,9 @@ export class NutritionistService {
     });
 
     if (!template) {
-      throw new NotFoundException(`Diet Template with ID ${templateId} not found.`);
+      throw new NotFoundException(
+        `Diet Template with ID ${templateId} not found.`,
+      );
     }
 
     return template;
@@ -509,32 +511,61 @@ export class NutritionistService {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
     // Header Title Area
-    doc.fillColor('#1e293b').fontSize(22).text('HHDMS - DIET & NUTRITION CHART', { align: 'center' });
+    doc
+      .fillColor('#1e293b')
+      .fontSize(22)
+      .text('HHDMS - DIET & NUTRITION CHART', { align: 'center' });
     doc.moveDown(0.5);
-    doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+    doc
+      .strokeColor('#cbd5e1')
+      .lineWidth(1)
+      .moveTo(40, doc.y)
+      .lineTo(555, doc.y)
+      .stroke();
     doc.moveDown(1);
 
     // Patient Context Metadata Grid
     doc.fillColor('#0f172a').fontSize(11);
-    doc.text(`Patient Name: ${plan.patient.first_name_en} ${plan.patient.last_name_en}`, 40, doc.y, { continued: true });
+    doc.text(
+      `Patient Name: ${plan.patient.first_name_en} ${plan.patient.last_name_en}`,
+      40,
+      doc.y,
+      { continued: true },
+    );
     doc.text(` | MRN: ${plan.patient.mrn}`, { align: 'right' });
     doc.text(`Plan Title: ${plan.title}`, 40, doc.y + 16, { continued: true });
-    doc.text(` | Target Calories: ${plan.total_calories || 'N/A'} kcal`, { align: 'right' });
-    doc.text(`Condition: ${plan.condition_name || 'General Health'}`, 40, doc.y + 32);
-    
+    doc.text(` | Target Calories: ${plan.total_calories || 'N/A'} kcal`, {
+      align: 'right',
+    });
+    doc.text(
+      `Condition: ${plan.condition_name || 'General Health'}`,
+      40,
+      doc.y + 32,
+    );
+
     doc.moveDown(2);
 
     // Render Meals sequentially
-    doc.fontSize(14).fillColor('#0284c7').text('DAILY MEAL SCHEDULE', 40, doc.y);
+    doc
+      .fontSize(14)
+      .fillColor('#0284c7')
+      .text('DAILY MEAL SCHEDULE', 40, doc.y);
     doc.moveDown(0.5);
 
     for (const meal of plan.meals) {
       // Draw a subtle background block for each meal slot
       const currentY = doc.y;
       doc.rect(40, currentY, 515, 20).fill('#f8fafc');
-      doc.fillColor('#0f172a').fontSize(11).text(`■ ${meal.meal_slot.toUpperCase()}`, 45, currentY + 4, { continued: true });
+      doc
+        .fillColor('#0f172a')
+        .fontSize(11)
+        .text(`■ ${meal.meal_slot.toUpperCase()}`, 45, currentY + 4, {
+          continued: true,
+        });
       if (meal.calories) {
-        doc.fillColor('#64748b').text(` (${meal.calories} kcal Target)`, { align: 'right' });
+        doc
+          .fillColor('#64748b')
+          .text(` (${meal.calories} kcal Target)`, { align: 'right' });
       } else {
         doc.text('', { align: 'right' });
       }
@@ -551,12 +582,20 @@ export class NutritionistService {
           });
         }
       } catch (e) {
-        doc.fillColor('#ef4444').fontSize(10).text('• Custom dietary plan configuration entries.', 60, doc.y);
+        doc
+          .fillColor('#ef4444')
+          .fontSize(10)
+          .text('• Custom dietary plan configuration entries.', 60, doc.y);
       }
 
       if (meal.preparation_guidance) {
         doc.moveDown(0.2);
-        doc.fillColor('#475569').fontSize(9).text(`Guidance: ${meal.preparation_guidance}`, 60, doc.y, { italic: true });
+        doc
+          .fillColor('#475569')
+          .fontSize(9)
+          .text(`Guidance: ${meal.preparation_guidance}`, 60, doc.y, {
+            italic: true,
+          });
       }
 
       doc.moveDown(1.5);
@@ -564,15 +603,25 @@ export class NutritionistService {
 
     // Notes Footer section
     if (plan.notes) {
-      doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+      doc
+        .strokeColor('#e2e8f0')
+        .lineWidth(0.5)
+        .moveTo(40, doc.y)
+        .lineTo(555, doc.y)
+        .stroke();
       doc.moveDown(1);
-      doc.fillColor('#0f172a').fontSize(11).text('Special Notes / Instructions:', 40, doc.y);
-      doc.fillColor('#475569').fontSize(10).text(plan.notes, 40, doc.y + 5);
+      doc
+        .fillColor('#0f172a')
+        .fontSize(11)
+        .text('Special Notes / Instructions:', 40, doc.y);
+      doc
+        .fillColor('#475569')
+        .fontSize(10)
+        .text(plan.notes, 40, doc.y + 5);
     }
 
     // End stream processing
     doc.end();
     return doc;
   }
-
 }

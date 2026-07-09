@@ -110,6 +110,7 @@ model server_notifications {
   body       String   @db.Text
   session_id String?  @map("session_id") @db.Uuid
   type       String?  @db.VarChar(50)
+  patient_id String?  @map("patient_id") @db.VarChar(50)
   delivered  Boolean  @default(false)
   created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -512,6 +513,7 @@ model doctor_patient_assignments {
   patient_id           String               @map("patient_id") @db.Uuid
   assigned_at          DateTime?            @default(now()) @map("assigned_at") @db.Timestamptz(6)
   appointment_activity String               @default("pending") @map("appointment_activity") @db.VarChar(20)
+  patient_consent      String?              @map("patient_consent") @db.VarChar(10)
   doctor               mbbs_doctor_profiles @relation(fields: [doctor_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
   patient              patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 

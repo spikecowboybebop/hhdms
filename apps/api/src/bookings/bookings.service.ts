@@ -498,6 +498,7 @@ export class BookingsService {
             {
               session_id: result.session_id,
               type: 'provider_assigned',
+              patient_id: dto.patient_id,
             },
           )
           .catch((err) =>

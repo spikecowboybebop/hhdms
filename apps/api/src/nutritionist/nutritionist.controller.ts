@@ -133,8 +133,9 @@ export class NutritionistController {
   // GET /nutritionist/diet-plan/:planId/pdf
   @Get('diet-plan/:planId/pdf')
   async downloadDietPlanPdf(@Param('planId') planId: string, @Res() res: any) {
-    const pdfStream = await this.nutritionistService.generateDietPlanPdf(planId);
-    
+    const pdfStream =
+      await this.nutritionistService.generateDietPlanPdf(planId);
+
     // Set headers specifying attachment type and filename matching the unique record
     res.set({
       'Content-Type': 'application/pdf',
@@ -148,4 +149,3 @@ export class NutritionistController {
 function Res(): ParameterDecorator {
   return NestRes();
 }
-

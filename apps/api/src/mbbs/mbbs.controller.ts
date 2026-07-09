@@ -57,6 +57,31 @@ export class MbbsController {
     return this.mbbsService.startPatientVisit(doctorUserId, id);
   }
 
+  @Post('patients/:id/mark-arrived')
+  @HttpCode(HttpStatus.OK)
+  async markArrived(@Param('id') id: string) {
+    return this.mbbsService.markArrived(id);
+  }
+
+  @Post('patients/:id/request-consent')
+  @HttpCode(HttpStatus.OK)
+  async requestConsent(@Param('id') id: string, @Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.requestConsent(doctorUserId, id);
+  }
+
+  @Post('patients/:id/respond-consent')
+  @HttpCode(HttpStatus.OK)
+  async respondConsent(
+    @Param('id') id: string,
+    @Body('answer') answer: string,
+  ) {
+    if (answer !== 'granted' && answer !== 'denied') {
+      throw new BadRequestException('answer must be "granted" or "denied"');
+    }
+    return this.mbbsService.respondConsent(id, answer);
+  }
+
   // ============================================================
   // Vital Signs Endpoints (MB-003)
   // ============================================================
