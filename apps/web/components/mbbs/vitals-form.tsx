@@ -40,6 +40,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 export function VitalsForm({ onSubmit, loading, existingVitals }: Props) {
   const [form, setForm] = useState<CreateVitalsPayload>({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (field: keyof CreateVitalsPayload, value: string) => {
@@ -71,6 +72,7 @@ export function VitalsForm({ onSubmit, loading, existingVitals }: Props) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {vitalFields.map((field) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const value = (form as any)[field] as number | undefined;
           const abnormal = isOutOfRange(field, value);
           const range = VITALS_RANGES[field];

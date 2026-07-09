@@ -1,10 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsOptional,
-  IsArray,
-  ArrayNotEmpty,
-} from 'class-validator';
+import { IsString, IsOptional, IsArray, ArrayNotEmpty } from 'class-validator';
 
 export class CreateTestOrderDto {
   @IsArray()

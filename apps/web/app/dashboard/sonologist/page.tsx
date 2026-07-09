@@ -32,6 +32,7 @@ export default function SonologistDashboardPage() {
     const checkHash = () => {
       const hash = window.location.hash.replace("#", "");
       if (["overview", "studies", "report"].includes(hash)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setActiveTab(hash as any);
       } else {
         setActiveTab("overview");

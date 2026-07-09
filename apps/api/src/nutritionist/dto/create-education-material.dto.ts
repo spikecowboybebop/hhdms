@@ -2,6 +2,9 @@ import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateEducationMaterialDto {
   @IsUUID()
+  patient_id!: string;
+
+  @IsUUID()
   uploaded_by!: string;
 
   @IsString()

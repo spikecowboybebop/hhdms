@@ -49,4 +49,4 @@ async function bootstrap() {
   console.log(`🏠 Local Machine access: http://127.0.0.1:${port}`);
   console.log(`📱 Physical Phone access: http://${localIp}:${port}`);
 }
-bootstrap();
+void bootstrap();

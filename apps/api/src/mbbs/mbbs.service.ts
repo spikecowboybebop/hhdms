@@ -37,17 +37,19 @@ export class MbbsService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    const jsonPath = path.resolve(__dirname, '../../prisma/icd10_codes.json');
-    try {
-      const raw = fs.readFileSync(jsonPath, 'utf-8');
-      this.icd10Codes = JSON.parse(raw);
-      console.log(`Loaded ${this.icd10Codes.length} ICD-10 codes into memory`);
-    } catch (err) {
-      console.warn(
-        'Could not load icd10_codes.json, falling back to DB search:',
-        (err as Error).message,
-      );
+    const candidates = [
+      path.resolve(__dirname, '../../../../../icd10_codes.json'),
+      path.resolve(process.cwd(), '../../icd10_codes.json'),
+    ];
+    for (const jsonPath of candidates) {
+      try {
+        const raw = fs.readFileSync(jsonPath, 'utf-8');
+        this.icd10Codes = JSON.parse(raw);
+        console.log(`Loaded ${this.icd10Codes.length} ICD-10 codes from ${jsonPath}`);
+        return;
+      } catch { /* try next */ }
     }
+    console.warn('Could not load icd10_codes.json. cwd=' + process.cwd() + ' dirname=' + __dirname);
   }
 
   // ============================================================

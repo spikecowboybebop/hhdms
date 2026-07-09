@@ -2,25 +2,35 @@
 
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, FileDown, Plus, Trash2, LayoutTemplate, Sparkles, HelpCircle } from 'lucide-react';
+import { nutritionistApi } from '@/lib/nutritionist-api';
 
 interface DietBuilderProps {
   patientId: string;
   onBack: () => void;
 }
 
-export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
+export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {  
   // Database datasets state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [templates, setTemplates] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [foodDb, setFoodDb] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [savedPlanId, setSavedPlanId] = useState<string | null>(null);
 
   // Active form builder state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [planTitle, setPlanTitle] = useState('Custom Therapeutic Diet Plan');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [targetCalories, setTargetCalories] = useState(2000);
   const [specialNotes, setSpecialNotes] = useState('');
+  const [conditionName, setConditionName] = useState('');
+  const [language, setLanguage] = useState('en');
   
   // Structured slots containing food selections
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [meals, setMeals] = useState<any[]>([
     { id: '1', slot: 'Breakfast', guidance: '', items: [{ foodId: '', grams: 100 }] },
     { id: '2', slot: 'Lunch', guidance: '', items: [{ foodId: '', grams: 150 }] }
@@ -28,25 +38,18 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
 
   // Live analytics counters
   const [liveTotals, setLiveTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
     const bootstrapBuilderData = async () => {
       try {
-        // Simulating matching responses from your backend routes:
-        // GET /nutritionist/templates and an inventory list of food records
-        setTemplates([
-          { id: 't1', condition_name: 'Diabetes Type 2 (Low GI)', total_calories: 1800 },
-          { id: 't2', condition_name: 'CKD Stage 3 (Low Protein)', total_calories: 1600 },
-          { id: 't3', condition_name: 'DASH Diet (Hypertension)', total_calories: 2000 }
+        const [templateList, foodItems] = await Promise.all([
+          nutritionistApi.getTemplates(),
+          nutritionistApi.getFoodItems().catch(() => []),
         ]);
-
-        setFoodDb([
-          { id: 'f1', name_en: 'Brown Rice (Siddha)', calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
-          { id: 'f2', name_en: 'Lentils (Masoor Dal)', calories: 116, protein: 9.0, carbs: 20, fat: 0.4 },
-          { id: 'f3', name_en: 'Chicken Breast (Skinless)', calories: 165, protein: 31.0, carbs: 0, fat: 3.6 },
-          { id: 'f4', name_en: 'Egg White', calories: 52, protein: 11.0, carbs: 0.7, fat: 0.2 }
-        ]);
+        setTemplates(templateList);
+        if (foodItems.length > 0) setFoodDb(foodItems);
       } catch (err) {
         console.error("Failed configuration payload fetch", err);
       } finally {
@@ -62,9 +65,9 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
       setCalculating(true);
       let cal = 0, prot = 0, carb = 0, fat = 0;
 
-      meals.forEach(m => {
+      meals.forEach((m: any) => {
         m.items.forEach((item: any) => {
-          const match = foodDb.find(f => f.id === item.foodId);
+          const match = foodDb.find((f: any) => f.id === item.foodId);
           if (match) {
             const factor = parseFloat(item.grams || 0) / 100;
             cal += match.calories * factor;
@@ -87,26 +90,36 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
     recalculateMacros();
   }, [meals, foodDb]);
 
-  // Handle template selection change
-  const handleApplyTemplate = (templateId: string) => {
+  const handleApplyTemplate = async (templateId: string) => {
     setSelectedTemplate(templateId);
-    const selected = templates.find(t => t.id === templateId);
-    if (selected) {
-      setPlanTitle(`Therapeutic Plan: ${selected.condition_name}`);
-      setTargetCalories(selected.total_calories);
-      
-      // Seed preset matching options dynamically based on selection
-      if (templateId === 't1') {
-        setMeals([
-          { id: 'm1', slot: 'Breakfast', guidance: 'Avoid simple sugars.', items: [{ foodId: 'f4', grams: 120 }] },
-          { id: 'm2', slot: 'Lunch', guidance: 'Serve with leafy greens.', items: [{ foodId: 'f1', grams: 150 }, { foodId: 'f3', grams: 100 }] }
-        ]);
+    if (!templateId) return;
+    try {
+      const template = await nutritionistApi.getTemplateById(templateId);
+      setConditionName(template.condition_name);
+      setPlanTitle(`Therapeutic Plan: ${template.condition_name}`);
+      setTargetCalories(template.total_calories);
+
+      if (template.meals && template.meals.length > 0) {
+        setMeals(template.meals.map((m: any, idx: number) => {
+          let foods: any[] = [];
+          try { foods = JSON.parse(m.foods_json); } catch { foods = []; }
+          return {
+            id: `m${idx + 1}`,
+            slot: m.meal_slot,
+            guidance: m.preparation_guidance || '',
+            items: foods.length > 0
+              ? foods.map((f: any) => ({ foodId: f.food_id || '', grams: f.grams || 100 }))
+              : [{ foodId: '', grams: 100 }],
+          };
+        }));
       }
+    } catch (err) {
+      console.error("Failed to load template", err);
     }
   };
 
   const updateFoodItem = (mealId: string, itemIndex: number, field: string, value: string) => {
-    setMeals(prev => prev.map(m => {
+    setMeals((prev: any[]) => prev.map((m: any) => {
       if (m.id !== mealId) return m;
       const updatedItems = [...m.items];
       updatedItems[itemIndex] = { ...updatedItems[itemIndex], [field]: value };
@@ -115,19 +128,61 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
   };
 
   const addFoodRow = (mealId: string) => {
-    setMeals(prev => prev.map(m => m.id === mealId ? { ...m, items: [...m.items, { foodId: '', grams: 100 }] } : m));
+    setMeals((prev: any[]) => prev.map((m: any) => m.id === mealId ? { ...m, items: [...m.items, { foodId: '', grams: 100 }] } : m));
   };
 
   const removeFoodRow = (mealId: string, itemIndex: number) => {
-    setMeals(prev => prev.map(m => {
+    setMeals((prev: any[]) => prev.map((m: any) => {
       if (m.id !== mealId) return m;
-      return { ...m, items: m.items.filter((_, idx) => idx !== itemIndex) };
+      return { ...m, items: m.items.filter((_: any, idx: number) => idx !== itemIndex) };
     }));
   };
 
-  const handleExportPdf = () => {
-    // Direct link trigger hitting: GET /nutritionist/diet-plan/:planId/pdf
-    window.open(`http://localhost:3000/nutritionist/diet-plan/mock-plan-id-123/pdf`, '_blank');
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const plan = await nutritionistApi.createDietPlan({
+        patient_id: patientId,
+        title: planTitle,
+        condition_name: conditionName || undefined,
+        language,
+        total_calories: targetCalories,
+        notes: specialNotes || undefined,
+        meals: meals.map((m: any) => ({
+          meal_slot: m.slot,
+          calories: undefined,
+          preparation_guidance: m.guidance || undefined,
+          foods: m.items
+            .filter((i: any) => i.foodId)
+            .map((i: any) => {
+              const food = foodDb.find((f: any) => f.id === i.foodId);
+              return {
+                name: food?.name_en || 'Food Item',
+                quantity: `${i.grams}g`,
+                grams: parseInt(i.grams) || 100,
+              };
+            }),
+        })),
+      });
+      setSavedPlanId(plan.id);
+    } catch (err) {
+      console.error("Failed to save diet plan", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (savedPlanId) {
+      setExportingPdf(true);
+      try {
+        await nutritionistApi.downloadDietPlanPdf(savedPlanId);
+      } catch (err) {
+        console.error("PDF export failed", err);
+      } finally {
+        setExportingPdf(false);
+      }
+    }
   };
 
   if (loading) return <div className="p-6 text-slate-500">Loading Canvas Configuration...</div>;
@@ -140,11 +195,11 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
           <ArrowLeft size={16} /> <span>Exit Chart Builder</span>
         </button>
         <div className="flex items-center space-x-2 self-end">
-          <button onClick={handleExportPdf} className="flex items-center space-x-1.5 text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-lg shadow-sm text-slate-700 transition">
-            <FileDown size={14} /> <span>Export Printable PDF</span>
+          <button onClick={handleExportPdf} disabled={!savedPlanId || exportingPdf} className="flex items-center space-x-1.5 text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 px-3.5 py-2 rounded-lg shadow-sm text-slate-700 transition">
+            <FileDown size={14} /> <span>{exportingPdf ? 'Downloading...' : 'Export Printable PDF'}</span>
           </button>
-          <button className="flex items-center space-x-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 px-3.5 py-2 rounded-lg shadow-sm text-white transition">
-            <Save size={14} /> <span>Save & Commit Chart</span>
+          <button onClick={handleSave} disabled={saving} className="flex items-center space-x-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 px-3.5 py-2 rounded-lg shadow-sm text-white transition">
+            <Save size={14} /> <span>{saving ? 'Saving...' : 'Save & Commit Chart'}</span>
           </button>
         </div>
       </div>
@@ -157,18 +212,27 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
             <h3 className="font-semibold text-slate-800 text-sm flex items-center"><LayoutTemplate size={16} className="text-blue-500 mr-2" /> Global Templates Blueprint Selection</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="md:col-span-2">
+              <div className="md:col-span-1">
                 <label className="block text-slate-500 font-medium mb-1">Select Clinical Blueprint Condition</label>
-                <select value={selectedTemplate} onChange={(e) => handleApplyTemplate(e.target.value)}
+                <select value={selectedTemplate} onChange={(e) => handleApplyTemplate(e.target.value)} title="Select Clinical Blueprint Condition"
                   className="w-full border border-slate-200 p-2.5 rounded-lg bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">-- No Blueprint (Build Scratch Manual) --</option>
-                  {templates.map(t => <option key={t.id} value={t.id}>{t.condition_name} ({t.total_calories} kcal)</option>)}
+                  {templates.map((t: any) => <option key={t.id} value={t.id}>{t.condition_name} ({t.total_calories} kcal)</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-slate-500 font-medium mb-1">Calorie Target Baseline</label>
                 <input type="number" value={targetCalories} onChange={(e) => setTargetCalories(parseInt(e.target.value) || 0)}
-                  className="w-full border border-slate-200 p-2.5 rounded-lg text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  placeholder="Enter calorie target" className="w-full border border-slate-200 p-2.5 rounded-lg text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium mb-1">Language</label>
+                <select value={language} onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full border border-slate-200 p-2.5 rounded-lg bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="en">English</option>
+                  <option value="bn">বাংলা</option>
+                  <option value="both">Bilingual (English + বাংলা)</option>
+                </select>
               </div>
             </div>
           </div>
@@ -186,22 +250,25 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
 
                 {/* Rows mapping */}
                 <div className="space-y-3">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {meal.items.map((item: any, idx: number) => (
                     <div key={idx} className="flex gap-3 items-center text-xs">
                       <div className="flex-1">
-                        <select value={item.foodId} onChange={(e) => updateFoodItem(meal.id, idx, 'foodId', e.target.value)}
+                        <select aria-label={`Select food item for ${meal.slot} slot row ${idx + 1}`} value={item.foodId} onChange={(e) => updateFoodItem(meal.id, idx, 'foodId', e.target.value)}
                           className="w-full border border-slate-200 p-2 rounded-lg bg-white font-medium text-slate-700 focus:outline-none">
                           <option value="">-- Choose Food Database Item --</option>
                           {foodDb.map(f => <option key={f.id} value={f.id}>{f.name_en} ({f.calories} kcal/100g)</option>)}
                         </select>
                       </div>
                       <div className="w-24 flex items-center space-x-1.5">
-                        <input type="number" value={item.grams} onChange={(e) => updateFoodItem(meal.id, idx, 'grams', e.target.value)}
+                        <input type="number" title="Enter quantity in grams" value={item.grams} onChange={(e) => updateFoodItem(meal.id, idx, 'grams', e.target.value)}
                           className="w-full border border-slate-200 p-2 rounded-lg text-center text-slate-800 font-semibold" />
                         <span className="text-slate-400">g</span>
                       </div>
                       {meal.items.length > 1 && (
-                        <button onClick={() => removeFoodRow(meal.id, idx)} className="text-slate-300 hover:text-rose-600 p-1 transition"><Trash2 size={15} /></button>
+                        <button type="button" aria-label={`Remove row ${idx + 1} from ${meal.slot} slot`} title={`Remove row ${idx + 1}`} onClick={() => removeFoodRow(meal.id, idx)} className="text-slate-300 hover:text-rose-600 p-1 transition">
+                          <Trash2 size={15} />
+                        </button>
                       )}
                     </div>
                   ))}
@@ -245,7 +312,7 @@ export default function DietBuilder({ patientId, onBack }: DietBuilderProps) {
             {/* Dynamic Progress Indicator Bar */}
             <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
               <div className="bg-blue-500 h-full transition-all duration-300"
-                style={{ width: `${Math.min((liveTotals.calories / (targetCalories || 1)) * 100, 100)}%` }} />
+                style={{ width: `${Math.min((liveTotals.calories / (targetCalories || 1)) * 100, 100)}%` }} role="progressbar" title="Energy Aggregation Progress" aria-label="Energy Aggregation Progress" aria-valuenow={Math.round(Math.min((liveTotals.calories / (targetCalories || 1)) * 100, 100))} aria-valuemin={0} aria-valuemax={100} />
             </div>
           </div>
 

@@ -13,7 +13,7 @@ export class ConsultationController {
 
   @Post('complete') // 2. Sub path: /complete
   @HttpCode(HttpStatus.OK)
-  async completeConsultation(@Body() body: any) {
+  completeConsultation() {
     this.logger.log(`[DRY RUN] Received consultation submission successfully.`);
     return {
       success: true,

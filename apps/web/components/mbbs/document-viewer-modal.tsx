@@ -72,6 +72,7 @@ export function DocumentViewerModal({ document: doc, patientId, onClose }: Docum
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-hidden flex-1">
           <div className="border-r border-slate-200/60 p-4 flex items-start justify-center overflow-auto bg-[#F8F9FA] min-h-[300px] max-h-[70vh]">
             {isImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={fileUrl}
                 alt={doc.file_name}

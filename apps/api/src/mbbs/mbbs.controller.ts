@@ -191,7 +191,7 @@ export class MbbsController {
   // Emergency Flag Endpoints (MB-008)
   // ============================================================
 
-  @Post('patients/:id/emergency')
+  @Post('patients/:id/emergency-flag')
   @HttpCode(HttpStatus.CREATED)
   async setEmergencyFlag(
     @Param('id') patientId: string,

@@ -180,9 +180,9 @@ export default function ReportsPage() {
                   <span className="font-semibold text-[#2D3A4A]">Released Datetime:</span> {report.date}
                 </div>
                 
-                <p className="rounded-xl bg-[#F8F9FA] p-3 text-xs leading-relaxed text-slate-600 border border-slate-100 font-mono">
-                  "{report.findings}"
-                </p>
+                  <p className="rounded-xl bg-[#F8F9FA] p-3 text-xs leading-relaxed text-slate-600 border border-slate-100 font-mono">
+                    &ldquo;{report.findings}&rdquo;
+                  </p>
 
                 {/* Audit Trail Module */}
                 <div className="border-t border-slate-100 pt-2">

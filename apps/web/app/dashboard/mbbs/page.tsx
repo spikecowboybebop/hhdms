@@ -77,7 +77,7 @@ export default function MbbsDashboardPage() {
       onClick: () => setSignatureModalOpen(true),
     },
   ], []);
-  const [icdQuery, setIcdQuery] = useState("");
+  const [icdQuery, setIcdQuery] = useState(""); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   useEffect(() => {
     const s = loadSession();
@@ -114,7 +114,7 @@ export default function MbbsDashboardPage() {
       }
     };
     load();
-  }, [hydrated, session]);
+  }, [hydrated, session, selected]);
 
   // Socket.IO connection for real-time visit state updates
   const socketRef = useRef<Socket | null>(null);

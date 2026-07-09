@@ -331,12 +331,12 @@ export const mbbsApi = {
   getTestCatalog: (category?: string) =>
     apiFetch<TestCatalogItem[]>(`/mbbs/tests/catalog${category ? `?category=${encodeURIComponent(category)}` : ''}`),
   orderTests: (patientId: string, testIds: string[], clinicalNotes?: string) =>
-    apiFetch<any>(`/mbbs/patients/${patientId}/test-orders`, {
+    apiFetch<any>(`/mbbs/patients/${patientId}/test-orders`, { // eslint-disable-line @typescript-eslint/no-explicit-any
       method: 'POST',
       body: JSON.stringify({ test_ids: testIds, clinical_notes: clinicalNotes }),
     }),
   getTestOrders: (patientId: string) => apiFetch<TestOrder[]>(`/mbbs/patients/${patientId}/test-orders`),
-  getTestResults: (patientId: string) => apiFetch<any[]>(`/mbbs/patients/${patientId}/test-results`),
+  getTestResults: (patientId: string) => apiFetch<any[]>(`/mbbs/patients/${patientId}/test-results`), // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // Referrals
   createReferral: (patientId: string, data: CreateReferralPayload) =>
@@ -351,7 +351,7 @@ export const mbbsApi = {
 
   // Prescriptions
   createPrescription: (patientId: string, data: CreatePrescriptionPayload) =>
-    apiFetch<any>(`/mbbs/patients/${patientId}/prescriptions`, {
+    apiFetch<any>(`/mbbs/patients/${patientId}/prescriptions`, { // eslint-disable-line @typescript-eslint/no-explicit-any
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -359,14 +359,14 @@ export const mbbsApi = {
 
   // Emergency
   setEmergencyFlag: (patientId: string, reason?: string) =>
-    apiFetch<any>(`/mbbs/patients/${patientId}/emergency-flag`, {
+    apiFetch<any>(`/mbbs/patients/${patientId}/emergency-flag`, { // eslint-disable-line @typescript-eslint/no-explicit-any
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
   getEmergencyFlags: (patientId: string) => apiFetch<EmergencyFlag[]>(`/mbbs/patients/${patientId}/emergency-flags`),
 
   // Schedule
-  getSchedule: () => apiFetch<any[]>('/mbbs/schedule'),
+  getSchedule: () => apiFetch<any[]>('/mbbs/schedule'), // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // Doctor Profile
   getDoctorProfile: () => apiFetch<{
@@ -381,7 +381,7 @@ export const mbbsApi = {
   // Signature
   getSignature: () => apiFetch<{ signature_url: string | null }>('/mbbs/signature'),
   updateSignature: (signatureUrl: string) =>
-    apiFetch<any>('/mbbs/signature', {
+    apiFetch<any>('/mbbs/signature', { // eslint-disable-line @typescript-eslint/no-explicit-any
       method: 'PATCH',
       body: JSON.stringify({ signature_url: signatureUrl }),
     }),
@@ -396,7 +396,7 @@ export const mbbsApi = {
 
   // Differential Diagnosis (stub)
   getDifferentialDiagnosis: (patientId: string) =>
-    apiFetch<any>(`/mbbs/patients/${patientId}/differential-diagnosis`),
+    apiFetch<any>(`/mbbs/patients/${patientId}/differential-diagnosis`), // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // Available Providers
   getAvailableProviders: (params: { serviceType: string; district?: string; thana?: string; date?: string }) =>

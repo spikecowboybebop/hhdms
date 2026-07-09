@@ -9,7 +9,7 @@ import {
 export class CreateActivityLogDto {
   @IsUUID()
   @IsNotEmpty()
-  patient_id: string;
+  patient_id!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -21,7 +21,7 @@ export class CreateActivityLogDto {
     'COMPANIONSHIP',
     'EXERCISE',
   ])
-  activity_type: string;
+  activity_type!: string;
 
   @IsString()
   @IsOptional()

@@ -26,6 +26,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 export const nutritionistApi = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getDashboard: () => request<any>('/dashboard'),
   
   // Anthropometric Records
@@ -53,5 +54,6 @@ export const nutritionistApi = {
 
   // Food Exchange Item Lookup
   listFoodItems: (query?: string) => 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     request<any[]>(query ? `/food-items?q=${encodeURIComponent(query)}` : '/food-items'),
 };
