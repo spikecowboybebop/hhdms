@@ -397,6 +397,9 @@ export default function MbbsPatientDetailPage() {
         </div>
       )}
 
+      {/* Patient Header */}
+      <PatientHeader patient={profile.patient} />
+
       {/* Start Visit Banner */}
       {!profile.patient.has_emergency_flag && (
         <div className="mb-4">
@@ -423,9 +426,6 @@ export default function MbbsPatientDetailPage() {
           </button>
         </div>
       )}
-
-      {/* Patient Header */}
-      <PatientHeader patient={profile.patient} />
 
       {/* Emergency Flag Button */}
       {!profile.patient.has_emergency_flag && (

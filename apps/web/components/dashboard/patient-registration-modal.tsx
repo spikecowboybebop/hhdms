@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { callCenterApi, type BookingSessionResult } from "@/lib/call-center-api";
+import { mbbsApi, type AvailableMbbsProvider } from "@/lib/mbbs-api";
 import ServiceFormFields from "@/components/dashboard/service-form-fields";
 import ProviderSelector, { type ServiceFormMeta } from "@/components/dashboard/provider-selector";
 
@@ -194,11 +195,13 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   const [newTimeSlot, setNewTimeSlot] = useState("");
   const [newProviderId, setNewProviderId] = useState<string | null>(null);
   const [newMeta, setNewMeta] = useState<ServiceFormMeta>({});
+  const [mbbsDoctors, setMbbsDoctors] = useState<AvailableMbbsProvider[]>([]);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingResult, setBookingResult] = useState<BookingSessionResult | null>(null);
   const autoFetchedRef = useRef(false);
   const emailFetchedRef = useRef(false);
+  const autoSkipAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (open && callerEmail) {
@@ -266,6 +269,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
     if (!patientId) return;
     const patient = pastPatients.find((p) => p.id === patientId);
     if (!patient) return;
+    setRegisteredPatientId(patient.id);
+    setRegisteredMrn(patient.mrn);
     populateFormFromPatient(patient);
   }, [pastPatients, populateFormFromPatient]);
 
@@ -380,7 +385,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   }, []);
 
   const handleSubmitBooking = async () => {
-    if (cart.length === 0 || !registeredPatientId) return;
+    const patientId = registeredPatientId || selectedPastPatientId;
+    if (cart.length === 0 || !patientId) return;
     setBookingSubmitting(true);
     setBookingError(null);
 
@@ -397,7 +403,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
       }));
 
       const data = await callCenterApi.createBookingSession({
-        patient_id: registeredPatientId,
+        patient_id: patientId,
         booked_by: callerEmail,
         services: payload,
       });
@@ -426,6 +432,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
           return [patient, ...prev];
         });
         setSelectedPastPatientId(patient.id);
+        setRegisteredPatientId(patient.id);
+        setRegisteredMrn(patient.mrn);
         populateFormFromPatient(patient);
       }).catch(() => {});
     });
@@ -433,7 +441,6 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
 
   useEffect(() => {
     if (!callerEmail || !open || emailFetchedRef.current) return;
-    if (patientPhone) return;
     emailFetchedRef.current = true;
 
     import("@/lib/call-center-api").then(({ callCenterApi }) => {
@@ -443,15 +450,19 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
           return [patient, ...prev];
         });
         setSelectedPastPatientId(patient.id);
+        setRegisteredPatientId(patient.id);
+        setRegisteredMrn(patient.mrn);
         populateFormFromPatient(patient);
       }).catch(() => {});
     });
-  }, [callerEmail, open, patientPhone, populateFormFromPatient]);
+  }, [callerEmail, open, populateFormFromPatient]);
 
   useEffect(() => {
     if (!selectedPastPatientId || step >= 4) return;
     const autoDetected = autoFetchedRef.current || emailFetchedRef.current;
     if (!autoDetected) return;
+    if (autoSkipAttemptedRef.current) return;
+    autoSkipAttemptedRef.current = true;
     const required: string[] = [
       form.full_name_en,
       form.full_name_bn,
@@ -468,10 +479,22 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
     ];
     if (required.every(Boolean)) {
       setStep(4);
-      emailFetchedRef.current = false;
-      autoFetchedRef.current = false;
     }
-  }, [form, selectedPastPatientId, step]);
+  }, [selectedPastPatientId, step]);
+
+  useEffect(() => {
+    if (newServiceType !== "MBBS" || !newDate) {
+      setMbbsDoctors([]);
+      return;
+    }
+    const day = new Date(newDate).getDay();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const today = new Date().toISOString().split("T")[0];
+    const dateParam = newDate > today ? newDate : today;
+    mbbsApi.getAvailableProviders({ serviceType: "MBBS", district: form.district, thana: form.thana || undefined, date: dateParam }).then((data) => {
+      setMbbsDoctors(data.providers.filter((p) => p.schedules.some((s) => s.dayOfWeek === day)));
+    }).catch(() => setMbbsDoctors([]));
+  }, [newServiceType, newDate, form.district, form.thana]);
 
   if (!open) return null;
 
@@ -955,14 +978,32 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                       />
                     )}
 
-                    <ProviderSelector
-                      serviceType={newServiceType}
-                      date={newDate}
-                      district={form.district}
-                      thana={form.thana}
-                      onSelect={setNewProviderId}
-                      selectedProviderId={newProviderId}
-                    />
+                    {newServiceType === "MBBS" ? (
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">MBBS Doctor</label>
+                        <select
+                          value={newProviderId ?? ""}
+                          onChange={(e) => setNewProviderId(e.target.value || null)}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-[#0A2540] outline-none focus:border-[#00D4B2]"
+                        >
+                          <option value="">Auto Select</option>
+                          {mbbsDoctors.map((d) => (
+                            <option key={d.userId} value={d.userId}>
+                              {d.name} {d.specialization ? `(${d.specialization})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <ProviderSelector
+                        serviceType={newServiceType}
+                        date={newDate}
+                        district={form.district}
+                        thana={form.thana}
+                        onSelect={setNewProviderId}
+                        selectedProviderId={newProviderId}
+                      />
+                    )}
 
                     {newServiceType && (
                       <p className="text-xs font-semibold text-[#0A2540]">
