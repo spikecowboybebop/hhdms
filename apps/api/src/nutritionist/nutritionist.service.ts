@@ -722,7 +722,7 @@ export class NutritionistService {
 
   // ─── PDF Generation (NU-006) ──────────────────────────────────────────────
 
-  async generateDietPlanPdf(planId: string): Promise<PDFKit.PDFDocument> {
+  async generateDietPlanPdf(planId: string): Promise<any> {
     // 1. Fetch the entire diet plan with nested meals and patient details
     const plan = await this.prisma.nutritionist_diet_plans.findUnique({
       where: { id: planId },
