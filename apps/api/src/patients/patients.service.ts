@@ -249,6 +249,41 @@ export class PatientsService {
     };
   }
 
+  async findByUserId(userId: string) {
+    const p = await this.prisma.patients.findFirst({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (!p) throw new NotFoundException('Patient not found for this user.');
+
+    const [fnEn, lnEn] = this.splitName(p.first_name_en + ' ' + p.last_name_en);
+    const [fnBn, lnBn] = this.splitName(
+      `${p.first_name_bn || ''} ${p.last_name_bn || ''}`.trim(),
+    );
+
+    return {
+      id: p.id,
+      mrn: p.mrn,
+      first_name_en: fnEn,
+      last_name_en: lnEn,
+      first_name_bn: fnBn,
+      last_name_bn: lnBn,
+      date_of_birth: p.date_of_birth?.toISOString().split('T')[0] || '',
+      sex: p.sex || '',
+      blood_group: p.blood_group || '',
+      phone_number: p.phone_number || '',
+      alternative_phone: p.alternative_phone || '',
+      email: p.email || '',
+      address_line1: p.address_line1 || '',
+      address_line2: p.address_line2 || '',
+      district: p.district || '',
+      emergency_contact: p.emergency_contact || '',
+      emergency_contact_name: p.emergency_contact_name || '',
+      emergency_contact_relation: p.emergency_contact_relation || '',
+    };
+  }
+
   async findOne(id: string) {
     const p = await this.prisma.patients.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Patient not found.');
@@ -365,6 +400,14 @@ export class PatientsService {
     });
 
     return { message: 'Patient info updated successfully.' };
+  }
+
+  async updateSelf(userId: string, dto: UpdatePatientDto) {
+    const patient = await this.prisma.patients.findFirst({
+      where: { user_id: userId },
+    });
+    if (!patient) throw new NotFoundException('Patient record not found.');
+    return this.update(patient.id, dto);
   }
 
   async getSelfDocuments(userId: string) {

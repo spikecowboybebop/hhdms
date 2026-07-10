@@ -343,6 +343,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
         ...updateData,
         booked_by: callerEmail,
       });
+      setStep(4);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Update failed.");
     } finally {
@@ -1101,47 +1102,66 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
 
                 {step === 3 && (
                   <>
-                    {selectedPastPatientId && (
+                    {selectedPastPatientId ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setStep(4)}
+                          className="rounded-xl border border-slate-300 px-6 py-2.5 text-xs font-semibold text-slate-500 transition-all hover:bg-slate-50"
+                        >
+                          Return
+                        </button>
+                        <button
+                          onClick={handleUpdateInfo}
+                          disabled={updating}
+                          className="flex items-center gap-2 rounded-xl bg-[#00D4B2] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#00D4B2]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {updating ? (
+                            <>
+                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                              Updating...
+                            </>
+                          ) : (
+                            "Update Info"
+                          )}
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={handleUpdateInfo}
-                        disabled={updating}
-                        className="flex items-center gap-2 rounded-xl border border-[#00D4B2] px-6 py-2.5 text-xs font-semibold text-[#00D4B2] transition-all hover:bg-[#00D4B2]/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleSubmit}
+                        disabled={submitting}
+                        className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {updating ? (
+                        {submitting ? (
                           <>
-                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#00D4B2]/30 border-t-[#00D4B2]" />
-                            Updating...
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            Registering...
                           </>
                         ) : (
-                          "Update Info"
+                          "Register Patient"
                         )}
                       </button>
                     )}
-                    <button
-                      onClick={handleSubmit}
-                      disabled={submitting}
-                      className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {submitting ? (
-                        <>
-                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                          Registering...
-                        </>
-                      ) : (
-                        "Register Patient"
-                      )}
-                    </button>
                   </>
                 )}
 
                 {step === 4 && (
-                  <button
-                    onClick={() => setStep(5)}
-                    disabled={cart.length === 0}
-                    className="rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
+                  <div className="flex gap-2">
+                    {selectedPastPatientId && (
+                      <button
+                        onClick={() => setStep(0)}
+                        className="rounded-xl border border-[#0A2540] px-6 py-2.5 text-xs font-semibold text-[#0A2540] transition-all hover:bg-[#0A2540]/5"
+                      >
+                        Edit Info
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setStep(5)}
+                      disabled={cart.length === 0}
+                      className="rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
                 )}
 
                 {step === 5 && (

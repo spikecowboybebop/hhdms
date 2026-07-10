@@ -41,6 +41,18 @@ export class PatientsController {
     return this.patientsService.findByPhone(phone);
   }
 
+  @Get('self')
+  @UseGuards(JwtAuthGuard)
+  async getSelf(@Req() req: any) {
+    return this.patientsService.findByUserId(req.user.sub);
+  }
+
+  @Patch('self')
+  @UseGuards(JwtAuthGuard)
+  async updateSelf(@Req() req: any, @Body() dto: UpdatePatientDto) {
+    return this.patientsService.updateSelf(req.user.sub, dto);
+  }
+
   @Get('self/documents')
   @UseGuards(JwtAuthGuard)
   async getSelfDocuments(@Req() req: any) {
