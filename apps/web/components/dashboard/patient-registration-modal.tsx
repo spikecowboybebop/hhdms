@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { callCenterApi, type BookingSessionResult } from "@/lib/call-center-api";
 import ServiceFormFields from "@/components/dashboard/service-form-fields";
 import ProviderSelector, { type ServiceFormMeta } from "@/components/dashboard/provider-selector";
@@ -177,6 +177,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [pastPatients, setPastPatients] = useState<import("@/lib/call-center-api").PastPatient[]>([]);
   const [pastPatientsLoading, setPastPatientsLoading] = useState(false);
@@ -196,6 +197,8 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingResult, setBookingResult] = useState<BookingSessionResult | null>(null);
+  const autoFetchedRef = useRef(false);
+  const emailFetchedRef = useRef(false);
 
   useEffect(() => {
     if (open && callerEmail) {
@@ -235,11 +238,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
     };
   }, []);
 
-  const handlePastPatientSelect = useCallback((patientId: string) => {
-    setSelectedPastPatientId(patientId);
-    if (!patientId) return;
-    const patient = pastPatients.find((p) => p.id === patientId);
-    if (!patient) return;
+  const populateFormFromPatient = useCallback((patient: import("@/lib/call-center-api").PastPatient) => {
     const parsed = parseAddressLine1(patient.address_line1);
     setForm({
       full_name_en: patient.full_name_en,
@@ -248,9 +247,9 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
       sex: patient.sex,
       blood_group: patient.blood_group,
       primary_phone: patient.primary_phone,
-      alternative_phone: "",
-      emergency_contact_name: "",
-      emergency_contact_relation: "",
+      alternative_phone: patient.alternative_phone,
+      emergency_contact_name: patient.emergency_contact_name,
+      emergency_contact_relation: patient.emergency_contact_relation,
       emergency_contact_phone: patient.emergency_contact,
       division: parsed.division,
       district: parsed.district || patient.district,
@@ -260,7 +259,15 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
       has_emergency_flag: false,
     });
     setErrors([]);
-  }, [pastPatients, parseAddressLine1]);
+  }, [parseAddressLine1]);
+
+  const handlePastPatientSelect = useCallback((patientId: string) => {
+    setSelectedPastPatientId(patientId);
+    if (!patientId) return;
+    const patient = pastPatients.find((p) => p.id === patientId);
+    if (!patient) return;
+    populateFormFromPatient(patient);
+  }, [pastPatients, populateFormFromPatient]);
 
   const getFieldError = (field: keyof FormData): string | undefined =>
     errors.find((e) => e.field === field)?.message;
@@ -321,6 +328,25 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
       setServerError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUpdateInfo = async () => {
+    if (!selectedPastPatientId) return;
+    if (!validateStep(0) || !validateStep(1) || !validateStep(2)) return;
+    setUpdating(true);
+    setServerError(null);
+
+    try {
+      const { agent_notes, ...updateData } = form;
+      await callCenterApi.updatePatient(selectedPastPatientId, {
+        ...updateData,
+        booked_by: callerEmail,
+      });
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Update failed.");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -387,6 +413,64 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
+
+  useEffect(() => {
+    if (!patientPhone || !open || autoFetchedRef.current) return;
+    autoFetchedRef.current = true;
+
+    import("@/lib/call-center-api").then(({ callCenterApi }) => {
+      callCenterApi.findPatientByPhone(patientPhone).then((patient) => {
+        setPastPatients((prev) => {
+          if (prev.some((p) => p.id === patient.id)) return prev;
+          return [patient, ...prev];
+        });
+        setSelectedPastPatientId(patient.id);
+        populateFormFromPatient(patient);
+      }).catch(() => {});
+    });
+  }, [patientPhone, open, populateFormFromPatient]);
+
+  useEffect(() => {
+    if (!callerEmail || !open || emailFetchedRef.current) return;
+    if (patientPhone) return;
+    emailFetchedRef.current = true;
+
+    import("@/lib/call-center-api").then(({ callCenterApi }) => {
+      callCenterApi.findPatientByEmail(callerEmail).then((patient) => {
+        setPastPatients((prev) => {
+          if (prev.some((p) => p.id === patient.id)) return prev;
+          return [patient, ...prev];
+        });
+        setSelectedPastPatientId(patient.id);
+        populateFormFromPatient(patient);
+      }).catch(() => {});
+    });
+  }, [callerEmail, open, patientPhone, populateFormFromPatient]);
+
+  useEffect(() => {
+    if (!selectedPastPatientId || step >= 4) return;
+    const autoDetected = autoFetchedRef.current || emailFetchedRef.current;
+    if (!autoDetected) return;
+    const required: string[] = [
+      form.full_name_en,
+      form.full_name_bn,
+      form.date_of_birth,
+      form.sex,
+      form.primary_phone,
+      form.emergency_contact_name,
+      form.emergency_contact_relation,
+      form.emergency_contact_phone,
+      form.division,
+      form.district,
+      form.thana,
+      form.address_detail,
+    ];
+    if (required.every(Boolean)) {
+      setStep(4);
+      emailFetchedRef.current = false;
+      autoFetchedRef.current = false;
+    }
+  }, [form, selectedPastPatientId, step]);
 
   if (!open) return null;
 
@@ -1016,20 +1100,38 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
                 )}
 
                 {step === 3 && (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                    className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submitting ? (
-                      <>
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                        Registering...
-                      </>
-                    ) : (
-                      "Register Patient"
+                  <>
+                    {selectedPastPatientId && (
+                      <button
+                        onClick={handleUpdateInfo}
+                        disabled={updating}
+                        className="flex items-center gap-2 rounded-xl border border-[#00D4B2] px-6 py-2.5 text-xs font-semibold text-[#00D4B2] transition-all hover:bg-[#00D4B2]/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {updating ? (
+                          <>
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#00D4B2]/30 border-t-[#00D4B2]" />
+                            Updating...
+                          </>
+                        ) : (
+                          "Update Info"
+                        )}
+                      </button>
                     )}
-                  </button>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                      className="flex items-center gap-2 rounded-xl bg-[#0A2540] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#0A2540]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          Registering...
+                        </>
+                      ) : (
+                        "Register Patient"
+                      )}
+                    </button>
+                  </>
                 )}
 
                 {step === 4 && (

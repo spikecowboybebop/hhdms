@@ -974,7 +974,7 @@ export default function MbbsPatientDetailPage() {
                   {profile.documents.map((doc) => {
                     const isImage = doc.file_type.startsWith("image/");
                     const isPdf = doc.file_type === "application/pdf";
-                    const fileUrl = `http://127.0.0.1:3001${doc.file_url}`;
+                    const fileUrl = doc.file_url.startsWith("http") ? doc.file_url : `http://127.0.0.1:3001${doc.file_url}`;
                     return (
                       <button
                         key={doc.id}
