@@ -59,6 +59,12 @@ export class PatientsController {
     return this.patientsService.getSelfDocuments(req.user.sub);
   }
 
+  @Get('self/reports')
+  @UseGuards(JwtAuthGuard)
+  async getSelfReports(@Req() req: any) {
+    return this.patientsService.getSelfReports(req.user.sub);
+  }
+
   @Post('self/documents')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(

@@ -478,9 +478,8 @@ export default function MbbsPatientDetailPage() {
             setGeneratingReport(true);
             setError(null);
             try {
-              const report = await mbbsApi.generateReport(patientId);
-              showSuccess('Report generated successfully.');
-              window.open(report.file_url, '_blank');
+              await mbbsApi.generateReport(patientId);
+              showSuccess('Report generated. Notification sent to patient\'s app.');
             } catch (err: any) {
               setError(err.message || 'Failed to generate report.');
             } finally {

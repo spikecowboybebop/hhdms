@@ -454,6 +454,25 @@ export class PatientsService {
     });
   }
 
+  async getSelfReports(userId: string) {
+    const patient = await this.prisma.patients.findFirst({
+      where: { user_id: userId },
+    });
+    if (!patient) throw new NotFoundException('Patient record not found.');
+    return this.prisma.patient_diagnosis_reports.findMany({
+      where: { patient_id: patient.id },
+      orderBy: { generated_at: 'desc' },
+      select: {
+        id: true,
+        report_type: true,
+        file_url: true,
+        file_name: true,
+        file_size: true,
+        generated_at: true,
+      },
+    });
+  }
+
   async uploadSelfDocument(userId: string, file: Express.Multer.File) {
     const patient = await this.prisma.patients.findFirst({
       where: { user_id: userId },

@@ -1505,6 +1505,30 @@ export class MbbsService implements OnModuleInit {
       },
     });
 
+    // ── Send push notification to patient if they have a user account ──
+    if (patient.user_id) {
+      const doctorName = `${doctorProfile.user.firstNameEn} ${doctorProfile.user.lastNameEn}`;
+      this.notificationsService
+        .sendToUser(
+          patient.user_id,
+          {
+            title: 'Clinical Report Ready',
+            body: `Your clinical consultation report from Dr. ${doctorName} has been generated.`,
+          },
+          {
+            type: 'report_generated',
+            patient_id: patientId,
+            report_id: report.id,
+          },
+        )
+        .catch((err) =>
+          console.error(
+            '[REPORT] Failed to send notification to patient:',
+            err,
+          ),
+        );
+    }
+
     return report;
   }
 
