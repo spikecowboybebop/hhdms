@@ -283,4 +283,15 @@ export class MbbsController {
   async searchIcd10Codes(@Query('q') query: string) {
     return this.mbbsService.searchIcd10Codes(query);
   }
+
+  // ============================================================
+  // Clinical Report PDF Generation
+  // ============================================================
+
+  @Post('patients/:id/generate-report')
+  @HttpCode(HttpStatus.CREATED)
+  async generateReport(@Param('id') patientId: string, @Req() req: any) {
+    const doctorUserId = this.getDoctorUserId(req);
+    return this.mbbsService.generateClinicalReport(patientId, doctorUserId);
+  }
 }

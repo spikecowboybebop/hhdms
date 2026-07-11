@@ -80,6 +80,17 @@ export interface PatientDocument {
   uploaded_at: string;
 }
 
+export interface DiagnosisReport {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  report_type: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  generated_at: string;
+}
+
 export interface PatientProfile {
   patient: Patient;
   vitals: VitalSigns[];
@@ -411,6 +422,12 @@ export const mbbsApi = {
   // Mark Arrived
   markArrived: (patientId: string) =>
     apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/mark-arrived`, {
+      method: 'POST',
+    }),
+
+  // Generate Clinical Report PDF
+  generateReport: (patientId: string) =>
+    apiFetch<DiagnosisReport>(`/mbbs/patients/${patientId}/generate-report`, {
       method: 'POST',
     }),
 

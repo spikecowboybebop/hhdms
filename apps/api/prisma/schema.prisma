@@ -70,6 +70,7 @@ model mbbs_doctor_profiles {
   prescriptions       prescriptions[]
   referrals           specialist_referrals[]
   schedules           provider_schedules[]
+  diagnosis_reports   patient_diagnosis_reports[]
 
   @@map("mbbs_doctor_profiles")
 }
@@ -493,6 +494,7 @@ model patients {
   user                         User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
   sonologist_studies           sonologist_studies[]
   sonologist_reports           sonologist_reports[]
+  diagnosis_reports            patient_diagnosis_reports[]
 
   @@map("patients")
 }
@@ -508,6 +510,25 @@ model patient_documents {
   patient     patients  @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("patient_documents")
+}
+
+model patient_diagnosis_reports {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id   String   @map("patient_id") @db.Uuid
+  doctor_id    String   @map("doctor_id") @db.Uuid
+  report_type  String   @default("CLINICAL_CONSULTATION") @map("report_type") @db.VarChar(50)
+  report_data  Json?    @map("report_data") @db.JsonB
+  file_url     String   @map("file_url") @db.VarChar(2000)
+  file_name    String   @map("file_name") @db.VarChar(500)
+  file_size    Int?     @map("file_size")
+  generated_at DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+
+  patient patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  doctor  mbbs_doctor_profiles @relation(fields: [doctor_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([patient_id])
+  @@index([doctor_id])
+  @@map("patient_diagnosis_reports")
 }
 
 model doctor_patient_assignments {
