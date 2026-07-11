@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Role {
@@ -452,16 +453,20 @@ model patients {
   date_of_birth                DateTime?                             @map("date_of_birth") @db.Date
   sex                          String                                @map("sex") @db.VarChar(1)
   blood_group                  String?                               @map("blood_group") @db.VarChar(5)
-  phone_number                 String?                               @map("phone_number") @db.VarChar(20)
+  phone_number                 String?                               @unique @map("phone_number") @db.VarChar(20)
+  alternative_phone            String?                               @map("alternative_phone") @db.VarChar(20)
   email                        String?                               @map("email") @db.VarChar(255)
   address_line1                String?                               @map("address_line1") @db.VarChar(255)
   address_line2                String?                               @map("address_line2") @db.VarChar(255)
   district                     String?                               @map("district") @db.VarChar(100)
   emergency_contact            String?                               @map("emergency_contact") @db.VarChar(20)
+  emergency_contact_name       String?                               @map("emergency_contact_name") @db.VarChar(100)
+  emergency_contact_relation   String?                               @map("emergency_contact_relation") @db.VarChar(100)
   known_allergies              String?                               @map("known_allergies")
   current_medications          String?                               @map("current_medications")
   past_medical_history         String?                               @map("past_medical_history")
   family_history               String?                               @map("family_history")
+  self_reported_symptoms       String?                               @map("self_reported_symptoms")
   height_cm                    Decimal?                              @map("height_cm") @db.Decimal(5, 1)
   weight_kg                    Decimal?                              @map("weight_kg") @db.Decimal(5, 1)
   booked_by                    String?                               @map("booked_by") @db.VarChar(255)

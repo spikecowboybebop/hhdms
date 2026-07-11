@@ -58,10 +58,13 @@ export interface PastPatient {
   sex: 'Male' | 'Female' | 'Child';
   blood_group: string;
   primary_phone: string;
+  alternative_phone: string;
   address_line1: string;
   address_line2: string;
   district: string;
   emergency_contact: string;
+  emergency_contact_name: string;
+  emergency_contact_relation: string;
 }
 
 export interface PatientProfile {
@@ -131,6 +134,12 @@ export const callCenterApi = {
   fetchPastPatients: (bookedBy: string) =>
     apiFetch<PastPatient[]>(`/patients?booked_by=${encodeURIComponent(bookedBy)}`),
 
+  findPatientByPhone: (phone: string) =>
+    apiFetch<PastPatient>(`/patients/by-phone/${encodeURIComponent(phone)}`),
+
+  findPatientByEmail: (email: string) =>
+    apiFetch<PastPatient>(`/patients/by-email/${encodeURIComponent(email)}`),
+
   getPatient: (id: string) =>
     apiFetch<PatientProfile>(`/patients/${id}`),
 
@@ -142,4 +151,10 @@ export const callCenterApi = {
 
   getAvailableProviders: (params: { service_type: string; date: string; district: string }) =>
     apiFetch<AvailableProvider[]>(`/providers/available?service_type=${encodeURIComponent(params.service_type)}&date=${encodeURIComponent(params.date)}&district=${encodeURIComponent(params.district)}`),
+
+  updatePatient: (id: string, data: Partial<RegisterPatientPayload>) =>
+    apiFetch<{ message: string }>(`/patients/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };

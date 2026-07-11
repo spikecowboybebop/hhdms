@@ -55,7 +55,26 @@ export class BookingsService {
       orderBy: { patient_assignments: { _count: 'asc' } },
     });
 
-    if (doctors.length === 0) return null;
+    if (doctors.length === 0) {
+      if (dayOfWeek === undefined) return null;
+      const fallback = await tx.mbbs_doctor_profiles.findMany({
+        where: { is_available: true },
+        include: {
+          _count: { select: { patient_assignments: true } },
+        },
+        orderBy: { patient_assignments: { _count: 'asc' } },
+      });
+      if (fallback.length === 0) return null;
+      const maxLoad = Math.max(...fallback.map((d: any) => d._count.patient_assignments), 0);
+      const weights = fallback.map((d: any) => maxLoad - d._count.patient_assignments + 1);
+      const totalWeight = weights.reduce((a: number, b: number) => a + b, 0);
+      let r = Math.random() * totalWeight;
+      for (let i = 0; i < fallback.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return fallback[i].user_id;
+      }
+      return fallback[0].user_id;
+    }
 
     // Filter by time-slot coverage (doctor's schedule must span the requested window)
     let qualified = doctors;

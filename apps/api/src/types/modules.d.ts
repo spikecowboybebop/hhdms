@@ -27,6 +27,11 @@ declare module 'mammoth' {
   }): Promise<MammothResult>;
 }
 
+declare module 'pdfkit' {
+  import PDFKit from 'pdfkit';
+  export default PDFKit;
+}
+
 declare module 'tesseract.js' {
   interface RecognizeResult {
     data: {

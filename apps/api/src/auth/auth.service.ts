@@ -155,6 +155,7 @@ export class AuthService {
           first_name_en,
           last_name_en,
           phone_number,
+          email,
           sex: 'U',
           user_id: newMobileUser.id,
           booked_by: null,
