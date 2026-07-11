@@ -11,9 +11,7 @@ export class PaymentsService {
   private stripe: Stripe;
 
   constructor(private readonly prisma: PrismaService) {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2026-06-24.dahlia',
-    });
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   }
 
   async createPaymentIntent(userId: string, bookingSessionId: string) {
