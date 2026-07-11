@@ -425,6 +425,12 @@ export const mbbsApi = {
       method: 'POST',
     }),
 
+  // End Visit
+  endVisit: (patientId: string) =>
+    apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/end-visit`, {
+      method: 'POST',
+    }),
+
   // Generate Clinical Report PDF
   generateReport: (patientId: string) =>
     apiFetch<DiagnosisReport>(`/mbbs/patients/${patientId}/generate-report`, {

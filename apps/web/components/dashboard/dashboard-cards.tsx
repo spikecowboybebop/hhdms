@@ -64,6 +64,7 @@ export interface SectionCardProps {
   title: string;
   description?: string;
   action?: ReactNode;
+  headerActions?: ReactNode;
   children: ReactNode;
   className?: string;
 }
@@ -72,6 +73,7 @@ export function SectionCard({
   title,
   description,
   action,
+  headerActions,
   children,
   className = "",
 }: SectionCardProps) {
@@ -79,16 +81,21 @@ export function SectionCard({
     <section
       className={`rounded-2xl border border-slate-200/60 bg-white shadow-sm ${className}`}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-slate-200/60 px-5 py-4">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-bold tracking-tight text-[#0A2540]">
-            {title}
-          </h3>
-          {description && (
-            <p className="text-xs text-[#2D3A4A]">{description}</p>
-          )}
+      <header className="border-b border-slate-200/60 px-5 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-bold tracking-tight text-[#0A2540]">
+              {title}
+            </h3>
+            {description && (
+              <p className="text-xs text-[#2D3A4A]">{description}</p>
+            )}
+          </div>
+          {action && <div className="flex items-center gap-2">{action}</div>}
         </div>
-        {action && <div className="flex items-center gap-2">{action}</div>}
+        {headerActions && (
+          <div className="mt-3 flex items-center gap-2">{headerActions}</div>
+        )}
       </header>
       <div className="px-5 py-5">{children}</div>
     </section>

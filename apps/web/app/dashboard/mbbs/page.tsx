@@ -351,9 +351,9 @@ export default function MbbsDashboardPage() {
             <SectionCard
               title={`Patient — ${selected.first_name_en} ${selected.last_name_en}`}
               description={`MRN: ${selected.mrn} • ${selected.sex === 'M' ? 'Male' : 'Female'} • ${selected.blood_group || 'N/A'} • ${selected.appointment_activity === 'arrived' ? 'Arrived' : selected.appointment_activity === 'arriving' ? 'Arriving' : 'Not Visited'}`}
-              action={
+              headerActions={
                 <div className="flex gap-2">
-                  {!selected.has_emergency_flag && (
+                  {selected.appointment_activity === 'pending' && !selected.has_emergency_flag && (
                     <button
                       onClick={async () => {
                         if (!selected) return;
@@ -387,7 +387,7 @@ export default function MbbsDashboardPage() {
                       Full Record
                     </Link>
                   ) : (
-                    <span className="inline-block cursor-not-allowed rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
+                    <span className="inline-block cursor-not-allowed rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity === 'done' ? 'Appointment ended' : selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
                       Full Record
                     </span>
                   )}
@@ -399,8 +399,8 @@ export default function MbbsDashboardPage() {
                       Start Consult
                     </Link>
                   ) : (
-                    <span className="inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
-                      {selected.appointment_activity === 'arrived' ? 'Awaiting Consent' : 'Waiting for Arrival'}
+                    <span className="inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity === 'done' ? 'Appointment ended' : selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
+                      {selected.appointment_activity === 'done' ? 'Appointment Ended' : selected.appointment_activity === 'arrived' ? 'Awaiting Consent' : 'Waiting for Arrival'}
                     </span>
                   )}
                 </div>
