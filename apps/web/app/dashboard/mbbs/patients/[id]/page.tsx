@@ -401,6 +401,7 @@ export default function MbbsPatientDetailPage() {
       {/* Patient Header */}
       <PatientHeader patient={profile.patient} />
 
+<<<<<<< Updated upstream
       {/* Start Visit Banner */}
       {!profile.patient.has_emergency_flag && profile.patient.appointment_activity !== 'arriving' && (
         <div className="mb-4">
@@ -457,6 +458,8 @@ export default function MbbsPatientDetailPage() {
         </div>
       )}
 
+=======
+>>>>>>> Stashed changes
       {/* Emergency Flag Button */}
       {!profile.patient.has_emergency_flag && (
         <div className="mt-4">
