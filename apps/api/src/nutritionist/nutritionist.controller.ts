@@ -55,8 +55,13 @@ export class NutritionistController {
 
   // POST /nutritionist/consultation/check-availability
   @Post('consultation/check-availability')
-  checkAvailability(@Body() body: { patient_id: string; consultation_type: string }) {
-    return this.nutritionistService.checkAvailability(body.patient_id, body.consultation_type as any);
+  checkAvailability(
+    @Body() body: { patient_id: string; consultation_type: string },
+  ) {
+    return this.nutritionistService.checkAvailability(
+      body.patient_id,
+      body.consultation_type as any,
+    );
   }
 
   // POST /nutritionist/consultation/book
@@ -124,10 +129,7 @@ export class NutritionistController {
   // GET /nutritionist/adherence?patientId=xxx
   @Get('adherence')
   getAdherenceLogs(@Req() req: any, @Query('patientId') patientId?: string) {
-    return this.nutritionistService.getAdherenceLogs(
-      req.user.sub,
-      patientId,
-    );
+    return this.nutritionistService.getAdherenceLogs(req.user.sub, patientId);
   }
 
   // ─── Nutrient Calculator ───────────────────────────────────────────────
@@ -142,7 +144,10 @@ export class NutritionistController {
 
   // POST /nutritionist/education-materials
   @Post('education-materials')
-  createEducationMaterial(@Req() req: any, @Body() dto: CreateEducationMaterialDto) {
+  createEducationMaterial(
+    @Req() req: any,
+    @Body() dto: CreateEducationMaterialDto,
+  ) {
     return this.nutritionistService.createEducationMaterial(req.user.sub, dto);
   }
 

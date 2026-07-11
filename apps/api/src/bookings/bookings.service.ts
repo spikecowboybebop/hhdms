@@ -65,8 +65,13 @@ export class BookingsService {
         orderBy: { patient_assignments: { _count: 'asc' } },
       });
       if (fallback.length === 0) return null;
-      const maxLoad = Math.max(...fallback.map((d: any) => d._count.patient_assignments), 0);
-      const weights = fallback.map((d: any) => maxLoad - d._count.patient_assignments + 1);
+      const maxLoad = Math.max(
+        ...fallback.map((d: any) => d._count.patient_assignments),
+        0,
+      );
+      const weights = fallback.map(
+        (d: any) => maxLoad - d._count.patient_assignments + 1,
+      );
       const totalWeight = weights.reduce((a: number, b: number) => a + b, 0);
       let r = Math.random() * totalWeight;
       for (let i = 0; i < fallback.length; i++) {

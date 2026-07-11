@@ -1,5 +1,9 @@
 // apps/api/src/nutritionist/nutritionist.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAdherenceLogDto } from './dto/create-adherence-log.dto';
 import { CreateAnthropometricRecordDto } from './dto/create-anthropometric-record.dto';
@@ -9,7 +13,10 @@ import {
   FollowUpInterval,
 } from './dto/create-follow-up.dto';
 import { CalculateNutrientsDto } from './dto/calculate-nutrients.dto';
-import { BookConsultationDto, ConsultationType } from './dto/book-consultation.dto';
+import {
+  BookConsultationDto,
+  ConsultationType,
+} from './dto/book-consultation.dto';
 import { CreateEducationMaterialDto } from './dto/create-education-material.dto';
 
 type NutrientBreakdownItem = {
@@ -133,14 +140,28 @@ export class NutritionistService {
     const [diagnoses, testOrders, referrals] = await Promise.all([
       this.prisma.patient_diagnoses.findMany({
         where: { patient_id: patient.id },
-        include: { icd10: true, doctor: { include: { user: { select: { firstNameEn: true, lastNameEn: true } } } } },
+        include: {
+          icd10: true,
+          doctor: {
+            include: {
+              user: { select: { firstNameEn: true, lastNameEn: true } },
+            },
+          },
+        },
         orderBy: { diagnosed_at: 'desc' },
         take: 10,
       }),
       this.prisma.diagnostic_test_orders.findMany({
         where: { patient_id: patient.id },
         include: {
-          test: { select: { test_name: true, test_code: true, normal_range: true, unit: true } },
+          test: {
+            select: {
+              test_name: true,
+              test_code: true,
+              normal_range: true,
+              unit: true,
+            },
+          },
           results: { orderBy: { resulted_at: 'desc' }, take: 1 },
         },
         orderBy: { ordered_at: 'desc' },
@@ -149,8 +170,16 @@ export class NutritionistService {
       this.prisma.specialist_referrals.findMany({
         where: { patient_id: patient.id },
         include: {
-          referring_doctor: { include: { user: { select: { firstNameEn: true, lastNameEn: true } } } },
-          specialist: { include: { user: { select: { firstNameEn: true, lastNameEn: true } } } },
+          referring_doctor: {
+            include: {
+              user: { select: { firstNameEn: true, lastNameEn: true } },
+            },
+          },
+          specialist: {
+            include: {
+              user: { select: { firstNameEn: true, lastNameEn: true } },
+            },
+          },
         },
         orderBy: { created_at: 'desc' },
         take: 10,
@@ -159,19 +188,26 @@ export class NutritionistService {
 
     return {
       patient,
-      diagnoses: diagnoses.map(d => ({
+      diagnoses: diagnoses.map((d) => ({
         id: d.id,
         icd10_code: d.icd10_code,
         description: d.icd10.description,
         preliminary_diagnosis: d.preliminary_diagnosis,
         is_primary: d.is_primary,
         diagnosed_at: d.diagnosed_at,
-        doctor: d.doctor ? `${d.doctor.user.firstNameEn} ${d.doctor.user.lastNameEn}` : null,
+        doctor: d.doctor
+          ? `${d.doctor.user.firstNameEn} ${d.doctor.user.lastNameEn}`
+          : null,
       })),
       lab_results: {
         kidney_function: testOrders
-          .filter(t => ['KIDNEY', 'RFT', 'SERUM_CREATININE', 'BLOOD_UREA'].some(k => t.test.test_code.includes(k) || t.test.test_name.includes(k)))
-          .map(t => ({
+          .filter((t) =>
+            ['KIDNEY', 'RFT', 'SERUM_CREATININE', 'BLOOD_UREA'].some(
+              (k) =>
+                t.test.test_code.includes(k) || t.test.test_name.includes(k),
+            ),
+          )
+          .map((t) => ({
             test_name: t.test.test_name,
             test_code: t.test.test_code,
             result: t.results[0]?.result_value ?? null,
@@ -180,8 +216,13 @@ export class NutritionistService {
             resulted_at: t.results[0]?.resulted_at ?? null,
           })),
         glucose: testOrders
-          .filter(t => ['GLUCOSE', 'DIABETES', 'HbA1c', 'BM'].some(k => t.test.test_code.includes(k) || t.test.test_name.includes(k)))
-          .map(t => ({
+          .filter((t) =>
+            ['GLUCOSE', 'DIABETES', 'HbA1c', 'BM'].some(
+              (k) =>
+                t.test.test_code.includes(k) || t.test.test_name.includes(k),
+            ),
+          )
+          .map((t) => ({
             test_name: t.test.test_name,
             test_code: t.test.test_code,
             result: t.results[0]?.result_value ?? null,
@@ -190,8 +231,13 @@ export class NutritionistService {
             resulted_at: t.results[0]?.resulted_at ?? null,
           })),
         lipids: testOrders
-          .filter(t => ['LIPID', 'CHOLESTEROL', 'HDL', 'LDL', 'TRIGLYCERIDE'].some(k => t.test.test_code.includes(k) || t.test.test_name.includes(k)))
-          .map(t => ({
+          .filter((t) =>
+            ['LIPID', 'CHOLESTEROL', 'HDL', 'LDL', 'TRIGLYCERIDE'].some(
+              (k) =>
+                t.test.test_code.includes(k) || t.test.test_name.includes(k),
+            ),
+          )
+          .map((t) => ({
             test_name: t.test.test_name,
             test_code: t.test.test_code,
             result: t.results[0]?.result_value ?? null,
@@ -200,15 +246,19 @@ export class NutritionistService {
             resulted_at: t.results[0]?.resulted_at ?? null,
           })),
       },
-      specialist_notes: referrals.map(r => ({
+      specialist_notes: referrals.map((r) => ({
         id: r.id,
         specialty_code: r.specialty_code,
         referral_reason: r.referral_reason,
         clinical_summary: r.clinical_summary,
         response_notes: r.response_notes,
         status: r.status,
-        referring_doctor: r.referring_doctor ? `${r.referring_doctor.user.firstNameEn} ${r.referring_doctor.user.lastNameEn}` : null,
-        specialist: r.specialist ? `${r.specialist.user.firstNameEn} ${r.specialist.user.lastNameEn}` : null,
+        referring_doctor: r.referring_doctor
+          ? `${r.referring_doctor.user.firstNameEn} ${r.referring_doctor.user.lastNameEn}`
+          : null,
+        specialist: r.specialist
+          ? `${r.specialist.user.firstNameEn} ${r.specialist.user.lastNameEn}`
+          : null,
         created_at: r.created_at,
       })),
     };
@@ -216,12 +266,16 @@ export class NutritionistService {
 
   // ─── Consultation Booking (NU-001) ────────────────────────────────────────
 
-  async checkAvailability(patientId: string, consultationType: ConsultationType) {
+  async checkAvailability(
+    patientId: string,
+    consultationType: ConsultationType,
+  ) {
     const patient = await this.prisma.patients.findFirst({
       where: { OR: [{ id: patientId }, { mrn: patientId }] },
       select: { id: true, district: true },
     });
-    if (!patient) throw new NotFoundException(`Patient "${patientId}" not found.`);
+    if (!patient)
+      throw new NotFoundException(`Patient "${patientId}" not found.`);
 
     const nutritionists = await this.prisma.nutritionist_profiles.findMany({
       include: {
@@ -235,7 +289,9 @@ export class NutritionistService {
       patient_area: patient.district ?? 'N/A',
       available_nutritionists: nutritionists.length,
       consultation_type: consultationType,
-      next_available_slot: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      next_available_slot: new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      ).toISOString(),
     };
   }
 
@@ -243,14 +299,18 @@ export class NutritionistService {
     const nutritionist = await this.prisma.nutritionist_profiles.findUnique({
       where: { user_id: nutritionistId },
     });
-    if (!nutritionist) throw new NotFoundException('Nutritionist profile not found.');
+    if (!nutritionist)
+      throw new NotFoundException('Nutritionist profile not found.');
 
     const patient = await this.prisma.patients.findFirst({
       where: { OR: [{ id: dto.patient_id }, { mrn: dto.patient_id }] },
     });
-    if (!patient) throw new NotFoundException(`Patient "${dto.patient_id}" not found.`);
+    if (!patient)
+      throw new NotFoundException(`Patient "${dto.patient_id}" not found.`);
 
-    const bookedAt = dto.preferred_at ? new Date(dto.preferred_at) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const bookedAt = dto.preferred_at
+      ? new Date(dto.preferred_at)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const session = await this.prisma.booking_sessions.create({
       data: {
@@ -267,7 +327,10 @@ export class NutritionistService {
         ticket_no: `NUT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
         service_type: 'NUTRITIONIST',
         scheduled_date: bookedAt,
-        scheduled_time_slot: dto.consultation_type === ConsultationType.TELECONSULTATION ? 'VIRTUAL' : 'HOME_VISIT',
+        scheduled_time_slot:
+          dto.consultation_type === ConsultationType.TELECONSULTATION
+            ? 'VIRTUAL'
+            : 'HOME_VISIT',
         assigned_provider_id: nutritionistId,
         price: 0,
         status: 'ASSIGNED',
@@ -323,15 +386,21 @@ export class NutritionistService {
 
       // Ideal Body Weight (Devine formula)
       if (patient.sex === 'M') {
-        ideal_body_weight = Math.round(50 + 2.3 * ((dto.height_cm - 152.4) / 2.54));
+        ideal_body_weight = Math.round(
+          50 + 2.3 * ((dto.height_cm - 152.4) / 2.54),
+        );
       } else if (patient.sex === 'F') {
-        ideal_body_weight = Math.round(45.5 + 2.3 * ((dto.height_cm - 152.4) / 2.54));
+        ideal_body_weight = Math.round(
+          45.5 + 2.3 * ((dto.height_cm - 152.4) / 2.54),
+        );
       }
-      if (ideal_body_weight !== null && ideal_body_weight < 0) ideal_body_weight = null;
+      if (ideal_body_weight !== null && ideal_body_weight < 0)
+        ideal_body_weight = null;
 
       // Caloric needs: Miffling-St Jeor equation
       if (dto.weight_kg && dto.height_cm && patient.date_of_birth) {
-        const age = new Date().getFullYear() - patient.date_of_birth.getFullYear();
+        const age =
+          new Date().getFullYear() - patient.date_of_birth.getFullYear();
         let bmr = 0;
         if (patient.sex === 'M') {
           bmr = 10 * dto.weight_kg + 6.25 * dto.height_cm - 5 * age + 5;
@@ -660,11 +729,15 @@ export class NutritionistService {
 
   // ─── Patient Education Materials (NU-010) ─────────────────────────────────
 
-  async createEducationMaterial(nutritionistId: string, dto: CreateEducationMaterialDto) {
+  async createEducationMaterial(
+    nutritionistId: string,
+    dto: CreateEducationMaterialDto,
+  ) {
     const nutritionist = await this.prisma.nutritionist_profiles.findUnique({
       where: { user_id: nutritionistId },
     });
-    if (!nutritionist) throw new NotFoundException('Nutritionist profile not found.');
+    if (!nutritionist)
+      throw new NotFoundException('Nutritionist profile not found.');
 
     return this.prisma.patient_documents.create({
       data: {
@@ -748,9 +821,17 @@ export class NutritionistService {
     doc
       .fillColor('#1e293b')
       .fontSize(22)
-      .text(isBilingual ? 'HHDMS - ডায়েট ও পুষ্টি চার্ট' : 'HHDMS - DIET & NUTRITION CHART', { align: 'center' });
+      .text(
+        isBilingual
+          ? 'HHDMS - ডায়েট ও পুষ্টি চার্ট'
+          : 'HHDMS - DIET & NUTRITION CHART',
+        { align: 'center' },
+      );
     if (isBilingual) {
-      doc.fontSize(14).fillColor('#475569').text('HHDMS - Diet & Nutrition Chart', { align: 'center' });
+      doc
+        .fontSize(14)
+        .fillColor('#475569')
+        .text('HHDMS - Diet & Nutrition Chart', { align: 'center' });
       doc.fillColor('#1e293b').fontSize(22);
     }
     doc.moveDown(0.5);
@@ -765,29 +846,52 @@ export class NutritionistService {
     // Patient Context Metadata Grid – bilingual
     doc.fillColor('#0f172a').fontSize(11);
     const patientNameEn = `${plan.patient.first_name_en} ${plan.patient.last_name_en}`;
-    const patientNameBn = plan.patient.first_name_bn || plan.patient.last_name_bn
-      ? `${plan.patient.first_name_bn ?? ''} ${plan.patient.last_name_bn ?? ''}`.trim()
-      : null;
+    const patientNameBn =
+      plan.patient.first_name_bn || plan.patient.last_name_bn
+        ? `${plan.patient.first_name_bn ?? ''} ${plan.patient.last_name_bn ?? ''}`.trim()
+        : null;
 
     if (isBilingual && patientNameBn) {
-      doc.text(`রোগীর নাম: ${patientNameBn} (${patientNameEn})`, 40, doc.y, { continued: true });
+      doc.text(`রোগীর নাম: ${patientNameBn} (${patientNameEn})`, 40, doc.y, {
+        continued: true,
+      });
     } else {
-      doc.text(isBilingual ? `রোগীর নাম: ${patientNameEn}` : `Patient Name: ${patientNameEn}`, 40, doc.y, { continued: true });
+      doc.text(
+        isBilingual
+          ? `রোগীর নাম: ${patientNameEn}`
+          : `Patient Name: ${patientNameEn}`,
+        40,
+        doc.y,
+        { continued: true },
+      );
     }
     doc.text(` | MRN: ${plan.patient.mrn}`, { align: 'right' });
     doc.text(`Plan Title: ${plan.title}`, 40, doc.y + 16, { continued: true });
-    doc.text(` | Target Calories: ${plan.total_calories || 'N/A'} kcal`, { align: 'right' });
-    doc.text(`Condition: ${plan.condition_name || 'General Health'}`, 40, doc.y + 32);
-    
+    doc.text(` | Target Calories: ${plan.total_calories || 'N/A'} kcal`, {
+      align: 'right',
+    });
+    doc.text(
+      `Condition: ${plan.condition_name || 'General Health'}`,
+      40,
+      doc.y + 32,
+    );
+
     doc.moveDown(2);
 
     // Render Meals sequentially – bilingual
     doc
       .fontSize(14)
       .fillColor('#0284c7')
-      .text(isBilingual ? 'দৈনিক খাবার তালিকা' : 'DAILY MEAL SCHEDULE', 40, doc.y);
+      .text(
+        isBilingual ? 'দৈনিক খাবার তালিকা' : 'DAILY MEAL SCHEDULE',
+        40,
+        doc.y,
+      );
     if (isBilingual) {
-      doc.fontSize(10).fillColor('#64748b').text('Daily Meal Schedule', 40, doc.y);
+      doc
+        .fontSize(10)
+        .fillColor('#64748b')
+        .text('Daily Meal Schedule', 40, doc.y);
       doc.fillColor('#0284c7').fontSize(14);
     }
     doc.moveDown(0.5);
@@ -818,7 +922,12 @@ export class NutritionistService {
       if (meal.calories) {
         doc
           .fillColor('#64748b')
-          .text(isBilingual ? ` (${meal.calories} kcal লক্ষ্য)` : ` (${meal.calories} kcal Target)`, { align: 'right' });
+          .text(
+            isBilingual
+              ? ` (${meal.calories} kcal লক্ষ্য)`
+              : ` (${meal.calories} kcal Target)`,
+            { align: 'right' },
+          );
       } else {
         doc.text('', { align: 'right' });
       }
@@ -831,9 +940,10 @@ export class NutritionistService {
         if (Array.isArray(foods) && foods.length > 0) {
           doc.fillColor('#334155').fontSize(10);
           foods.forEach((f: any) => {
-            const foodName = isBilingual && f.name_bn
-              ? `${f.name_bn} (${f.name_en || 'Food Item'})`
-              : (f.name_en || 'Food Item');
+            const foodName =
+              isBilingual && f.name_bn
+                ? `${f.name_bn} (${f.name_en || 'Food Item'})`
+                : f.name_en || 'Food Item';
             doc.text(`• ${foodName} — ${f.grams}g`, 60, doc.y);
           });
         }
@@ -841,16 +951,21 @@ export class NutritionistService {
         doc
           .fillColor('#ef4444')
           .fontSize(10)
-          .text(isBilingual ? '• কাস্টম ডায়েটারি প্ল্যান কনফিগারেশন।' : '• Custom dietary plan configuration entries.', 60, doc.y);
+          .text(
+            isBilingual
+              ? '• কাস্টম ডায়েটারি প্ল্যান কনফিগারেশন।'
+              : '• Custom dietary plan configuration entries.',
+            60,
+            doc.y,
+          );
       }
 
       if (meal.preparation_guidance) {
         doc.moveDown(0.2);
-        const guidLabel = isBilingual ? `নির্দেশনা: ${meal.preparation_guidance}` : `Guidance: ${meal.preparation_guidance}`;
-        doc
-          .fillColor('#475569')
-          .fontSize(9)
-          .text(guidLabel, 60, doc.y);
+        const guidLabel = isBilingual
+          ? `নির্দেশনা: ${meal.preparation_guidance}`
+          : `Guidance: ${meal.preparation_guidance}`;
+        doc.fillColor('#475569').fontSize(9).text(guidLabel, 60, doc.y);
       }
 
       doc.moveDown(1.5);
@@ -868,7 +983,13 @@ export class NutritionistService {
       doc
         .fillColor('#0f172a')
         .fontSize(11)
-        .text(isBilingual ? 'বিশেষ নির্দেশনা / মন্তব্য:' : 'Special Notes / Instructions:', 40, doc.y);
+        .text(
+          isBilingual
+            ? 'বিশেষ নির্দেশনা / মন্তব্য:'
+            : 'Special Notes / Instructions:',
+          40,
+          doc.y,
+        );
       doc
         .fillColor('#475569')
         .fontSize(10)
@@ -887,7 +1008,11 @@ export class NutritionistService {
     doc
       .fillColor('#475569')
       .fontSize(9)
-      .text(isBilingual ? 'পুষ্টিবিদের স্বাক্ষর' : "Nutritionist's Signature", 400, doc.y);
+      .text(
+        isBilingual ? 'পুষ্টিবিদের স্বাক্ষর' : "Nutritionist's Signature",
+        400,
+        doc.y,
+      );
 
     // Footer with date and page number
     doc.moveDown(1);
@@ -915,7 +1040,11 @@ export class NutritionistService {
     doc
       .fillColor('#475569')
       .fontSize(9)
-      .text(isBilingual ? 'পুষ্টিবিদের স্বাক্ষর' : "Nutritionist's Signature", 400, doc.y);
+      .text(
+        isBilingual ? 'পুষ্টিবিদের স্বাক্ষর' : "Nutritionist's Signature",
+        400,
+        doc.y,
+      );
 
     // Footer with date and page number
     doc.moveDown(1);

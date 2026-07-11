@@ -1,9 +1,8 @@
 import {
-  IsNotEmpty,
   IsString,
   IsInt,
   IsOptional,
-  IsDecimal,
+  IsNumber,
   Min,
   Max,
   IsUUID,
@@ -29,7 +28,7 @@ export class CreateVitalsDto {
   pulse_bpm?: number;
 
   @IsOptional()
-  @IsDecimal({ decimal_digits: '1' })
+  @IsNumber()
   temperature_c?: number;
 
   @IsOptional()
@@ -45,18 +44,18 @@ export class CreateVitalsDto {
   respiratory_rate?: number;
 
   @IsOptional()
-  @IsDecimal({ decimal_digits: '1' })
+  @IsNumber()
   weight_kg?: number;
 
   @IsOptional()
-  @IsDecimal({ decimal_digits: '1' })
+  @IsNumber()
   height_cm?: number;
 
   @IsOptional()
   @IsString()
   notes?: string;
 
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
   appointment_id?: string;
 }

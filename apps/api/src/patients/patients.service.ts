@@ -74,18 +74,28 @@ export class PatientsService {
         : null;
       const existingByEmail = userByEmail
         ? await this.prisma.patients.findFirst({
-            where: { OR: [{ user_id: userByEmail.id }, { phone_number: userByEmail.phoneNumber }] },
+            where: {
+              OR: [
+                { user_id: userByEmail.id },
+                { phone_number: userByEmail.phoneNumber },
+              ],
+            },
           })
         : null;
 
       if (existingByEmail) {
         const phoneTakenByOther = dto.primary_phone
           ? await this.prisma.patients.findFirst({
-              where: { phone_number: dto.primary_phone, id: { not: existingByEmail.id } },
+              where: {
+                phone_number: dto.primary_phone,
+                id: { not: existingByEmail.id },
+              },
             })
           : null;
         if (phoneTakenByOther) {
-          throw new ConflictException('This phone number is already in use by another patient.');
+          throw new ConflictException(
+            'This phone number is already in use by another patient.',
+          );
         }
 
         patient = await this.prisma.patients.update({
@@ -95,10 +105,14 @@ export class PatientsService {
         });
       } else {
         const phoneTaken = dto.primary_phone
-          ? await this.prisma.patients.findFirst({ where: { phone_number: dto.primary_phone } })
+          ? await this.prisma.patients.findFirst({
+              where: { phone_number: dto.primary_phone },
+            })
           : null;
         if (phoneTaken) {
-          throw new ConflictException('This phone number is already in use by another patient.');
+          throw new ConflictException(
+            'This phone number is already in use by another patient.',
+          );
         }
 
         patient = await this.prisma.patients.create({
@@ -301,13 +315,19 @@ export class PatientsService {
       where: { OR: [{ user_id: user.id }, { phone_number: user.phoneNumber }] },
       orderBy: { created_at: 'desc' },
       select: {
-        id: true, mrn: true,
-        first_name_en: true, last_name_en: true,
-        first_name_bn: true, last_name_bn: true,
+        id: true,
+        mrn: true,
+        first_name_en: true,
+        last_name_en: true,
+        first_name_bn: true,
+        last_name_bn: true,
         date_of_birth: true,
-        sex: true, blood_group: true,
-        phone_number: true, alternative_phone: true,
-        address_line1: true, address_line2: true,
+        sex: true,
+        blood_group: true,
+        phone_number: true,
+        alternative_phone: true,
+        address_line1: true,
+        address_line2: true,
         district: true,
         emergency_contact: true,
         emergency_contact_name: true,
@@ -324,7 +344,12 @@ export class PatientsService {
       full_name_en: `${p.first_name_en} ${p.last_name_en}`.trim(),
       full_name_bn: `${p.first_name_bn || ''} ${p.last_name_bn || ''}`.trim(),
       date_of_birth: p.date_of_birth?.toISOString().split('T')[0] || '',
-      sex: p.sex === 'M' ? ('Male' as const) : p.sex === 'F' ? ('Female' as const) : ('Child' as const),
+      sex:
+        p.sex === 'M'
+          ? ('Male' as const)
+          : p.sex === 'F'
+            ? ('Female' as const)
+            : ('Child' as const),
       blood_group: p.blood_group || '',
       primary_phone: p.phone_number || '',
       alternative_phone: p.alternative_phone || '',
@@ -362,14 +387,20 @@ export class PatientsService {
     }
     if (dto.date_of_birth) data.date_of_birth = new Date(dto.date_of_birth);
     if (dto.sex) data.sex = SEX_MAP[dto.sex] ?? existing.sex;
-    if (dto.blood_group !== undefined) data.blood_group = dto.blood_group || null;
+    if (dto.blood_group !== undefined)
+      data.blood_group = dto.blood_group || null;
     if (dto.primary_phone) data.phone_number = dto.primary_phone;
     if (dto.alternative_phone !== undefined)
       data.alternative_phone = dto.alternative_phone || null;
     if (dto.division || dto.district || dto.thana) {
-      const division = dto.division ?? this.extractAddressPart(existing.address_line1, 'Division');
-      const district = dto.district ?? this.extractAddressPart(existing.address_line1, 'District');
-      const thana = dto.thana ?? this.extractAddressPart(existing.address_line1, 'Thana');
+      const division =
+        dto.division ??
+        this.extractAddressPart(existing.address_line1, 'Division');
+      const district =
+        dto.district ??
+        this.extractAddressPart(existing.address_line1, 'District');
+      const thana =
+        dto.thana ?? this.extractAddressPart(existing.address_line1, 'Thana');
       data.address_line1 = `Division: ${division}, District: ${district}, Thana: ${thana}`;
     }
     if (dto.district) data.district = dto.district;
@@ -390,7 +421,9 @@ export class PatientsService {
         where: { phone_number: dto.primary_phone, id: { not: id } },
       });
       if (phoneTaken) {
-        throw new ConflictException('This phone number is already in use by another patient.');
+        throw new ConflictException(
+          'This phone number is already in use by another patient.',
+        );
       }
     }
 

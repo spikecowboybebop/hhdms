@@ -45,11 +45,20 @@ export class MbbsService implements OnModuleInit {
       try {
         const raw = fs.readFileSync(jsonPath, 'utf-8');
         this.icd10Codes = JSON.parse(raw);
-        console.log(`Loaded ${this.icd10Codes.length} ICD-10 codes from ${jsonPath}`);
+        console.log(
+          `Loaded ${this.icd10Codes.length} ICD-10 codes from ${jsonPath}`,
+        );
         return;
-      } catch { /* try next */ }
+      } catch {
+        /* try next */
+      }
     }
-    console.warn('Could not load icd10_codes.json. cwd=' + process.cwd() + ' dirname=' + __dirname);
+    console.warn(
+      'Could not load icd10_codes.json. cwd=' +
+        process.cwd() +
+        ' dirname=' +
+        __dirname,
+    );
   }
 
   // ============================================================
