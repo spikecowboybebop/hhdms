@@ -408,6 +408,12 @@ export const mbbsApi = {
       method: 'POST',
     }),
 
+  // Mark Arrived
+  markArrived: (patientId: string) =>
+    apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/mark-arrived`, {
+      method: 'POST',
+    }),
+
   // Consent
   requestConsent: (patientId: string) =>
     apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/request-consent`, {
