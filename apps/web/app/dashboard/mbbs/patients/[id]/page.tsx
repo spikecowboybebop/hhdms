@@ -423,61 +423,6 @@ export default function MbbsPatientDetailPage() {
       {/* Patient Header */}
       <PatientHeader patient={profile.patient} />
 
-      {/* Start Visit Banner */}
-      {!profile.patient.has_emergency_flag && profile.patient.appointment_activity !== 'arriving' && (
-        <div className="mb-4">
-          <button
-            onClick={async () => {
-              setActionLoading(true);
-              try {
-                const res = await mbbsApi.startVisit(patientId);
-                setProfile((prev) => prev ? { ...prev, patient: { ...prev.patient, appointment_activity: 'arriving' } } : prev);
-                showSuccess(`Visit started — ${res.doctor_name} is on the way.`);
-              } catch (err: any) {
-                setError(err.message || 'Failed to start visit.');
-              } finally {
-                setActionLoading(false);
-              }
-            }}
-            disabled={actionLoading}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#00D4B2] px-5 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md disabled:opacity-60"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-            {actionLoading ? 'Starting Visit...' : 'Start Visit — Notify Patient'}
-          </button>
-        </div>
-      )}
-
-      {/* Mark as Arrived Banner */}
-      {profile.patient.appointment_activity === 'arriving' && (
-        <div className="mb-4">
-          <button
-            onClick={async () => {
-              setActionLoading(true);
-              try {
-                await mbbsApi.markArrived(patientId);
-                setProfile((prev) => prev ? { ...prev, patient: { ...prev.patient, appointment_activity: 'arrived' } } : prev);
-                showSuccess('Patient marked as arrived. You can now request consent.');
-              } catch (err: any) {
-                setError(err.message || 'Failed to mark arrival.');
-              } finally {
-                setActionLoading(false);
-              }
-            }}
-            disabled={actionLoading}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#0A2540] px-5 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md disabled:opacity-60"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            {actionLoading ? 'Marking Arrival...' : 'Mark as Arrived'}
-          </button>
-        </div>
-      )}
 
       {/* Emergency Flag Button */}
       {!profile.patient.has_emergency_flag && (
@@ -493,8 +438,8 @@ export default function MbbsPatientDetailPage() {
         </div>
       )}
 
-      {/* Generate Clinical Report */}
-      <div className="mt-4">
+      {/* Generate Clinical Report + End Appointment */}
+      <div className="mt-4 flex items-center justify-between">
         <button
           onClick={async () => {
             setGeneratingReport(true);
@@ -519,6 +464,29 @@ export default function MbbsPatientDetailPage() {
             <polyline points="10 9 9 9 8 9" />
           </svg>
           {generatingReport ? 'Generating Report...' : 'Generate Clinical Report'}
+        </button>
+        <button
+          onClick={async () => {
+            setActionLoading(true);
+            try {
+              await mbbsApi.endVisit(patientId);
+              showSuccess('Appointment ended.');
+              router.push('/dashboard/mbbs');
+            } catch (err: any) {
+              setError(err.message || 'Failed to end appointment.');
+            } finally {
+              setActionLoading(false);
+            }
+          }}
+          disabled={actionLoading}
+          className="inline-flex items-center gap-2 rounded-xl border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-600 transition-all hover:bg-red-100 hover:border-red-400 disabled:opacity-60"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+          </svg>
+          End Appointment
         </button>
       </div>
 

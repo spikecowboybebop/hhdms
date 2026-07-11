@@ -63,6 +63,12 @@ export class MbbsController {
     return this.mbbsService.markArrived(id);
   }
 
+  @Post('patients/:id/end-visit')
+  @HttpCode(HttpStatus.OK)
+  async endVisit(@Param('id') id: string) {
+    return this.mbbsService.endVisit(id);
+  }
+
   @Post('patients/:id/request-consent')
   @HttpCode(HttpStatus.OK)
   async requestConsent(@Param('id') id: string, @Req() req: any) {

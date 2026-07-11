@@ -275,6 +275,51 @@ export class MbbsService implements OnModuleInit {
   }
 
   /**
+   * End a patient visit — sets appointment_activity to 'done'.
+   */
+  async endVisit(patientId: string) {
+    const assignment = await this.prisma.doctor_patient_assignments.findFirst({
+      where: { patient_id: patientId },
+      orderBy: { assigned_at: 'desc' },
+    });
+    if (!assignment) throw new NotFoundException('No assignment found.');
+
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+      select: { user_id: true },
+    });
+
+    await this.prisma.doctor_patient_assignments.update({
+      where: { id: assignment.id },
+      data: { appointment_activity: 'done' },
+    });
+
+    await this.prisma.booking_sessions.updateMany({
+      where: { patient_id: patientId, status: 'ACTIVE' },
+      data: { status: 'COMPLETED' },
+    });
+
+    if (patient?.user_id) {
+      await this.notificationsService.sendToUser(
+        patient.user_id,
+        {
+          title: 'Appointment Completed',
+          body: 'Your appointment is completed. Please complete your payment.',
+        },
+        { type: 'appointment_done', patient_id: patientId },
+      );
+    }
+
+    this.visitGateway.emitVisitStateChanged(
+      assignment.doctor_id,
+      patientId,
+      'done',
+    );
+
+    return { message: 'Visit ended' };
+  }
+
+  /**
    * Request patient consent — sets patient_consent to 'pending' and
    * sends a push notification to the patient's device asking for consent.
    */

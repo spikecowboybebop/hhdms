@@ -65,6 +65,7 @@ export default function MbbsDashboardPage() {
   const [signatureUrl, setSignatureUrl] = useState<string | null | undefined>(undefined);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [startVisitLoading, setStartVisitLoading] = useState(false);
   const userMenuItems: DashboardUserMenuItem[] = useMemo(() => [
     {
       label: "Add Digital Signature",
@@ -350,8 +351,34 @@ export default function MbbsDashboardPage() {
             <SectionCard
               title={`Patient — ${selected.first_name_en} ${selected.last_name_en}`}
               description={`MRN: ${selected.mrn} • ${selected.sex === 'M' ? 'Male' : 'Female'} • ${selected.blood_group || 'N/A'} • ${selected.appointment_activity === 'arrived' ? 'Arrived' : selected.appointment_activity === 'arriving' ? 'Arriving' : 'Not Visited'}`}
-              action={
+              headerActions={
                 <div className="flex gap-2">
+                  {selected.appointment_activity === 'pending' && !selected.has_emergency_flag && (
+                    <button
+                      onClick={async () => {
+                        if (!selected) return;
+                        setStartVisitLoading(true);
+                        try {
+                          const res = await mbbsApi.startVisit(selected.id);
+                          setPatients((prev) => prev.map((p) => p.id === selected.id ? { ...p, appointment_activity: 'arriving' } : p));
+                          setSelected((prev) => prev ? { ...prev, appointment_activity: 'arriving' } : prev);
+                          alert(`Visit started — ${res.doctor_name} is on the way.`);
+                        } catch (err: any) {
+                          alert(err.message || 'Failed to start visit.');
+                        } finally {
+                          setStartVisitLoading(false);
+                        }
+                      }}
+                      disabled={startVisitLoading}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#00D4B2] px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:shadow-md disabled:opacity-60"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                      </svg>
+                      {startVisitLoading ? 'Starting...' : 'Start Visit'}
+                    </button>
+                  )}
                   {selected.appointment_activity === 'arrived' && selected.patient_consent === 'granted' ? (
                     <Link
                       href={`/dashboard/mbbs/patients/${selected.id}`}
@@ -360,7 +387,7 @@ export default function MbbsDashboardPage() {
                       Full Record
                     </Link>
                   ) : (
-                    <span className="inline-block cursor-not-allowed rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
+                    <span className="inline-block cursor-not-allowed rounded-lg border border-slate-200/60 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity === 'done' ? 'Appointment ended' : selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
                       Full Record
                     </span>
                   )}
@@ -372,8 +399,8 @@ export default function MbbsDashboardPage() {
                       Start Consult
                     </Link>
                   ) : (
-                    <span className="inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
-                      {selected.appointment_activity === 'arrived' ? 'Awaiting Consent' : 'Waiting for Arrival'}
+                    <span className="inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400" title={selected.appointment_activity === 'done' ? 'Appointment ended' : selected.appointment_activity !== 'arrived' ? 'Patient has not arrived yet' : 'Awaiting patient consent'}>
+                      {selected.appointment_activity === 'done' ? 'Appointment Ended' : selected.appointment_activity === 'arrived' ? 'Awaiting Consent' : 'Waiting for Arrival'}
                     </span>
                   )}
                 </div>
