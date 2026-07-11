@@ -262,6 +262,7 @@ export interface CreateReferralPayload {
   referral_reason: string;
   clinical_summary?: string;
   is_emergency?: boolean;
+  specialist_id?: string;
 }
 
 export interface EmergencyFlag {

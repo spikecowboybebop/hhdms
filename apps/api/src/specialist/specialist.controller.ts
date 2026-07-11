@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Logger,
   Query,
+  Param,
   BadRequestException,
 } from '@nestjs/common';
 import { SpecialistService } from './specialist.service';
@@ -25,6 +26,24 @@ export class SpecialistController {
     }
 
     return this.specialistService.getMyIncomingReferrals(specialistId);
+  }
+
+  @Get('by-specialty')
+  async getSpecialistsBySpecialty(@Query('specialtyCode') specialtyCode?: string) {
+    if (!specialtyCode) {
+      throw new BadRequestException('specialtyCode is required');
+    }
+
+    return this.specialistService.getSpecialistsBySpecialty(specialtyCode);
+  }
+
+  @Get('referral/:referralId/patient-history')
+  async getReferralPatientHistory(@Param('referralId') referralId?: string) {
+    if (!referralId) {
+      throw new BadRequestException('referralId is required');
+    }
+
+    return this.specialistService.getReferralPatientHistory(referralId);
   }
 
   @Get('dicom-studies')

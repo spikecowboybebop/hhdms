@@ -768,17 +768,17 @@ export class MbbsService implements OnModuleInit {
 
     // Validate specialty code
     const validSpecialties = [
-      'CARDIOLOGY',
-      'PULMONOLOGY',
-      'NEUROLOGY',
-      'NEPHROLOGY',
-      'GASTROENTEROLOGY',
-      'ENDOCRINOLOGY',
-      'RHEUMATOLOGY',
-      'DERMATOLOGY',
-      'PSYCHIATRY',
-      'ONCOLOGY',
-      'ORTHOPEDICS',
+      'PULM',
+      'CARD',
+      'NEURO',
+      'NEPH',
+      'DERM',
+      'ENT',
+      'SURG',
+      'GYNEC',
+      'INTERN',
+      'PAIN',
+      'ONCO',
     ];
 
     if (!validSpecialties.includes(dto.specialty_code)) {
@@ -798,6 +798,7 @@ export class MbbsService implements OnModuleInit {
         referral_reason: dto.referral_reason,
         clinical_summary: dto.clinical_summary,
         is_emergency: dto.is_emergency ?? false,
+        specialist_id: dto.specialist_id ?? null,
         status: 'PENDING',
       },
     });
@@ -812,8 +813,33 @@ export class MbbsService implements OnModuleInit {
       dto.referral_reason + (dto.is_emergency ? ' 🚨 EMERGENCY' : ''),
     );
 
-    // TODO: Integrate with Notification Engine (Module 3.13) for specialist alert
-    // and with Scheduling & Dispatch Module (Module 3.10) for auto-appointment.
+    // Send notification to assigned specialist
+    if (dto.specialist_id) {
+      try {
+        const doctorUser = await this.prisma.user.findUnique({
+          where: { id: doctorUserId },
+          select: { firstNameEn: true, lastNameEn: true },
+        });
+        const doctorName = doctorUser
+          ? `Dr. ${doctorUser.firstNameEn} ${doctorUser.lastNameEn}`
+          : 'A doctor';
+
+        await this.notificationsService.sendToUser(
+          dto.specialist_id,
+          {
+            title: `New Referral — ${patient.first_name_en} ${patient.last_name_en}`,
+            body: `${doctorName} has referred ${patient.first_name_en} ${patient.last_name_en} for ${dto.specialty_code} consultation.`,
+          },
+          {
+            type: 'new_referral',
+            patient_id: patientId,
+            referral_id: referral.id,
+          },
+        );
+      } catch (err) {
+        console.error('[REFERRAL] Failed to send notification to specialist:', err);
+      }
+    }
 
     return referral;
   }

@@ -33,17 +33,17 @@ const DownloadPrescriptionBtn = dynamic(
 );
 
 const SPECIALTIES = [
-  { code: 'CARDIOLOGY', label: 'Cardiology' },
-  { code: 'PULMONOLOGY', label: 'Pulmonology' },
-  { code: 'NEUROLOGY', label: 'Neurology' },
-  { code: 'NEPHROLOGY', label: 'Nephrology' },
-  { code: 'GASTROENTEROLOGY', label: 'Gastroenterology' },
-  { code: 'ENDOCRINOLOGY', label: 'Endocrinology' },
-  { code: 'RHEUMATOLOGY', label: 'Rheumatology' },
-  { code: 'DERMATOLOGY', label: 'Dermatology' },
-  { code: 'PSYCHIATRY', label: 'Psychiatry' },
-  { code: 'ONCOLOGY', label: 'Oncology' },
-  { code: 'ORTHOPEDICS', label: 'Orthopedics' },
+  { code: 'CARD', label: 'Cardiology' },
+  { code: 'PULM', label: 'Pulmonology' },
+  { code: 'NEURO', label: 'Neurology' },
+  { code: 'NEPH', label: 'Nephrology' },
+  { code: 'DERM', label: 'Dermatology' },
+  { code: 'ENT', label: 'ENT' },
+  { code: 'SURG', label: 'General Surgery' },
+  { code: 'GYNEC', label: 'Gynecology & Obstetrics' },
+  { code: 'INTERN', label: 'Internal Medicine' },
+  { code: 'PAIN', label: 'Pain Management' },
+  { code: 'ONCO', label: 'Oncology' },
 ];
 
 const navItems: DashboardNavItem[] = [
@@ -112,6 +112,13 @@ export default function MbbsPatientDetailPage() {
 
   // Referral state
   const [refSpecialty, setRefSpecialty] = useState('');
+  const [refSpecialistId, setRefSpecialistId] = useState('');
+  const [availableSpecialists, setAvailableSpecialists] = useState<Array<{
+    user_id: string;
+    first_name_en: string;
+    last_name_en: string;
+    qualification: string;
+  }>>([]);
   const [refReason, setRefReason] = useState('');
   const [refSummary, setRefSummary] = useState('');
   const [refEmergency, setRefEmergency] = useState(false);
@@ -184,6 +191,19 @@ export default function MbbsPatientDetailPage() {
     window.addEventListener('hashchange', applyHash);
     return () => window.removeEventListener('hashchange', applyHash);
   }, [patientId]);
+
+  // Fetch available specialists when specialty changes
+  useEffect(() => {
+    if (!refSpecialty) {
+      setAvailableSpecialists([]);
+      setRefSpecialistId('');
+      return;
+    }
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/by-specialty?specialtyCode=${refSpecialty}`)
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => { setAvailableSpecialists(data); setRefSpecialistId(''); })
+      .catch(() => setAvailableSpecialists([]));
+  }, [refSpecialty]);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -285,9 +305,11 @@ export default function MbbsPatientDetailPage() {
         referral_reason: refReason,
         clinical_summary: refSummary,
         is_emergency: refEmergency,
+        specialist_id: refSpecialistId || undefined,
       });
       showSuccess('Referral created successfully.');
-      setRefSpecialty(''); setRefReason(''); setRefSummary(''); setRefEmergency(false);
+      setRefSpecialty(''); setRefSpecialistId(''); setRefReason(''); setRefSummary(''); setRefEmergency(false);
+      setAvailableSpecialists([]);
       await loadProfile();
     } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
@@ -950,6 +972,29 @@ export default function MbbsPatientDetailPage() {
                     ))}
                   </select>
                 </div>
+                {refSpecialty && (
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">
+                      Specialist *
+                    </label>
+                    <select
+                      value={refSpecialistId}
+                      onChange={(e) => setRefSpecialistId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200/60 px-3 py-2 text-sm text-[#0A2540] outline-none focus:border-[#0A2540] focus:ring-2 focus:ring-[#00D4B2]/20"
+                    >
+                      <option value="">Select a specialist...</option>
+                      {availableSpecialists.length === 0 ? (
+                        <option value="" disabled>No specialists available</option>
+                      ) : (
+                        availableSpecialists.map((s) => (
+                          <option key={s.user_id} value={s.user_id}>
+                            Dr. {s.first_name_en} {s.last_name_en} — {s.qualification}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">
                     Referral Reason *

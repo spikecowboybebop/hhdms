@@ -50,6 +50,85 @@ export class SpecialistService {
     }));
   }
 
+  async getSpecialistsBySpecialty(specialtyCode: string) {
+    const profiles = await this.prisma.specialist_profiles.findMany({
+      where: { specialty_code: specialtyCode, is_available: true },
+      include: {
+        user: {
+          select: {
+            firstNameEn: true,
+            lastNameEn: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return profiles.map((p) => ({
+      user_id: p.user_id,
+      first_name_en: p.user.firstNameEn,
+      last_name_en: p.user.lastNameEn,
+      email: p.user.email,
+      specialty_code: p.specialty_code,
+      qualification: p.qualification,
+      years_of_experience: p.years_of_experience,
+      consultation_fee: p.consultation_fee,
+      is_available: p.is_available,
+    }));
+  }
+
+  async getReferralPatientHistory(referralId: string) {
+    const referral = await this.prisma.specialist_referrals.findUnique({
+      where: { id: referralId },
+      select: { patient_id: true },
+    });
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    const patientId = referral.patient_id;
+
+    const [vitals, diagnoses, prescriptions, testOrders, chainEvents, diagnosisReports] =
+      await Promise.all([
+        this.prisma.patient_vital_signs.findMany({
+          where: { patient_id: patientId },
+          orderBy: { recorded_at: 'desc' },
+          take: 20,
+        }),
+        this.prisma.patient_diagnoses.findMany({
+          where: { patient_id: patientId },
+          orderBy: { diagnosed_at: 'desc' },
+          include: { icd10: true },
+        }),
+        this.prisma.prescriptions.findMany({
+          where: { patient_id: patientId },
+          orderBy: { issued_at: 'desc' },
+          include: { medications: true },
+        }),
+        this.prisma.diagnostic_test_orders.findMany({
+          where: { patient_id: patientId },
+          orderBy: { ordered_at: 'desc' },
+          include: { test: true, results: true },
+        }),
+        this.prisma.referral_chain.findMany({
+          where: { patient_id: patientId },
+          orderBy: { created_at: 'asc' },
+        }),
+        this.prisma.patient_diagnosis_reports.findMany({
+          where: { patient_id: patientId },
+          orderBy: { generated_at: 'desc' },
+        }),
+      ]);
+
+    return {
+      vitals,
+      diagnoses,
+      prescriptions,
+      test_orders: testOrders,
+      referral_chain: chainEvents,
+      diagnosis_reports: diagnosisReports,
+    };
+  }
+
   async getMyIncomingReferrals(userId: string) {
     const specialist = await this.resolveSpecialistProfile(userId);
     if (!specialist)
@@ -58,6 +137,7 @@ export class SpecialistService {
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
         status: 'PENDING',
+        specialty_code: specialist.specialty_code,
       },
       include: {
         patient: {
