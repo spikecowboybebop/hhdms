@@ -11,6 +11,9 @@ CREATE TYPE "referral_status_enum" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', '
 CREATE TYPE "prescription_status_enum" AS ENUM ('ACTIVE', 'COMPLETED', 'DISCONTINUED');
 
 -- CreateEnum
+CREATE TYPE "provider_type_enum" AS ENUM ('MBBS', 'SPECIALIST');
+
+-- CreateEnum
 CREATE TYPE "account_status_enum" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
 
 -- CreateTable
@@ -99,9 +102,9 @@ CREATE TABLE "server_notifications" (
     "body" TEXT NOT NULL,
     "session_id" UUID,
     "type" VARCHAR(50),
-    "patient_id" VARCHAR(50),
     "delivered" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "patient_id" VARCHAR(50),
 
     CONSTRAINT "server_notifications_pkey" PRIMARY KEY ("id")
 );
@@ -382,6 +385,23 @@ CREATE TABLE "booking_sessions" (
 );
 
 -- CreateTable
+CREATE TABLE "payments" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "patient_id" UUID NOT NULL,
+    "booking_session_id" UUID NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "currency" VARCHAR(10) NOT NULL DEFAULT 'BDT',
+    "service_type" VARCHAR(30) NOT NULL,
+    "stripe_payment_intent_id" VARCHAR(255) NOT NULL,
+    "stripe_client_secret" VARCHAR(255),
+    "status" VARCHAR(20) NOT NULL DEFAULT 'pending',
+    "completed_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "service_tickets" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "session_id" UUID NOT NULL,
@@ -420,19 +440,15 @@ CREATE TABLE "patients" (
     "sex" VARCHAR(1) NOT NULL,
     "blood_group" VARCHAR(5),
     "phone_number" VARCHAR(20),
-    "alternative_phone" VARCHAR(20),
     "email" VARCHAR(255),
     "address_line1" VARCHAR(255),
     "address_line2" VARCHAR(255),
     "district" VARCHAR(100),
     "emergency_contact" VARCHAR(20),
-    "emergency_contact_name" VARCHAR(100),
-    "emergency_contact_relation" VARCHAR(100),
     "known_allergies" TEXT,
     "current_medications" TEXT,
     "past_medical_history" TEXT,
     "family_history" TEXT,
-    "self_reported_symptoms" TEXT,
     "height_cm" DECIMAL(5,1),
     "weight_kg" DECIMAL(5,1),
     "booked_by" VARCHAR(255),
@@ -440,6 +456,10 @@ CREATE TABLE "patients" (
     "has_emergency_flag" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "alternative_phone" VARCHAR(20),
+    "emergency_contact_name" VARCHAR(100),
+    "emergency_contact_relation" VARCHAR(100),
+    "self_reported_symptoms" TEXT,
 
     CONSTRAINT "patients_pkey" PRIMARY KEY ("id")
 );
@@ -551,12 +571,14 @@ CREATE TABLE "diagnostic_test_catalog" (
 CREATE TABLE "diagnostic_test_orders" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "patient_id" UUID NOT NULL,
-    "doctor_id" UUID NOT NULL,
+    "doctor_id" UUID,
     "test_id" UUID NOT NULL,
     "status" "test_order_status_enum" NOT NULL DEFAULT 'ORDERED',
     "clinical_notes" TEXT,
     "ordered_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "completed_at" TIMESTAMPTZ(6),
+    "provider_type" "provider_type_enum" NOT NULL DEFAULT 'MBBS',
+    "specialist_id" UUID,
 
     CONSTRAINT "diagnostic_test_orders_pkey" PRIMARY KEY ("id")
 );
@@ -595,10 +617,26 @@ CREATE TABLE "specialist_referrals" (
 );
 
 -- CreateTable
+CREATE TABLE "specialist_dicom_studies" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "patient_id" UUID NOT NULL,
+    "file_path" VARCHAR(2000) NOT NULL,
+    "modality" VARCHAR(20) NOT NULL DEFAULT 'USG',
+    "body_part" VARCHAR(100),
+    "study_date" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "description" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "specialist_dicom_studies_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "prescriptions" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "patient_id" UUID NOT NULL,
-    "doctor_id" UUID NOT NULL,
+    "provider_type" "provider_type_enum" NOT NULL DEFAULT 'MBBS',
+    "doctor_id" UUID,
+    "specialist_id" UUID,
     "diagnosis_id" UUID,
     "notes" TEXT,
     "digital_signature_url" VARCHAR(512),
@@ -620,6 +658,8 @@ CREATE TABLE "prescription_medications" (
     "duration_days" INTEGER NOT NULL,
     "route" VARCHAR(50) NOT NULL,
     "special_instructions" TEXT,
+    "conditional_flag" BOOLEAN NOT NULL DEFAULT false,
+    "taper_details" JSONB,
 
     CONSTRAINT "prescription_medications_pkey" PRIMARY KEY ("id")
 );
@@ -651,6 +691,31 @@ CREATE TABLE "referral_chain" (
     "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "referral_chain_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "specialty_templates" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "specialty_code" VARCHAR(20) NOT NULL,
+    "template_name" VARCHAR(200) NOT NULL,
+    "description" VARCHAR(500),
+    "schema" JSONB NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "specialty_templates_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "specialist_reports" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "referral_id" UUID NOT NULL,
+    "template_id" UUID NOT NULL,
+    "form_data" JSONB NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "specialist_reports_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -694,6 +759,9 @@ CREATE UNIQUE INDEX "sonologist_profiles_license_number_key" ON "sonologist_prof
 
 -- CreateIndex
 CREATE UNIQUE INDEX "caregiver_patient_assignments_caregiver_id_patient_id_key" ON "caregiver_patient_assignments"("caregiver_id", "patient_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_stripe_payment_intent_id_key" ON "payments"("stripe_payment_intent_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "service_tickets_ticket_no_key" ON "service_tickets"("ticket_no");
@@ -744,28 +812,28 @@ ALTER TABLE "nutritionist_anthropometric_records" ADD CONSTRAINT "nutritionist_a
 ALTER TABLE "nutritionist_anthropometric_records" ADD CONSTRAINT "nutritionist_anthropometric_records_recorded_by_fkey" FOREIGN KEY ("recorded_by") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "nutritionist_diet_plans" ADD CONSTRAINT "nutritionist_diet_plans_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "nutritionist_diet_plans" ADD CONSTRAINT "nutritionist_diet_plans_nutritionist_id_fkey" FOREIGN KEY ("nutritionist_id") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "nutritionist_diet_plans" ADD CONSTRAINT "nutritionist_diet_plans_nutritionist_id_fkey" FOREIGN KEY ("nutritionist_id") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "nutritionist_diet_plans" ADD CONSTRAINT "nutritionist_diet_plans_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "nutritionist_diet_plan_meals" ADD CONSTRAINT "nutritionist_diet_plan_meals_plan_id_fkey" FOREIGN KEY ("plan_id") REFERENCES "nutritionist_diet_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "nutritionist_follow_ups" ADD CONSTRAINT "nutritionist_follow_ups_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "nutritionist_follow_ups" ADD CONSTRAINT "nutritionist_follow_ups_nutritionist_id_fkey" FOREIGN KEY ("nutritionist_id") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "nutritionist_follow_ups" ADD CONSTRAINT "nutritionist_follow_ups_nutritionist_id_fkey" FOREIGN KEY ("nutritionist_id") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "nutritionist_follow_ups" ADD CONSTRAINT "nutritionist_follow_ups_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "nutritionist_follow_ups" ADD CONSTRAINT "nutritionist_follow_ups_plan_id_fkey" FOREIGN KEY ("plan_id") REFERENCES "nutritionist_diet_plans"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "nutritionist_adherence_logs" ADD CONSTRAINT "nutritionist_adherence_logs_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "nutritionist_adherence_logs" ADD CONSTRAINT "nutritionist_adherence_logs_nutritionist_id_fkey" FOREIGN KEY ("nutritionist_id") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "nutritionist_adherence_logs" ADD CONSTRAINT "nutritionist_adherence_logs_nutritionist_id_fkey" FOREIGN KEY ("nutritionist_id") REFERENCES "nutritionist_profiles"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "nutritionist_adherence_logs" ADD CONSTRAINT "nutritionist_adherence_logs_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "diet_template_meals" ADD CONSTRAINT "diet_template_meals_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "diet_templates"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -777,19 +845,19 @@ ALTER TABLE "specialist_profiles" ADD CONSTRAINT "specialist_profiles_user_id_fk
 ALTER TABLE "sonologist_profiles" ADD CONSTRAINT "sonologist_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "sonologist_studies" ADD CONSTRAINT "sonologist_studies_sonologist_id_fkey" FOREIGN KEY ("sonologist_id") REFERENCES "sonologist_profiles"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- AddForeignKey
 ALTER TABLE "sonologist_studies" ADD CONSTRAINT "sonologist_studies_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "sonologist_reports" ADD CONSTRAINT "sonologist_reports_study_id_fkey" FOREIGN KEY ("study_id") REFERENCES "sonologist_studies"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "sonologist_studies" ADD CONSTRAINT "sonologist_studies_sonologist_id_fkey" FOREIGN KEY ("sonologist_id") REFERENCES "sonologist_profiles"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "sonologist_reports" ADD CONSTRAINT "sonologist_reports_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "sonologist_reports" ADD CONSTRAINT "sonologist_reports_sonologist_id_fkey" FOREIGN KEY ("sonologist_id") REFERENCES "sonologist_profiles"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "sonologist_reports" ADD CONSTRAINT "sonologist_reports_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "sonologist_reports" ADD CONSTRAINT "sonologist_reports_study_id_fkey" FOREIGN KEY ("study_id") REFERENCES "sonologist_studies"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "caregiver_profiles" ADD CONSTRAINT "caregiver_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
@@ -816,6 +884,12 @@ ALTER TABLE "caregiver_condition_reports" ADD CONSTRAINT "caregiver_condition_re
 ALTER TABLE "booking_sessions" ADD CONSTRAINT "booking_sessions_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 
 -- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_booking_session_id_fkey" FOREIGN KEY ("booking_session_id") REFERENCES "booking_sessions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+
+-- AddForeignKey
 ALTER TABLE "service_tickets" ADD CONSTRAINT "service_tickets_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "booking_sessions"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
@@ -828,10 +902,10 @@ ALTER TABLE "patients" ADD CONSTRAINT "patients_user_id_fkey" FOREIGN KEY ("user
 ALTER TABLE "patient_documents" ADD CONSTRAINT "patient_documents_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "patient_diagnosis_reports" ADD CONSTRAINT "patient_diagnosis_reports_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "patient_diagnosis_reports" ADD CONSTRAINT "patient_diagnosis_reports_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "patient_diagnosis_reports" ADD CONSTRAINT "patient_diagnosis_reports_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "patient_diagnosis_reports" ADD CONSTRAINT "patient_diagnosis_reports_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "doctor_patient_assignments" ADD CONSTRAINT "doctor_patient_assignments_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION;
@@ -855,13 +929,16 @@ ALTER TABLE "patient_diagnoses" ADD CONSTRAINT "patient_diagnoses_icd10_code_fke
 ALTER TABLE "patient_diagnoses" ADD CONSTRAINT "patient_diagnoses_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "diagnostic_test_orders" ADD CONSTRAINT "diagnostic_test_orders_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+ALTER TABLE "diagnostic_test_orders" ADD CONSTRAINT "diagnostic_test_orders_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE SET NULL ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "diagnostic_test_orders" ADD CONSTRAINT "diagnostic_test_orders_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "diagnostic_test_orders" ADD CONSTRAINT "diagnostic_test_orders_test_id_fkey" FOREIGN KEY ("test_id") REFERENCES "diagnostic_test_catalog"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_test_orders" ADD CONSTRAINT "diagnostic_test_orders_specialist_id_fkey" FOREIGN KEY ("specialist_id") REFERENCES "specialist_profiles"("user_id") ON DELETE SET NULL ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "diagnostic_test_results" ADD CONSTRAINT "diagnostic_test_results_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "diagnostic_test_orders"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
@@ -876,7 +953,13 @@ ALTER TABLE "specialist_referrals" ADD CONSTRAINT "specialist_referrals_referrin
 ALTER TABLE "specialist_referrals" ADD CONSTRAINT "specialist_referrals_specialist_id_fkey" FOREIGN KEY ("specialist_id") REFERENCES "specialist_profiles"("user_id") ON DELETE SET NULL ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+ALTER TABLE "specialist_dicom_studies" ADD CONSTRAINT "specialist_dicom_studies_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "mbbs_doctor_profiles"("user_id") ON DELETE SET NULL ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_specialist_id_fkey" FOREIGN KEY ("specialist_id") REFERENCES "specialist_profiles"("user_id") ON DELETE SET NULL ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
@@ -892,4 +975,10 @@ ALTER TABLE "emergency_flags" ADD CONSTRAINT "emergency_flags_patient_id_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "referral_chain" ADD CONSTRAINT "referral_chain_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "specialist_reports" ADD CONSTRAINT "specialist_reports_referral_id_fkey" FOREIGN KEY ("referral_id") REFERENCES "specialist_referrals"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "specialist_reports" ADD CONSTRAINT "specialist_reports_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "specialty_templates"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 

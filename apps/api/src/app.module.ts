@@ -14,6 +14,7 @@ import { SonologistModule } from './sonologist/sonologist.module';
 import { ProvidersModule } from './providers/providers.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PaymentsModule } from './payments/payments.module';
     ProvidersModule,
     NotificationsModule,
     PaymentsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService, CallGateway],
