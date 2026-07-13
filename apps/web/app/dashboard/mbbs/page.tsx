@@ -161,6 +161,8 @@ export default function MbbsDashboardPage() {
   const [activeChat, setActiveChat] = useState<ChatConversation | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientFilter, setPatientFilter] = useState<'active' | 'completed'>('active');
   const userMenuItems: DashboardUserMenuItem[] = useMemo(() => [
     {
       label: "Add Digital Signature",
@@ -201,7 +203,10 @@ export default function MbbsDashboardPage() {
         ]);
         setPatients(data);
         setSignatureUrl(sig.signature_url);
-        if (data.length > 0 && !selected) setSelected(data[0] ?? null);
+        if (data.length > 0 && !selected) {
+          const firstActive = data.find((p) => p.appointment_activity !== 'done');
+          setSelected(firstActive ?? data[0] ?? null);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to load patients';
         setPatientsError(msg);
@@ -270,8 +275,9 @@ export default function MbbsDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, session]);
 
-  const waitingCount = useMemo(() => patients.filter((p) => !p.has_emergency_flag).length, [patients]);
-  const emergencyCount = useMemo(() => patients.filter((p) => p.has_emergency_flag).length, [patients]);
+  const activePatients = useMemo(() => patients.filter((p) => p.appointment_activity !== 'done'), [patients]);
+  const waitingCount = useMemo(() => activePatients.filter((p) => !p.has_emergency_flag).length, [activePatients]);
+  const emergencyCount = useMemo(() => activePatients.filter((p) => p.has_emergency_flag).length, [activePatients]);
 
   if (!hydrated) {
     return (
@@ -300,8 +306,8 @@ export default function MbbsDashboardPage() {
       {/* Stat row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="My Patients"
-          value={patientsLoading ? '…' : patients.length}
+          label="Active Patients"
+          value={patientsLoading ? '…' : activePatients.length}
           delta={`${emergencyCount} emergency`}
           trend={emergencyCount > 0 ? 'up' : 'flat'}
           accent="navy"
@@ -355,8 +361,59 @@ export default function MbbsDashboardPage() {
               No patients are currently assigned to you.
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
-              {patients.map((p) => (
+            <>
+              <div className="flex gap-1 mb-2">
+                <button
+                  onClick={() => setPatientFilter('active')}
+                  className={`flex-1 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                    patientFilter === 'active'
+                      ? 'bg-[#0A2540] text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  Active ({activePatients.length})
+                </button>
+                <button
+                  onClick={() => setPatientFilter('completed')}
+                  className={`flex-1 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                    patientFilter === 'completed'
+                      ? 'bg-[#00D4B2] text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  Completed ({patients.length - activePatients.length})
+                </button>
+              </div>
+              <div className="relative mb-2">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by name or MRN..."
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200/60 bg-[#F8F9FA] py-2 pl-9 pr-3 text-xs text-[#2D3A4A] placeholder-slate-400 outline-none focus:border-[#00D4B2] focus:ring-1 focus:ring-[#00D4B2]/30 transition-all"
+                />
+              </div>
+              {(() => {
+                const q = patientSearch.toLowerCase();
+                const baseList = patientFilter === 'active' ? activePatients : patients.filter((p) => p.appointment_activity === 'done');
+                const filtered = q
+                  ? baseList.filter((p) =>
+                      p.first_name_en.toLowerCase().includes(q) ||
+                      p.last_name_en.toLowerCase().includes(q) ||
+                      p.mrn.toLowerCase().includes(q)
+                    )
+                  : baseList;
+                return filtered.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-4 text-center">
+                    No patients match your search.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {filtered.map((p) => (
                 <li key={p.id}>
                   <button
                     onClick={() => setSelected(p)}
@@ -463,7 +520,10 @@ export default function MbbsDashboardPage() {
                   </button>
                 </li>
               ))}
-            </ul>
+                    </ul>
+                );
+              })()}
+            </>
           )}
         </SectionCard>
 
