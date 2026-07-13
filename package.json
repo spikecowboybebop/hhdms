@@ -23,8 +23,12 @@
     "packages/*"
   ],
   "dependencies": {
+    "@cornerstonejs/core": "^5.5.0",
+    "@cornerstonejs/dicom-image-loader": "^5.5.0",
+    "@cornerstonejs/tools": "^5.5.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@uploadcare/upload-client": "^6.18.4",
+    "dicom-parser": "^1.8.21",
     "lucide-react": "^1.23.0",
     "pdfkit": "^0.19.1",
     "pg": "^8.21.0",

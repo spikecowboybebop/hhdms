@@ -882,7 +882,10 @@ export class MbbsService implements OnModuleInit {
           },
         );
       } catch (err) {
-        console.error('[REFERRAL] Failed to send notification to specialist:', err);
+        console.error(
+          '[REFERRAL] Failed to send notification to specialist:',
+          err,
+        );
       }
     }
 
@@ -1689,7 +1692,13 @@ export class MbbsService implements OnModuleInit {
     }
 
     // ── Helper: styled info table ──────────────────────────────
-    function drawInfoRow(label: string, value: string, x: number, y: number, w: number) {
+    function drawInfoRow(
+      label: string,
+      value: string,
+      x: number,
+      y: number,
+      w: number,
+    ) {
       doc
         .fillColor(textMedium)
         .fontSize(9)
@@ -1750,7 +1759,9 @@ export class MbbsService implements OnModuleInit {
           doc.addPage();
           currentY = MARGIN;
           // Redraw header on new page
-          doc.rect(colStartX, currentY, PAGE_WIDTH, headerH).fill(bgTableHeader);
+          doc
+            .rect(colStartX, currentY, PAGE_WIDTH, headerH)
+            .fill(bgTableHeader);
           for (let i = 0; i < headers.length; i++) {
             doc
               .fillColor('#FFFFFF')
@@ -1784,7 +1795,10 @@ export class MbbsService implements OnModuleInit {
             .font('Helvetica')
             .text(rows[r][i].text || '\u2014', colXs[i] + 4, currentY + 5, {
               width: headers[i].w - 8,
-              align: (rows[r][i].align as any) || (headers[i].align as any) || 'left',
+              align:
+                (rows[r][i].align as any) ||
+                (headers[i].align as any) ||
+                'left',
             });
         }
         currentY += rowH;
@@ -1840,15 +1854,22 @@ export class MbbsService implements OnModuleInit {
       hour: '2-digit',
       minute: '2-digit',
     });
-    const reportId = 'CR-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(Date.now()).slice(-6);
+    const reportId =
+      'CR-' +
+      new Date().toISOString().slice(0, 10).replace(/-/g, '') +
+      '-' +
+      String(Date.now()).slice(-6);
 
-    doc
-      .fillColor(textMedium)
-      .fontSize(8)
-      .font('Helvetica');
+    doc.fillColor(textMedium).fontSize(8).font('Helvetica');
     const metaY = doc.y;
-    doc.text('Report ID: ' + reportId, MARGIN, metaY, { width: PAGE_WIDTH, align: 'left' });
-    doc.text('Date: ' + reportDate + ' BST', MARGIN, metaY, { width: PAGE_WIDTH, align: 'right' });
+    doc.text('Report ID: ' + reportId, MARGIN, metaY, {
+      width: PAGE_WIDTH,
+      align: 'left',
+    });
+    doc.text('Date: ' + reportDate + ' BST', MARGIN, metaY, {
+      width: PAGE_WIDTH,
+      align: 'right',
+    });
     doc.moveDown(1);
 
     // ═══════════════════════════════════════════════════════════
@@ -1862,10 +1883,7 @@ export class MbbsService implements OnModuleInit {
             (365.25 * 24 * 60 * 60 * 1000),
         ) + ' yrs'
       : '\u2014';
-    const nameDisplay =
-      p.first_name_en +
-      ' ' +
-      (p.last_name_en || '');
+    const nameDisplay = p.first_name_en + ' ' + (p.last_name_en || '');
     const dobStr = p.date_of_birth
       ? new Date(p.date_of_birth).toLocaleDateString('en-GB', {
           day: '2-digit',
@@ -1875,7 +1893,12 @@ export class MbbsService implements OnModuleInit {
       : '\u2014';
 
     const infoCardY = doc.y;
-    doc.rect(MARGIN, infoCardY, PAGE_WIDTH, 72).fill(bgLight).strokeColor(borderLight).lineWidth(0.5).stroke();
+    doc
+      .rect(MARGIN, infoCardY, PAGE_WIDTH, 72)
+      .fill(bgLight)
+      .strokeColor(borderLight)
+      .lineWidth(0.5)
+      .stroke();
 
     doc
       .fillColor(brandNavy)
@@ -1889,16 +1912,33 @@ export class MbbsService implements OnModuleInit {
     drawInfoRow('MRN:', p.mrn, MARGIN + 8, iiY + 12, colW);
     drawInfoRow('DOB:', dobStr, MARGIN + 8, iiY + 24, colW);
 
-    drawInfoRow('Sex:', p.sex === 'M' ? 'Male' : 'Female', MARGIN + 8 + colW, iiY, colW);
+    drawInfoRow(
+      'Sex:',
+      p.sex === 'M' ? 'Male' : 'Female',
+      MARGIN + 8 + colW,
+      iiY,
+      colW,
+    );
     drawInfoRow('Age:', ageStr, MARGIN + 8 + colW, iiY + 12, colW);
-    drawInfoRow('Blood Group:', p.blood_group || '\u2014', MARGIN + 8 + colW, iiY + 24, colW);
+    drawInfoRow(
+      'Blood Group:',
+      p.blood_group || '\u2014',
+      MARGIN + 8 + colW,
+      iiY + 24,
+      colW,
+    );
 
     doc.y = infoCardY + 76;
     doc.moveDown(0.5);
 
     // Doctor Info Card
     const docCardY = doc.y;
-    doc.rect(MARGIN, docCardY, PAGE_WIDTH, 50).fill(bgLight).strokeColor(borderLight).lineWidth(0.5).stroke();
+    doc
+      .rect(MARGIN, docCardY, PAGE_WIDTH, 50)
+      .fill(bgLight)
+      .strokeColor(borderLight)
+      .lineWidth(0.5)
+      .stroke();
 
     doc
       .fillColor(brandNavy)
@@ -1908,8 +1948,20 @@ export class MbbsService implements OnModuleInit {
 
     const diY = docCardY + 22;
     drawInfoRow('Name:', 'Dr. ' + doctorName, MARGIN + 8, diY, colW);
-    drawInfoRow('Specialization:', dp.specialization || '\u2014', MARGIN + 8, diY + 12, colW);
-    drawInfoRow('BMDC:', dp.bmdc_registration || '\u2014', MARGIN + 8 + colW, diY, colW);
+    drawInfoRow(
+      'Specialization:',
+      dp.specialization || '\u2014',
+      MARGIN + 8,
+      diY + 12,
+      colW,
+    );
+    drawInfoRow(
+      'BMDC:',
+      dp.bmdc_registration || '\u2014',
+      MARGIN + 8 + colW,
+      diY,
+      colW,
+    );
 
     doc.y = docCardY + 55;
 
@@ -1958,7 +2010,8 @@ export class MbbsService implements OnModuleInit {
           align: 'center',
         },
         {
-          text: v.respiratory_rate != null ? String(v.respiratory_rate) : '\u2014',
+          text:
+            v.respiratory_rate != null ? String(v.respiratory_rate) : '\u2014',
           align: 'center',
         },
         {

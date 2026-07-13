@@ -327,10 +327,7 @@ export class NutritionistService {
         ticket_no: `NUT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
         service_type: 'NUTRITIONIST',
         scheduled_date: bookedAt,
-        scheduled_time_slot:
-          dto.consultation_type === ConsultationType.TELECONSULTATION
-            ? 'VIRTUAL'
-            : 'HOME_VISIT',
+        scheduled_time_slot: 'HOME_VISIT',
         assigned_provider_id: nutritionistId,
         price: 0,
         status: 'ASSIGNED',

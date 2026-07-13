@@ -27,6 +27,7 @@ import {
   type CreateVitalsPayload,
   type TestCatalogItem,
 } from "@/lib/mbbs-api";
+import { specialistApi } from "@/lib/specialist-api";
 const DownloadPrescriptionBtn = dynamic(
   () => import("@/components/mbbs/download-prescription"),
   { ssr: false }
@@ -199,8 +200,7 @@ export default function MbbsPatientDetailPage() {
       setRefSpecialistId('');
       return;
     }
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/by-specialty?specialtyCode=${refSpecialty}`)
-      .then((res) => res.ok ? res.json() : [])
+    specialistApi.getSpecialistsBySpecialty(refSpecialty)
       .then((data) => { setAvailableSpecialists(data); setRefSpecialistId(''); })
       .catch(() => setAvailableSpecialists([]));
   }, [refSpecialty]);

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { DashboardShell, type DashboardNavItem } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/dashboard-cards";
+import { specialistApi, type SpecialistReportItem } from "@/lib/specialist-api";
 
 const navItems: (DashboardNavItem & { active?: boolean })[] = [
   { 
@@ -25,16 +26,7 @@ const navItems: (DashboardNavItem & { active?: boolean })[] = [
   },
 ];
 
-type ReportItem = {
-  id: string;
-  patient: string;
-  mrn: string;
-  type: string;
-  status: "SIGNED" | "ARCHIVED";
-  date: string;
-  hash: string;
-  findings: string;
-};
+type ReportItem = SpecialistReportItem;
 
 export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,12 +36,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const specialistId = "9a5b3c2d-1122-3344-5566-778899aabbcc";
     const loadReports = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/specialist/reports?specialistId=${specialistId}`);
-        if (!res.ok) throw new Error("Failed to load reports");
-        const data = await res.json();
+        const data = await specialistApi.getReports();
         setReports(Array.isArray(data) ? data : []);
       } catch (err) {
         console.warn("Could not load specialist reports from API", err);

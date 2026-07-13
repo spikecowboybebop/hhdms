@@ -278,7 +278,7 @@ export interface ConsultationBooking {
 
 export interface BookConsultationPayload {
   patient_id: string;
-  consultation_type: 'HOME_VISIT' | 'TELECONSULTATION';
+  consultation_type: 'HOME_VISIT';
   preferred_at?: string;
   area?: string;
   notes?: string;

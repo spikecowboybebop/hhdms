@@ -2,16 +2,33 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 
 @Injectable()
 export class PaymentsService {
-  private stripe: Stripe;
+  private stripe: Stripe | null = null;
 
   constructor(private readonly prisma: PrismaService) {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (key) {
+      this.stripe = new Stripe(key);
+    } else {
+      console.warn(
+        'STRIPE_SECRET_KEY not configured. Payment endpoints will be unavailable.',
+      );
+    }
+  }
+
+  private requireStripe(): Stripe {
+    if (!this.stripe) {
+      throw new ServiceUnavailableException(
+        'Payments are not configured. Please set STRIPE_SECRET_KEY.',
+      );
+    }
+    return this.stripe;
   }
 
   async createPaymentIntent(userId: string, bookingSessionId: string) {
@@ -30,14 +47,12 @@ export class PaymentsService {
     if (session.patient_id !== patient.id)
       throw new BadRequestException('Session does not belong to this patient.');
 
-    const mbbsTicket = session.tickets.find(
-      (t) => t.service_type === 'MBBS',
-    );
+    const mbbsTicket = session.tickets.find((t) => t.service_type === 'MBBS');
     if (!mbbsTicket) throw new NotFoundException('No MBBS ticket found.');
 
     const amount = mbbsTicket.price ?? 800;
 
-    const paymentIntent = await this.stripe.paymentIntents.create({
+    const paymentIntent = await this.requireStripe().paymentIntents.create({
       amount: Math.round(Number(amount) * 100),
       currency: 'bdt',
       automatic_payment_methods: { enabled: true },
@@ -83,7 +98,7 @@ export class PaymentsService {
     if (!payment.stripe_payment_intent_id)
       throw new BadRequestException('No Stripe payment intent on record.');
 
-    const pi = await this.stripe.paymentIntents.retrieve(
+    const pi = await this.requireStripe().paymentIntents.retrieve(
       payment.stripe_payment_intent_id,
     );
 
@@ -102,11 +117,16 @@ export class PaymentsService {
   }
 
   async handleWebhook(payload: Buffer, signature: string) {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      throw new ServiceUnavailableException(
+        'STRIPE_WEBHOOK_SECRET not configured.',
+      );
+    }
     let event: Stripe.Event;
 
     try {
-      event = this.stripe.webhooks.constructEvent(
+      event = this.requireStripe().webhooks.constructEvent(
         payload,
         signature,
         webhookSecret,
@@ -116,7 +136,7 @@ export class PaymentsService {
     }
 
     if (event.type === 'payment_intent.succeeded') {
-      const pi = event.data.object as Stripe.PaymentIntent;
+      const pi = event.data.object;
       await this.prisma.payments.updateMany({
         where: { stripe_payment_intent_id: pi.id },
         data: { status: 'completed', completed_at: new Date() },
@@ -131,8 +151,7 @@ export class PaymentsService {
       where: { user_id: userId },
       select: { id: true },
     });
-    if (!patient)
-      return { paid: false, paymentId: null };
+    if (!patient) return { paid: false, paymentId: null };
 
     const payment = await this.prisma.payments.findFirst({
       where: {
