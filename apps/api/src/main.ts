@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import * as os from 'os';
+import compression from 'compression';
 
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -29,8 +30,9 @@ async function bootstrap() {
 
   app.enableCors({
     origin: '*',
-    credentials: true,
   });
+
+  app.use(compression());
 
   app.useGlobalPipes(
     new ValidationPipe({

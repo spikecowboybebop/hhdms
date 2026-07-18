@@ -46,16 +46,7 @@ export class SpecialistDicomController {
     const fileUrl = study.file_path;
     if (!fileUrl) throw new NotFoundException('No file associated with study');
 
-    const response = await fetch(fileUrl);
-
-    if (!response.ok) {
-      this.logger.error(
-        `Failed to fetch DICOM from ${fileUrl}: ${response.status}`,
-      );
-      throw new NotFoundException('Failed to fetch DICOM file');
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
+    const buffer = await this.specialistDicomService.getCachedBuffer(id, fileUrl);
 
     res.set({
       'Content-Type': 'application/dicom',
