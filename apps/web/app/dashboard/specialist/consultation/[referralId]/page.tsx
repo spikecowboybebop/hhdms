@@ -32,6 +32,7 @@ import {
   type SpecialistPrescription,
   type CreatePrescriptionResponse,
   type TestCatalogItem,
+  type MedicationRoute,
 } from "@/lib/specialist-api";
 import { DynamicTemplateForm } from "@/components/specialist/dynamic-template-form";
 import dynamic from "next/dynamic";
@@ -129,6 +130,16 @@ const navItems: (DashboardNavItem & { active?: boolean })[] = [
     ),
   },
   {
+    label: "DICOM Library",
+    href: "/dashboard/specialist/dicom",
+    active: false,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
     label: "Reports",
     href: "/dashboard/specialist/reports",
     icon: (
@@ -158,7 +169,7 @@ export default function ConsultationPage() {
   const [impression, setImpression] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [clinicalTab, setClinicalTab] = useState("diagnoses");
-  const [reportsTab, setReportsTab] = useState<"reports" | "xray" | "ultrasound">("reports");
+  const [reportsTab, setReportsTab] = useState<"reports" | "xray" | "ultrasound" | "other">("reports");
   const [dicomStudies, setDicomStudies] = useState<DicomStudy[]>([]);
   const [dicomLoading, setDicomLoading] = useState(false);
   const [activeDicomStudy, setActiveDicomStudy] = useState<DicomStudy | null>(null);
@@ -180,6 +191,8 @@ export default function ConsultationPage() {
   const [specialistPrescriptions, setSpecialistPrescriptions] = useState<SpecialistPrescription[]>([]);
   const [prescriptionWarnings, setPrescriptionWarnings] = useState<CreatePrescriptionResponse['warnings']>([]);
   const [showWarnings, setShowWarnings] = useState(false);
+
+  const [medicationRoutes, setMedicationRoutes] = useState<MedicationRoute[]>([]);
 
   const [showTestOrderPanel, setShowTestOrderPanel] = useState(false);
   const [testCatalog, setTestCatalog] = useState<TestCatalogItem[]>([]);
@@ -294,6 +307,13 @@ export default function ConsultationPage() {
       .catch(() => setSpecialistPrescriptions([]))
       .finally(() => setPrescriptionsLoading(false));
   }, [referralId]);
+
+  // Fetch medication routes
+  useEffect(() => {
+    specialistApi.getRoutes()
+      .then(setMedicationRoutes)
+      .catch(() => setMedicationRoutes([]));
+  }, []);
 
   // Fetch test catalog when panel opens
   useEffect(() => {
@@ -456,13 +476,20 @@ export default function ConsultationPage() {
     setShowTemplateForm(t !== null);
   }, [templates]);
 
+  const IMAGING_MODALITIES = useMemo(() => new Set(["XR", "DX", "CR", "CT", "XA", "ANGIO", "X-RAY", "MRI", "MG", "NM", "PT", "RF"]), []);
+  const ULTRASOUND_MODALITIES = useMemo(() => new Set(["US", "USG"]), []);
+
   const xrayStudies = useMemo(() =>
-    dicomStudies.filter((s) => ["XR", "DX", "CR", "CT", "XA", "ANGIO", "X-RAY"].includes(s.modality.toUpperCase())),
-    [dicomStudies],
+    dicomStudies.filter((s) => IMAGING_MODALITIES.has(s.modality.toUpperCase())),
+    [dicomStudies, IMAGING_MODALITIES],
   );
   const ultrasoundStudies = useMemo(() =>
-    dicomStudies.filter((s) => ["US", "USG"].includes(s.modality.toUpperCase())),
-    [dicomStudies],
+    dicomStudies.filter((s) => ULTRASOUND_MODALITIES.has(s.modality.toUpperCase())),
+    [dicomStudies, ULTRASOUND_MODALITIES],
+  );
+  const otherStudies = useMemo(() =>
+    dicomStudies.filter((s) => !IMAGING_MODALITIES.has(s.modality.toUpperCase()) && !ULTRASOUND_MODALITIES.has(s.modality.toUpperCase())),
+    [dicomStudies, IMAGING_MODALITIES, ULTRASOUND_MODALITIES],
   );
 
   const handleSignAndDispatch = async () => {
@@ -607,14 +634,15 @@ export default function ConsultationPage() {
           {/* Diagnostic Reports */}
           <SectionCard
             title="Diagnostic Reports"
-            description={historyLoading ? "Loading..." : `${patientHistory?.diagnosis_reports?.length ?? 0} reports, ${xrayStudies.length} X-rays, ${ultrasoundStudies.length} ultrasounds`}
+            description={historyLoading ? "Loading..." : `${patientHistory?.diagnosis_reports?.length ?? 0} reports, ${dicomStudies.length} imaging studies`}
           >
             <div className="mb-4 flex gap-1 rounded-xl bg-[#F8F9FA] p-1 border border-slate-200/60 w-fit">
               {[
                 { key: "reports" as const, label: "Clinical Reports", count: patientHistory?.diagnosis_reports?.length ?? 0 },
-                { key: "xray" as const, label: "X-Ray Images", count: xrayStudies.length },
-                { key: "ultrasound" as const, label: "Ultrasound Images", count: ultrasoundStudies.length },
-              ].map((tab) => (
+                { key: "xray" as const, label: "Imaging", count: xrayStudies.length },
+                { key: "ultrasound" as const, label: "Ultrasound", count: ultrasoundStudies.length },
+                ...(otherStudies.length > 0 ? [{ key: "other" as const, label: "Other Modalities", count: otherStudies.length }] : []),
+              ].filter((tab) => tab.key === "reports" || tab.count > 0).map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setReportsTab(tab.key)}
@@ -739,7 +767,7 @@ export default function ConsultationPage() {
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                       <circle cx="12" cy="13" r="4" />
                     </svg>
-                    <span className="text-xs text-slate-400">No X-ray images found for this patient</span>
+                    <span className="text-xs text-slate-400">No imaging studies found for this patient</span>
                   </div>
                 )}
               </>
@@ -790,11 +818,59 @@ export default function ConsultationPage() {
                 ) : (
                   <div className="flex flex-col items-center py-6 text-center">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-300 mb-2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                      <path d="M2 12h20" />
+                      <path d="M2 12c0 0 2-4 4-4s4 8 4 8 2-12 4-12 4 8 4 8 2-4 4-4" />
                     </svg>
-                    <span className="text-xs text-slate-400">No ultrasound images found for this patient</span>
+                    <span className="text-xs text-slate-400">No ultrasound studies found for this patient</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {reportsTab === "other" && (
+              <>
+                {dicomLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#0A2540] border-t-transparent" />
+                  </div>
+                ) : otherStudies.length > 0 ? (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200/60">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-[#F8F9FA] border-b border-slate-200/60">
+                          <th className="px-4 py-2.5 font-semibold text-[#0A2540]">Modality</th>
+                          <th className="px-4 py-2.5 font-semibold text-[#0A2540]">Body Part</th>
+                          <th className="px-4 py-2.5 font-semibold text-[#0A2540]">Study Date</th>
+                          <th className="px-4 py-2.5 font-semibold text-[#0A2540]">Description</th>
+                          <th className="px-4 py-2.5 font-semibold text-[#0A2540]">View</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {otherStudies.map((study) => (
+                          <tr key={study.id} className="border-b border-slate-200/60 last:border-0 bg-white hover:bg-[#F8F9FA] transition-colors">
+                            <td className="px-4 py-2.5">
+                              <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[9px] font-bold text-purple-700">{study.modality}</span>
+                            </td>
+                            <td className="px-4 py-2.5 font-medium text-[#0A2540]">{study.body_part || '—'}</td>
+                            <td className="px-4 py-2.5 text-slate-500">
+                              {study.study_date ? new Date(study.study_date).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-500 max-w-[200px] truncate">{study.description || '—'}</td>
+                            <td className="px-4 py-2.5">
+                              <button
+                                onClick={() => setActiveDicomStudy(study)}
+                                className="inline-flex items-center gap-1 rounded-md bg-[#0A2540] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#0A2540]/80 transition-colors"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-6 text-center">
+                    <span className="text-xs text-slate-400">No other imaging studies found for this patient</span>
                   </div>
                 )}
               </>
@@ -1080,8 +1156,9 @@ export default function ConsultationPage() {
                           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Route</label>
                           <select value={med.route} onChange={(e) => updateMedication(idx, "route", e.target.value)}
                             className="w-full rounded-lg border border-slate-200/60 bg-white px-2.5 py-1.5 text-xs text-[#0A2540] outline-none transition-all focus:border-[#0A2540] focus:ring-1 focus:ring-[#0A2540]/20">
-                            {["Oral", "Sublingual", "IV", "IM", "SC", "Topical", "Inhalation", "Rectal", "Intranasal", "Ophthalmic", "Otic"].map((r) => (
-                              <option key={r} value={r}>{r}</option>
+                            <option value="">-- Select route --</option>
+                            {medicationRoutes.map((r) => (
+                              <option key={r.code} value={r.code}>{r.label}</option>
                             ))}
                           </select>
                         </div>

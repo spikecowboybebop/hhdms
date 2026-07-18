@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CaregiverService } from './caregiver.service';
-import { CreateActivityLogDto, CreateConditionReportDto } from './dto';
+import {
+  CreateActivityLogDto,
+  CreateConditionReportDto,
+  CreateCheckInDto,
+  CreateCheckOutDto,
+} from './dto';
 
 @Controller('caregiver')
 @UseGuards(AuthGuard('jwt'))
@@ -81,7 +86,7 @@ export class CaregiverController {
     );
   }
 
-  // ===================== Send Alert (CG-007 - Dummy) =====================
+  // ===================== Send Alert (CG-007) =====================
 
   @Post('condition-reports/:id/alert/:target')
   @HttpCode(HttpStatus.OK)
@@ -95,5 +100,53 @@ export class CaregiverController {
       reportId,
       target,
     );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CG-006: GPS Check-In/Out Endpoints
+  // ══════════════════════════════════════════════════════════════════════════
+
+  @Post('check-in')
+  @HttpCode(HttpStatus.CREATED)
+  async checkIn(@Body() dto: CreateCheckInDto, @Req() req: any) {
+    return this.caregiverService.checkIn(this.getUserId(req), dto);
+  }
+
+  @Post('check-out/:id')
+  @HttpCode(HttpStatus.OK)
+  async checkOut(
+    @Param('id') recordId: string,
+    @Body() dto: CreateCheckOutDto,
+    @Req() req: any,
+  ) {
+    return this.caregiverService.checkOut(this.getUserId(req), recordId, dto);
+  }
+
+  @Get('check-in-out')
+  async getCheckInOuts(
+    @Req() req: any,
+    @Query('patient_id') patientId?: string,
+  ) {
+    return this.caregiverService.getCheckInOuts(
+      this.getUserId(req),
+      patientId,
+    );
+  }
+
+  @Get('check-in-out/today')
+  async getTodayCheckInOut(@Req() req: any) {
+    return this.caregiverService.getTodayCheckInOut(this.getUserId(req));
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CG-008: Timesheet Endpoints
+  // ══════════════════════════════════════════════════════════════════════════
+
+  @Get('timesheets')
+  async getTimesheets(
+    @Req() req: any,
+    @Query('month') month?: string,
+  ) {
+    return this.caregiverService.getTimesheets(this.getUserId(req), month);
   }
 }

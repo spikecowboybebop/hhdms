@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["partialIndexes"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -43,6 +42,7 @@ model User {
   server_notifications    server_notifications[]
   sonologist_profiles     sonologist_profiles?
   specialist_profiles     specialist_profiles?
+  chat_doctor_conversations chat_conversations[]
   role                    Role                   @relation(fields: [roleId], references: [id], onUpdate: NoAction)
 
   @@map("users")
@@ -246,21 +246,21 @@ model diet_template_meals {
 }
 
 model specialist_profiles {
-  user_id             String                 @id @map("user_id") @db.Uuid
-  license_number      String                 @unique @map("license_number") @db.VarChar(50)
-  bmdc_registration   String?                @unique @map("bmdc_registration") @db.VarChar(50)
-  specialty_code      String                 @map("specialty_code") @db.VarChar(20)
-  qualification       String?                @map("qualification") @db.VarChar(255)
-  years_of_experience Int?                   @map("years_of_experience")
-  consultation_fee    Decimal?               @map("consultation_fee") @db.Decimal(10, 2)
-  signature_url       String?                @map("signature_url") @db.VarChar(512)
-  is_available        Boolean                @default(true) @map("is_available")
-  created_at          DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at          DateTime?              @default(now()) @map("updated_at") @db.Timestamptz(6)
-  user                User                   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  assigned_referrals  specialist_referrals[]
-  prescriptions       prescriptions[]
+  user_id             String                   @id @map("user_id") @db.Uuid
+  license_number      String                   @unique @map("license_number") @db.VarChar(50)
+  bmdc_registration   String?                  @unique @map("bmdc_registration") @db.VarChar(50)
+  specialty_code      String                   @map("specialty_code") @db.VarChar(20)
+  qualification       String?                  @map("qualification") @db.VarChar(255)
+  years_of_experience Int?                     @map("years_of_experience")
+  consultation_fee    Decimal?                 @map("consultation_fee") @db.Decimal(10, 2)
+  signature_url       String?                  @map("signature_url") @db.VarChar(512)
+  is_available        Boolean                  @default(true) @map("is_available")
+  created_at          DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at          DateTime?                @default(now()) @map("updated_at") @db.Timestamptz(6)
   test_orders         diagnostic_test_orders[]
+  prescriptions       prescriptions[]
+  user                User                     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  assigned_referrals  specialist_referrals[]
 
   @@map("specialist_profiles")
 }
@@ -340,6 +340,8 @@ model caregiver_profiles {
   condition_reports   caregiver_condition_reports[]
   patient_assignments caregiver_patient_assignments[]
   user                User                            @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  check_in_outs       caregiver_check_in_out[]
+  timesheets          caregiver_timesheets[]
 
   @@map("caregiver_profiles")
 }
@@ -389,6 +391,49 @@ model caregiver_condition_reports {
   @@map("caregiver_condition_reports")
 }
 
+// ══════════════════════════════════════════════════════════════
+// CG-006: GPS Check-In/Out — geofence-verified attendance
+// ══════════════════════════════════════════════════════════════
+model caregiver_check_in_out {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caregiver_id        String             @map("caregiver_id") @db.Uuid
+  patient_id          String             @map("patient_id") @db.Uuid
+  check_in_time       DateTime?          @default(now()) @map("check_in_time") @db.Timestamptz(6)
+  check_out_time      DateTime?          @map("check_out_time") @db.Timestamptz(6)
+  check_in_latitude   Decimal?           @map("check_in_latitude") @db.Decimal(10, 7)
+  check_in_longitude  Decimal?           @map("check_in_longitude") @db.Decimal(10, 7)
+  check_out_latitude  Decimal?           @map("check_out_latitude") @db.Decimal(10, 7)
+  check_out_longitude Decimal?           @map("check_out_longitude") @db.Decimal(10, 7)
+  distance_meters     Decimal?           @map("distance_meters") @db.Decimal(8, 2)
+  status              String             @default("CHECKED_IN") @map("status") @db.VarChar(20)
+  created_at          DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at          DateTime?          @default(now()) @map("updated_at") @db.Timestamptz(6)
+  caregiver           caregiver_profiles @relation(fields: [caregiver_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient             patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("caregiver_check_in_out")
+}
+
+// ══════════════════════════════════════════════════════════════
+// CG-008: Timesheets — auto-generated from GPS check-in/out
+// ══════════════════════════════════════════════════════════════
+model caregiver_timesheets {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caregiver_id  String             @map("caregiver_id") @db.Uuid
+  patient_id    String             @map("patient_id") @db.Uuid
+  shift_date    DateTime?          @default(now()) @map("shift_date") @db.Date
+  check_in_time DateTime?          @map("check_in_time") @db.Timestamptz(6)
+  check_out_time DateTime?         @map("check_out_time") @db.Timestamptz(6)
+  total_hours   Decimal?           @map("total_hours") @db.Decimal(5, 2)
+  service_type  String?            @map("service_type") @db.VarChar(20)
+  status        String             @default("ACTIVE") @map("status") @db.VarChar(20)
+  created_at    DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  caregiver     caregiver_profiles @relation(fields: [caregiver_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient       patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("caregiver_timesheets")
+}
+
 model booking_sessions {
   id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id   String            @map("patient_id") @db.Uuid
@@ -399,44 +444,45 @@ model booking_sessions {
   created_at   DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at   DateTime?         @default(now()) @map("updated_at") @db.Timestamptz(6)
   patient      patients          @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
-  tickets      service_tickets[]
   payments     payments[]
+  tickets      service_tickets[]
 
   @@map("booking_sessions")
 }
 
 model payments {
-  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id               String    @map("patient_id") @db.Uuid
-  booking_session_id       String    @map("booking_session_id") @db.Uuid
-  amount                   Decimal   @map("amount") @db.Decimal(10, 2)
-  currency                 String    @default("BDT") @map("currency") @db.VarChar(10)
-  service_type             String    @map("service_type") @db.VarChar(30)
-  stripe_payment_intent_id String    @unique @map("stripe_payment_intent_id") @db.VarChar(255)
-  stripe_client_secret     String?   @map("stripe_client_secret") @db.VarChar(255)
-  status                   String    @default("pending") @map("status") @db.VarChar(20)
-  completed_at             DateTime? @map("completed_at") @db.Timestamptz(6)
-  created_at               DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  patient                  patients          @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
-  booking_session          booking_sessions  @relation(fields: [booking_session_id], references: [id], onUpdate: NoAction)
+  id                       String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id               String           @map("patient_id") @db.Uuid
+  booking_session_id       String           @map("booking_session_id") @db.Uuid
+  amount                   Decimal          @map("amount") @db.Decimal(10, 2)
+  currency                 String           @default("BDT") @map("currency") @db.VarChar(10)
+  service_type             String           @map("service_type") @db.VarChar(30)
+  stripe_payment_intent_id String           @unique @map("stripe_payment_intent_id") @db.VarChar(255)
+  stripe_client_secret     String?          @map("stripe_client_secret") @db.VarChar(255)
+  status                   String           @default("pending") @map("status") @db.VarChar(20)
+  created_at               DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  completed_at             DateTime?        @map("completed_at") @db.Timestamptz(6)
+  booking_session          booking_sessions @relation(fields: [booking_session_id], references: [id], onUpdate: NoAction)
+  patient                  patients         @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
 
   @@map("payments")
 }
 
 model service_tickets {
-  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id           String                   @map("session_id") @db.Uuid
-  ticket_no            String                   @unique @map("ticket_no") @db.VarChar(50)
-  service_type         String                   @map("service_type") @db.VarChar(30)
-  scheduled_date       DateTime?                @map("scheduled_date") @db.Date
-  scheduled_time_slot  String?                  @map("scheduled_time_slot") @db.VarChar(20)
-  assigned_provider_id String?                  @map("assigned_provider_id") @db.Uuid
-  price                Decimal?                 @map("price") @db.Decimal(10, 2)
-  status               String                   @default("PENDING") @map("status") @db.VarChar(20)
-  created_at           DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at           DateTime?                @default(now()) @map("updated_at") @db.Timestamptz(6)
-  session              booking_sessions         @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  details              ticket_specific_details?
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                String                      @map("session_id") @db.Uuid
+  ticket_no                 String                      @unique @map("ticket_no") @db.VarChar(50)
+  service_type              String                      @map("service_type") @db.VarChar(30)
+  scheduled_date            DateTime?                   @map("scheduled_date") @db.Date
+  scheduled_time_slot       String?                     @map("scheduled_time_slot") @db.VarChar(20)
+  assigned_provider_id      String?                     @map("assigned_provider_id") @db.Uuid
+  price                     Decimal?                    @map("price") @db.Decimal(10, 2)
+  status                    String                      @default("PENDING") @map("status") @db.VarChar(20)
+  created_at                DateTime?                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at                DateTime?                   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  session                   booking_sessions            @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  teleconsultation_sessions teleconsultation_sessions[]
+  details                   ticket_specific_details?
 
   @@map("service_tickets")
 }
@@ -498,13 +544,17 @@ model patients {
   documents                    patient_documents[]
   vital_signs                  patient_vital_signs[]
   user                         User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  prescriptions                prescriptions[]
   payments                     payments[]
+  prescriptions                prescriptions[]
   referral_chain_events        referral_chain[]
   sonologist_reports           sonologist_reports[]
   sonologist_studies           sonologist_studies[]
-  referrals                    specialist_referrals[]
    dicom_studies                specialist_dicom_studies[]
+  referrals                    specialist_referrals[]
+  teleconsultation_sessions    teleconsultation_sessions[]
+  chat_patient_conversations   chat_conversations[]
+  caregiver_check_in_outs      caregiver_check_in_out[]
+  caregiver_timesheets         caregiver_timesheets[]
 
   @@map("patients")
 }
@@ -549,9 +599,40 @@ model doctor_patient_assignments {
   patient_consent      String?              @map("patient_consent") @db.VarChar(10)
   doctor               mbbs_doctor_profiles @relation(fields: [doctor_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
   patient              patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  chat_conversation    chat_conversations?
 
   @@unique([doctor_id, patient_id])
   @@map("doctor_patient_assignments")
+}
+
+model chat_conversations {
+  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id   String                      @unique @map("assignment_id") @db.Uuid
+  doctor_id       String                      @map("doctor_id") @db.Uuid
+  patient_id      String                      @map("patient_id") @db.Uuid
+  created_at      DateTime?                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at      DateTime?                   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  messages        chat_messages[]
+  assignment      doctor_patient_assignments  @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  doctor          User                        @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  patient         patients                    @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+
+  @@index([doctor_id])
+  @@index([patient_id])
+  @@map("chat_conversations")
+}
+
+model chat_messages {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String             @map("conversation_id") @db.Uuid
+  sender_id       String             @map("sender_id") @db.Uuid
+  content         String             @db.Text
+  read            Boolean            @default(false)
+  created_at      DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  conversation    chat_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id, created_at])
+  @@map("chat_messages")
 }
 
 model patient_vital_signs {
@@ -633,9 +714,9 @@ model diagnostic_test_orders {
   specialist_id  String?                   @map("specialist_id") @db.Uuid
   doctor         mbbs_doctor_profiles?     @relation(fields: [doctor_id], references: [user_id], onUpdate: NoAction)
   patient        patients                  @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  specialist     specialist_profiles?      @relation(fields: [specialist_id], references: [user_id], onUpdate: NoAction)
   test           diagnostic_test_catalog   @relation(fields: [test_id], references: [id], onUpdate: NoAction)
   results        diagnostic_test_results[]
-  specialist     specialist_profiles?      @relation(fields: [specialist_id], references: [user_id], onUpdate: NoAction)
 
   @@map("diagnostic_test_orders")
 }
@@ -656,22 +737,23 @@ model diagnostic_test_results {
 }
 
 model specialist_referrals {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id          String               @map("patient_id") @db.Uuid
-  referring_doctor_id String               @map("referring_doctor_id") @db.Uuid
-  specialty_code      String               @map("specialty_code") @db.VarChar(20)
-  referral_reason     String               @map("referral_reason")
-  clinical_summary    String?              @map("clinical_summary")
-  is_emergency        Boolean              @default(false) @map("is_emergency")
-  status              ReferralStatusEnum   @default(PENDING)
-  specialist_id       String?              @map("specialist_id") @db.Uuid
-  response_notes      String?              @map("response_notes")
-  created_at          DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at          DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
-  patient             patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  referring_doctor    mbbs_doctor_profiles @relation(fields: [referring_doctor_id], references: [user_id], onUpdate: NoAction)
-  specialist          specialist_profiles? @relation(fields: [specialist_id], references: [user_id], onUpdate: NoAction)
-  reports             specialist_reports[]
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id                String                      @map("patient_id") @db.Uuid
+  referring_doctor_id       String                      @map("referring_doctor_id") @db.Uuid
+  specialty_code            String                      @map("specialty_code") @db.VarChar(20)
+  referral_reason           String                      @map("referral_reason")
+  clinical_summary          String?                     @map("clinical_summary")
+  is_emergency              Boolean                     @default(false) @map("is_emergency")
+  status                    ReferralStatusEnum          @default(PENDING)
+  specialist_id             String?                     @map("specialist_id") @db.Uuid
+  response_notes            String?                     @map("response_notes")
+  created_at                DateTime?                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at                DateTime?                   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  patient                   patients                    @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  referring_doctor          mbbs_doctor_profiles        @relation(fields: [referring_doctor_id], references: [user_id], onUpdate: NoAction)
+  specialist                specialist_profiles?        @relation(fields: [specialist_id], references: [user_id], onUpdate: NoAction)
+  reports                   specialist_reports[]
+  teleconsultation_sessions teleconsultation_sessions[]
 
   @@map("specialist_referrals")
 }
@@ -693,19 +775,19 @@ model specialist_dicom_studies {
 model prescriptions {
   id                    String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id            String                     @map("patient_id") @db.Uuid
-  provider_type         ProviderTypeEnum           @default(MBBS) @map("provider_type")
   doctor_id             String?                    @map("doctor_id") @db.Uuid
-  specialist_id         String?                    @map("specialist_id") @db.Uuid
   diagnosis_id          String?                    @map("diagnosis_id") @db.Uuid
   notes                 String?
   digital_signature_url String?                    @map("digital_signature_url") @db.VarChar(512)
   status                PrescriptionStatusEnum     @default(ACTIVE)
   issued_at             DateTime?                  @default(now()) @map("issued_at") @db.Timestamptz(6)
   expires_at            DateTime?                  @map("expires_at") @db.Timestamptz(6)
+  provider_type         ProviderTypeEnum           @default(MBBS) @map("provider_type")
+  specialist_id         String?                    @map("specialist_id") @db.Uuid
   medications           prescription_medications[]
   doctor                mbbs_doctor_profiles?      @relation(fields: [doctor_id], references: [user_id], onUpdate: NoAction)
-  specialist            specialist_profiles?       @relation(fields: [specialist_id], references: [user_id], onUpdate: NoAction)
   patient               patients                   @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  specialist            specialist_profiles?       @relation(fields: [specialist_id], references: [user_id], onUpdate: NoAction)
 
   @@map("prescriptions")
 }
@@ -758,29 +840,65 @@ model referral_chain {
 }
 
 model specialty_templates {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  specialty_code String   @map("specialty_code") @db.VarChar(20)
-  template_name  String   @map("template_name") @db.VarChar(200)
-  description    String?  @db.VarChar(500)
-  schema         Json     @map("schema")
-  is_active      Boolean  @default(true) @map("is_active")
-  created_at     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  specialty_code String               @map("specialty_code") @db.VarChar(20)
+  template_name  String               @map("template_name") @db.VarChar(200)
+  description    String?              @db.VarChar(500)
+  schema         Json                 @map("schema")
+  is_active      Boolean              @default(true) @map("is_active")
+  created_at     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at     DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
   reports        specialist_reports[]
 
   @@map("specialty_templates")
 }
 
 model specialist_reports {
-  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  referral_id String                @map("referral_id") @db.Uuid
-  template_id String                @map("template_id") @db.Uuid
-  form_data   Json                  @map("form_data")
-  created_at  DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  referral    specialist_referrals  @relation(fields: [referral_id], references: [id], onDelete: Cascade)
-  template    specialty_templates   @relation(fields: [template_id], references: [id])
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referral_id String               @map("referral_id") @db.Uuid
+  template_id String               @map("template_id") @db.Uuid
+  form_data   Json                 @map("form_data")
+  created_at  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  referral    specialist_referrals @relation(fields: [referral_id], references: [id], onDelete: Cascade)
+  template    specialty_templates  @relation(fields: [template_id], references: [id])
 
   @@map("specialist_reports")
+}
+
+model teleconsultation_events {
+  id                        String                    @id @db.Uuid
+  session_id                String                    @db.Uuid
+  event_type                String                    @db.VarChar(50)
+  actor_id                  String?                   @db.Uuid
+  actor_role                String?                   @db.VarChar(50)
+  metadata                  Json?
+  created_at                DateTime?                 @default(now()) @db.Timestamptz(6)
+  teleconsultation_sessions teleconsultation_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@index([event_type])
+  @@index([session_id])
+}
+
+model teleconsultation_sessions {
+  id                      String                    @id @db.Uuid
+  referral_id             String?                   @db.Uuid
+  service_ticket_id       String?                   @db.Uuid
+  patient_id              String                    @db.Uuid
+  initiator_id            String?                   @db.Uuid
+  initiator_role          String                    @default("SPECIALIST") @db.VarChar(50)
+  room_name               String                    @unique @db.VarChar(255)
+  room_url                String                    @db.VarChar(512)
+  meter_room_id           String?                   @db.VarChar(255)
+  status                  String                    @default("PENDING") @db.VarChar(50)
+  started_at              DateTime?                 @db.Timestamptz(6)
+  ended_at                DateTime?                 @db.Timestamptz(6)
+  duration_seconds        Int?
+  created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  teleconsultation_events teleconsultation_events[]
+  patients                patients                  @relation(fields: [patient_id], references: [id])
+  specialist_referrals    specialist_referrals?     @relation(fields: [referral_id], references: [id])
+  service_tickets         service_tickets?          @relation(fields: [service_ticket_id], references: [id])
 }
 
 enum TestOrderStatusEnum {
@@ -818,6 +936,16 @@ enum ProviderTypeEnum {
   @@map("provider_type_enum")
 }
 
+model medication_routes {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  label     String   @db.VarChar(100)
+  is_active Boolean  @default(true)
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("medication_routes")
+}
+
 enum AccountStatusEnum {
   ACTIVE
   INACTIVE
@@ -825,5 +953,3 @@ enum AccountStatusEnum {
 
   @@map("account_status_enum")
 }
-
-

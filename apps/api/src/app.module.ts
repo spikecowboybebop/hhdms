@@ -14,6 +14,7 @@ import { SonologistModule } from './sonologist/sonologist.module';
 import { ProvidersModule } from './providers/providers.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
+import { ChatModule } from './chat/chat.module';
 import { VideoCallModule } from './video-call/video-call.module';
 
 @Module({
@@ -30,7 +31,6 @@ import { VideoCallModule } from './video-call/video-call.module';
     ProvidersModule,
     NotificationsModule,
     PaymentsModule,
-    VideoCallModule,
   ],
   controllers: [AppController],
   providers: [AppService, CallGateway],

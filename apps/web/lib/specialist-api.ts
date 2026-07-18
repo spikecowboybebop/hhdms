@@ -247,9 +247,19 @@ export interface SpecialistReportItem {
   findings: string;
 }
 
+export interface MedicationRoute {
+  id: string;
+  code: string;
+  label: string;
+  is_active: boolean;
+}
+
 // ── API methods ────────────────────────────────────────────────────
 
 export const specialistApi = {
+  getRoutes: () =>
+    apiFetch<MedicationRoute[]>('/api/specialist/routes'),
+
   getTemplates: (specialtyCode: string) =>
     apiFetch<SpecialtyTemplate[]>(
       `/api/specialist/templates?specialtyCode=${encodeURIComponent(specialtyCode)}`,
