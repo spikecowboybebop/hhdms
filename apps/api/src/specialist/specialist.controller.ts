@@ -32,6 +32,12 @@ export class SpecialistController {
     return req.user?.sub;
   }
 
+  @Get('routes')
+  @UseGuards(AuthGuard('jwt'))
+  async getMedicationRoutes() {
+    return this.specialistService.getMedicationRoutes();
+  }
+
   @Get('referrals')
   @UseGuards(AuthGuard('jwt'))
   async getIncomingReferrals(@Req() req: any) {

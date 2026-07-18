@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["partialIndexes"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -554,20 +553,8 @@ model patients {
   referrals                    specialist_referrals[]
   teleconsultation_sessions    teleconsultation_sessions[]
   chat_patient_conversations   chat_conversations[]
-  documents                    patient_documents[]
-  caregiver_assignments        caregiver_patient_assignments[]
-  caregiver_activity_logs      caregiver_activity_logs[]
-  caregiver_condition_reports  caregiver_condition_reports[]
   caregiver_check_in_outs      caregiver_check_in_out[]
   caregiver_timesheets         caregiver_timesheets[]
-  nutritionist_diet_plans      nutritionist_diet_plans[]
-  nutritionist_follow_ups      nutritionist_follow_ups[]
-  nutritionist_adherence_logs  nutritionist_adherence_logs[]
-  nutritionist_anthropometrics nutritionist_anthropometric_records[]
-  bookingSessions              booking_sessions[]
-  user                         User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  sonologist_studies           sonologist_studies[]
-  sonologist_reports           sonologist_reports[]
 
   @@map("patients")
 }
@@ -947,6 +934,16 @@ enum ProviderTypeEnum {
   SPECIALIST
 
   @@map("provider_type_enum")
+}
+
+model medication_routes {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  label     String   @db.VarChar(100)
+  is_active Boolean  @default(true)
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("medication_routes")
 }
 
 enum AccountStatusEnum {

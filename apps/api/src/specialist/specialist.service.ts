@@ -311,6 +311,13 @@ export class SpecialistService {
     }));
   }
 
+  async getMedicationRoutes() {
+    return this.prisma.medication_routes.findMany({
+      where: { is_active: true },
+      orderBy: { code: 'asc' },
+    });
+  }
+
   async completeReferral(specialistUserId: string, dto: CompleteReferralDto) {
     const specialist = await this.resolveSpecialistProfile(specialistUserId);
     if (!specialist)

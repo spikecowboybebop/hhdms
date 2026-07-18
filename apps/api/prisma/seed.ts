@@ -796,6 +796,30 @@ async function main() {
     },
   });
   console.log('  Done: USG studies seeded');
+
+  // ── Seed Medication Routes ───────────────────────────────
+  console.log('Seeding medication routes...');
+  const routeData = [
+    { code: 'Oral', label: 'Oral' },
+    { code: 'Sublingual', label: 'Sublingual' },
+    { code: 'IV', label: 'Intravenous (IV)' },
+    { code: 'IM', label: 'Intramuscular (IM)' },
+    { code: 'SC', label: 'Subcutaneous (SC)' },
+    { code: 'Topical', label: 'Topical' },
+    { code: 'Inhalation', label: 'Inhalation' },
+    { code: 'Rectal', label: 'Rectal' },
+    { code: 'Intranasal', label: 'Intranasal' },
+    { code: 'Ophthalmic', label: 'Ophthalmic' },
+    { code: 'Otic', label: 'Otic' },
+  ];
+  for (const route of routeData) {
+    await prisma.medication_routes.upsert({
+      where: { code: route.code },
+      update: { label: route.label },
+      create: route,
+    });
+  }
+  console.log('  Done: Medication routes seeded');
 }
 
 main()

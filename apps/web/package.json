@@ -5,12 +5,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000 --webpack",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@cornerstonejs/metadata": "^5.6.7",
     "@repo/ui": "*",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",

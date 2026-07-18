@@ -489,7 +489,7 @@ export default function PatientRegistrationModal({ open, patientPhone, callerNam
     }
     const day = new Date(newDate).getDay();
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0] ?? "";
     const dateParam = newDate > today ? newDate : today;
     mbbsApi.getAvailableProviders({ serviceType: "MBBS", district: form.district, thana: form.thana || undefined, date: dateParam }).then((data) => {
       setMbbsDoctors(data.providers.filter((p) => p.schedules.some((s) => s.dayOfWeek === day)));

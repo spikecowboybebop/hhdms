@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { init as csInit, RenderingEngine, StackViewport, getRenderingEngine } from "@cornerstonejs/core";
+import { init as csInit, RenderingEngine, StackViewport } from "@cornerstonejs/core";
 import { ViewportType } from "@cornerstonejs/core/enums";
 import { init as dicomImageLoaderInit } from "@cornerstonejs/dicom-image-loader";
 import { DicomViewerToolbar } from "./dicom-viewer-toolbar";
@@ -49,6 +49,7 @@ export function DicomViewer({ study, onClose }: DicomViewerProps) {
   const [initError, setInitError] = useState<string | null>(null);
   const [annotationCount, setAnnotationCount] = useState(0);
   const initializedRef = useRef(false);
+  const engineIdRef = useRef(`${RENDERING_ENGINE_ID}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
 
   const annotationManagerRef = useRef<AnnotationManager>(new AnnotationManager());
 
@@ -117,10 +118,7 @@ export function DicomViewer({ study, onClose }: DicomViewerProps) {
 
         if (cancelled || !elementRef.current) return;
 
-        let renderingEngine = getRenderingEngine(RENDERING_ENGINE_ID);
-        if (!renderingEngine) {
-          renderingEngine = new RenderingEngine(RENDERING_ENGINE_ID);
-        }
+        const renderingEngine = new RenderingEngine(engineIdRef.current);
         renderingEngineRef.current = renderingEngine;
 
         const viewportInput = {
