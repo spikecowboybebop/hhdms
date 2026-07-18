@@ -850,7 +850,7 @@ async function main() {
 
   const bookingData: { mrn: string; daysAgo: number; type: string }[] = [
     { mrn: 'NUT-DM-001', daysAgo: 90, type: 'HOME_VISIT' },
-    { mrn: 'NUT-CKD-001', daysAgo: 60, type: 'TELECONSULTATION' },
+    { mrn: 'NUT-CKD-001', daysAgo: 60, type: 'HOME_VISIT' },
     { mrn: 'NUT-OBE-001', daysAgo: 30, type: 'HOME_VISIT' },
   ];
 
@@ -873,7 +873,7 @@ async function main() {
           ticket_no: `NUT-DEMO-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           service_type: 'NUTRITIONIST',
           scheduled_date: new Date(Date.now() - b.daysAgo * 24 * 60 * 60 * 1000),
-          scheduled_time_slot: b.type === 'TELECONSULTATION' ? 'VIRTUAL' : 'HOME_VISIT',
+          scheduled_time_slot: 'HOME_VISIT',
           assigned_provider_id: nutritionistUserId,
           price: 500,
           status: 'COMPLETED',

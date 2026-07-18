@@ -19,7 +19,7 @@ const services = [
     description:
       "Access specialists across Pulmonology, Cardiology, Neurology, Nephrology, Dermatology, ENT, General Surgery, Gynaecology, Internal Medicine, Pain Management, and Oncology.",
     features: [
-      "Home visit or teleconsultation",
+      "Home visit consultations",
       "DICOM imaging annotation",
       "Specialty-specific templates",
       "Follow-up scheduling",

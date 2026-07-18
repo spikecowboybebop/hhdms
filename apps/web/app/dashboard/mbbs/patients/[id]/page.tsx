@@ -27,23 +27,24 @@ import {
   type CreateVitalsPayload,
   type TestCatalogItem,
 } from "@/lib/mbbs-api";
+import { specialistApi } from "@/lib/specialist-api";
 const DownloadPrescriptionBtn = dynamic(
   () => import("@/components/mbbs/download-prescription"),
   { ssr: false }
 );
 
 const SPECIALTIES = [
-  { code: 'CARDIOLOGY', label: 'Cardiology' },
-  { code: 'PULMONOLOGY', label: 'Pulmonology' },
-  { code: 'NEUROLOGY', label: 'Neurology' },
-  { code: 'NEPHROLOGY', label: 'Nephrology' },
-  { code: 'GASTROENTEROLOGY', label: 'Gastroenterology' },
-  { code: 'ENDOCRINOLOGY', label: 'Endocrinology' },
-  { code: 'RHEUMATOLOGY', label: 'Rheumatology' },
-  { code: 'DERMATOLOGY', label: 'Dermatology' },
-  { code: 'PSYCHIATRY', label: 'Psychiatry' },
-  { code: 'ONCOLOGY', label: 'Oncology' },
-  { code: 'ORTHOPEDICS', label: 'Orthopedics' },
+  { code: 'CARD', label: 'Cardiology' },
+  { code: 'PULM', label: 'Pulmonology' },
+  { code: 'NEURO', label: 'Neurology' },
+  { code: 'NEPH', label: 'Nephrology' },
+  { code: 'DERM', label: 'Dermatology' },
+  { code: 'ENT', label: 'ENT' },
+  { code: 'SURG', label: 'General Surgery' },
+  { code: 'GYNEC', label: 'Gynecology & Obstetrics' },
+  { code: 'INTERN', label: 'Internal Medicine' },
+  { code: 'PAIN', label: 'Pain Management' },
+  { code: 'ONCO', label: 'Oncology' },
 ];
 
 const navItems: DashboardNavItem[] = [
@@ -54,27 +55,6 @@ const navItems: DashboardNavItem[] = [
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 11l3 3L22 4" />
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    label: "Active Consults",
-    href: "/dashboard/mbbs",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: "My Schedule",
-    href: "/dashboard/mbbs",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
       </svg>
     ),
   },
@@ -94,6 +74,7 @@ export default function MbbsPatientDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('vitals');
   const [actionLoading, setActionLoading] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Diagnosis form state
@@ -111,6 +92,13 @@ export default function MbbsPatientDetailPage() {
 
   // Referral state
   const [refSpecialty, setRefSpecialty] = useState('');
+  const [refSpecialistId, setRefSpecialistId] = useState('');
+  const [availableSpecialists, setAvailableSpecialists] = useState<Array<{
+    user_id: string;
+    first_name_en: string;
+    last_name_en: string;
+    qualification: string;
+  }>>([]);
   const [refReason, setRefReason] = useState('');
   const [refSummary, setRefSummary] = useState('');
   const [refEmergency, setRefEmergency] = useState(false);
@@ -183,6 +171,18 @@ export default function MbbsPatientDetailPage() {
     window.addEventListener('hashchange', applyHash);
     return () => window.removeEventListener('hashchange', applyHash);
   }, [patientId]);
+
+  // Fetch available specialists when specialty changes
+  useEffect(() => {
+    if (!refSpecialty) {
+      setAvailableSpecialists([]);
+      setRefSpecialistId('');
+      return;
+    }
+    specialistApi.getSpecialistsBySpecialty(refSpecialty)
+      .then((data) => { setAvailableSpecialists(data); setRefSpecialistId(''); })
+      .catch(() => setAvailableSpecialists([]));
+  }, [refSpecialty]);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -284,9 +284,11 @@ export default function MbbsPatientDetailPage() {
         referral_reason: refReason,
         clinical_summary: refSummary,
         is_emergency: refEmergency,
+        specialist_id: refSpecialistId || undefined,
       });
       showSuccess('Referral created successfully.');
-      setRefSpecialty(''); setRefReason(''); setRefSummary(''); setRefEmergency(false);
+      setRefSpecialty(''); setRefSpecialistId(''); setRefReason(''); setRefSummary(''); setRefEmergency(false);
+      setAvailableSpecialists([]);
       await loadProfile();
     } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message);
@@ -400,32 +402,6 @@ export default function MbbsPatientDetailPage() {
       {/* Patient Header */}
       <PatientHeader patient={profile.patient} />
 
-      {/* Start Visit Banner */}
-      {!profile.patient.has_emergency_flag && (
-        <div className="mb-4">
-          <button
-            onClick={async () => {
-              setActionLoading(true);
-              try {
-                const res = await mbbsApi.startVisit(patientId);
-                showSuccess(`Visit started — ${res.doctor_name} is on the way.`);
-              } catch (err: any) {
-                setError(err.message || 'Failed to start visit.');
-              } finally {
-                setActionLoading(false);
-              }
-            }}
-            disabled={actionLoading}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#00D4B2] px-5 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md disabled:opacity-60"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-            {actionLoading ? 'Starting Visit...' : 'Start Visit — Notify Patient'}
-          </button>
-        </div>
-      )}
 
       {/* Emergency Flag Button */}
       {!profile.patient.has_emergency_flag && (
@@ -440,6 +416,58 @@ export default function MbbsPatientDetailPage() {
           </button>
         </div>
       )}
+
+      {/* Generate Clinical Report + End Appointment */}
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          onClick={async () => {
+            setGeneratingReport(true);
+            setError(null);
+            try {
+              await mbbsApi.generateReport(patientId);
+              showSuccess('Report generated. Notification sent to patient\'s app.');
+            } catch (err: any) {
+              setError(err.message || 'Failed to generate report.');
+            } finally {
+              setGeneratingReport(false);
+            }
+          }}
+          disabled={generatingReport}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#0A2540] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0A2540]/90 hover:shadow-md disabled:opacity-60"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          {generatingReport ? 'Generating Report...' : 'Generate Clinical Report'}
+        </button>
+        <button
+          onClick={async () => {
+            setActionLoading(true);
+            try {
+              await mbbsApi.endVisit(patientId);
+              showSuccess('Appointment ended.');
+              router.push('/dashboard/mbbs');
+            } catch (err: any) {
+              setError(err.message || 'Failed to end appointment.');
+            } finally {
+              setActionLoading(false);
+            }
+          }}
+          disabled={actionLoading}
+          className="inline-flex items-center gap-2 rounded-xl border-2 border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-600 transition-all hover:bg-red-100 hover:border-red-400 disabled:opacity-60"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+          </svg>
+          End Appointment
+        </button>
+      </div>
 
       {/* Tab Navigation */}
       <div className="mt-6 flex gap-1 overflow-x-auto rounded-xl border border-slate-200/60 bg-white p-1">
@@ -891,6 +919,29 @@ export default function MbbsPatientDetailPage() {
                     ))}
                   </select>
                 </div>
+                {refSpecialty && (
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">
+                      Specialist *
+                    </label>
+                    <select
+                      value={refSpecialistId}
+                      onChange={(e) => setRefSpecialistId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200/60 px-3 py-2 text-sm text-[#0A2540] outline-none focus:border-[#0A2540] focus:ring-2 focus:ring-[#00D4B2]/20"
+                    >
+                      <option value="">Select a specialist...</option>
+                      {availableSpecialists.length === 0 ? (
+                        <option value="" disabled>No specialists available</option>
+                      ) : (
+                        availableSpecialists.map((s) => (
+                          <option key={s.user_id} value={s.user_id}>
+                            Dr. {s.first_name_en} {s.last_name_en} — {s.qualification}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#2D3A4A] mb-1">
                     Referral Reason *

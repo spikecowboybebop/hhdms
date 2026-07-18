@@ -259,6 +259,55 @@ async function main() {
   );
   console.log('  Done: nusrat (Specialist)');
 
+  // --- Dr. Kamal (Specialist - Neurology) ---
+  console.log('Creating dr.kamal@hhdms.com (Specialist)...');
+  const kamal = await prisma.user.upsert({
+    where: { email: 'dr.kamal@hhdms.com' },
+    update: { passwordHash, roleId: specRole.id, phoneNumber: '+8801700000008', firstNameEn: 'Kamal', lastNameEn: 'Hassan', firstNameBn: 'কামাল', status: 'ACTIVE' },
+    create: { email: 'dr.kamal@hhdms.com', passwordHash, phoneNumber: '+8801700000008', firstNameEn: 'Kamal', lastNameEn: 'Hassan', firstNameBn: 'কামাল', roleId: specRole.id, status: 'ACTIVE' },
+  });
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO specialist_profiles (user_id, license_number, bmdc_registration, specialty_code, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, bmdc_registration=$3, specialty_code=$4, qualification=$5, years_of_experience=$6, consultation_fee=$7, is_available=$8`,
+    kamal.id, 'BMDC-2024-S02', 'BMDC-REG-2024-S02', 'NEURO', 'MBBS, FCPS (Neurology), MD (Neurology)', 10, 1800.0, true
+  );
+  console.log('  Done: kamal (Specialist)');
+
+  // --- Remaining 9 Specialist Categories ---
+  console.log('\nCreating additional specialist categories...');
+
+  interface SpecialistSeed {
+    email: string; phone: string; firstNameEn: string; lastNameEn: string; firstNameBn: string;
+    license: string; bmdcReg: string; specialtyCode: string; qualification: string;
+    exp: number; fee: number;
+  }
+
+  const additionalSpecialists: SpecialistSeed[] = [
+    { email: 'dr.ashfaq@hhdms.com', phone: '+8801700000036', firstNameEn: 'Ashfaq', lastNameEn: 'Rahman', firstNameBn: 'আশফাক', license: 'BMDC-2024-S03', bmdcReg: 'BMDC-REG-2024-S03', specialtyCode: 'PULM', qualification: 'MBBS, FCPS (Chest Medicine), MD (Pulmonology)', exp: 9, fee: 1600.0 },
+    { email: 'dr.ayesha@hhdms.com', phone: '+8801700000037', firstNameEn: 'Ayesha', lastNameEn: 'Sultana', firstNameBn: 'আয়েশা', license: 'BMDC-2024-S04', bmdcReg: 'BMDC-REG-2024-S04', specialtyCode: 'NEPH', qualification: 'MBBS, FCPS (Nephrology), MD (Nephrology)', exp: 8, fee: 1700.0 },
+    { email: 'dr.farida@hhdms.com', phone: '+8801700000038', firstNameEn: 'Farida', lastNameEn: 'Begum', firstNameBn: 'ফরিদা', license: 'BMDC-2024-S05', bmdcReg: 'BMDC-REG-2024-S05', specialtyCode: 'DERM', qualification: 'MBBS, DDV, FCPS (Dermatology)', exp: 7, fee: 1400.0 },
+    { email: 'dr.tariq@hhdms.com', phone: '+8801700000041', firstNameEn: 'Tariq', lastNameEn: 'Islam', firstNameBn: 'তারিক', license: 'BMDC-2024-S06', bmdcReg: 'BMDC-REG-2024-S06', specialtyCode: 'ENT', qualification: 'MBBS, DLO, FCPS (ENT)', exp: 11, fee: 1300.0 },
+    { email: 'dr.imran@hhdms.com', phone: '+8801700000042', firstNameEn: 'Imran', lastNameEn: 'Hossain', firstNameBn: 'ইমরান', license: 'BMDC-2024-S07', bmdcReg: 'BMDC-REG-2024-S07', specialtyCode: 'SURG', qualification: 'MBBS, MS (General Surgery), FCPS (Surgery)', exp: 14, fee: 2000.0 },
+    { email: 'dr.khadija@hhdms.com', phone: '+8801700000043', firstNameEn: 'Khadija', lastNameEn: 'Akhter', firstNameBn: 'খাদিজা', license: 'BMDC-2024-S08', bmdcReg: 'BMDC-REG-2024-S08', specialtyCode: 'GYNEC', qualification: 'MBBS, DGO, FCPS (OBGYN)', exp: 10, fee: 1900.0 },
+    { email: 'dr.mahmud@hhdms.com', phone: '+8801700000044', firstNameEn: 'Mahmud', lastNameEn: 'Hasan', firstNameBn: 'মাহমুদ', license: 'BMDC-2024-S09', bmdcReg: 'BMDC-REG-2024-S09', specialtyCode: 'INTERN', qualification: 'MBBS, MD (Internal Medicine), FCPS (Medicine)', exp: 13, fee: 1500.0 },
+    { email: 'dr.sabrina@hhdms.com', phone: '+8801700000045', firstNameEn: 'Sabrina', lastNameEn: 'Khan', firstNameBn: 'সাবরিনা', license: 'BMDC-2024-S10', bmdcReg: 'BMDC-REG-2024-S10', specialtyCode: 'PAIN', qualification: 'MBBS, MD (Pain Management), DA', exp: 6, fee: 1600.0 },
+    { email: 'dr.munir@hhdms.com', phone: '+8801700000046', firstNameEn: 'Munir', lastNameEn: 'Hossain', firstNameBn: 'মুনির', license: 'BMDC-2024-S11', bmdcReg: 'BMDC-REG-2024-S11', specialtyCode: 'ONCO', qualification: 'MBBS, MD (Oncology), FCPS (Oncology)', exp: 11, fee: 2200.0 },
+  ];
+
+  const INSERT_SPECIALIST = `INSERT INTO specialist_profiles (user_id, license_number, bmdc_registration, specialty_code, qualification, years_of_experience, consultation_fee, is_available) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (user_id) DO UPDATE SET license_number=$2, bmdc_registration=$3, specialty_code=$4, qualification=$5, years_of_experience=$6, consultation_fee=$7, is_available=$8`;
+
+  const createdSpecialists: { id: string; email: string }[] = [];
+  for (const s of additionalSpecialists) {
+    const user = await prisma.user.upsert({
+      where: { email: s.email },
+      update: { passwordHash, roleId: specRole.id, phoneNumber: s.phone, firstNameEn: s.firstNameEn, lastNameEn: s.lastNameEn, firstNameBn: s.firstNameBn, status: 'ACTIVE' },
+      create: { email: s.email, passwordHash, phoneNumber: s.phone, firstNameEn: s.firstNameEn, lastNameEn: s.lastNameEn, firstNameBn: s.firstNameBn, roleId: specRole.id, status: 'ACTIVE' },
+    });
+    await prisma.$executeRawUnsafe(INSERT_SPECIALIST, user.id, s.license, s.bmdcReg, s.specialtyCode, s.qualification, s.exp, s.fee, true);
+    createdSpecialists.push({ id: user.id, email: s.email });
+    console.log(`  ${s.email} — ${s.specialtyCode}`);
+  }
+  console.log(`  Done: ${additionalSpecialists.length} additional specialists`);
+
   // --- Provider Schedules ---
   console.log('Seeding provider schedules...');
 
@@ -319,9 +368,11 @@ async function main() {
   // --- Verify ---
   const count = await prisma.user.count();
   const mbbsCount = await prisma.mbbs_doctor_profiles.count();
+  const specialistCount = await prisma.specialist_profiles.count();
   const scheduleCount = await prisma.provider_schedules.count();
   console.log(`\nSeed complete! Total users: ${count}`);
   console.log(`  MBBS Doctors: ${mbbsCount}`);
+  console.log(`  Specialists: ${specialistCount} (11 categories)`);
   console.log(`  Schedule entries: ${scheduleCount}`);
   console.log('  dr.arif@hhdms.com / Password2026! (MBBS Doctor, Gulshan/Dhaka) — Assigned: Rahim, Fatema');
   console.log('  dr.farzana@hhdms.com / Password2026! (MBBS Doctor, Mirpur/Dhaka)');
@@ -330,7 +381,17 @@ async function main() {
   console.log('  dr.mehedi@hhdms.com / Password2026! (MBBS Doctor, Mirpur/Dhaka)');
   console.log(`  + ${additionalDoctors.length} additional MBBS doctors across all divisions`);
   console.log('  nutritionist.tanvir@hhdms.com / Password2026! (Nutritionist)');
-  console.log('  dr.nusrat@hhdms.com / Password2026! (Specialist)');
+  console.log('  dr.nusrat@hhdms.com / Password2026! (Specialist - CARD)');
+  console.log('  dr.kamal@hhdms.com / Password2026! (Specialist - NEURO)');
+  console.log('  dr.ashfaq@hhdms.com / Password2026! (Specialist - PULM)');
+  console.log('  dr.ayesha@hhdms.com / Password2026! (Specialist - NEPH)');
+  console.log('  dr.farida@hhdms.com / Password2026! (Specialist - DERM)');
+  console.log('  dr.tariq@hhdms.com / Password2026! (Specialist - ENT)');
+  console.log('  dr.imran@hhdms.com / Password2026! (Specialist - SURG)');
+  console.log('  dr.khadija@hhdms.com / Password2026! (Specialist - GYNEC)');
+  console.log('  dr.mahmud@hhdms.com / Password2026! (Specialist - INTERN)');
+  console.log('  dr.sabrina@hhdms.com / Password2026! (Specialist - PAIN)');
+  console.log('  dr.munir@hhdms.com / Password2026! (Specialist - ONCO)');
   console.log('  caregiver.shamima@hhdms.com / Password2026! (Caregiver) — Assigned: Rahim, Fatema');
   console.log('  dr.shahid@hhdms.com / Password2026! (Sonologist)');
 

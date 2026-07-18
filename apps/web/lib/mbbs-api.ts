@@ -80,6 +80,17 @@ export interface PatientDocument {
   uploaded_at: string;
 }
 
+export interface DiagnosisReport {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  report_type: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  generated_at: string;
+}
+
 export interface PatientProfile {
   patient: Patient;
   vitals: VitalSigns[];
@@ -251,6 +262,7 @@ export interface CreateReferralPayload {
   referral_reason: string;
   clinical_summary?: string;
   is_emergency?: boolean;
+  specialist_id?: string;
 }
 
 export interface EmergencyFlag {
@@ -405,6 +417,24 @@ export const mbbsApi = {
   // Start Visit
   startVisit: (patientId: string) =>
     apiFetch<{ message: string; doctor_name: string }>(`/mbbs/patients/${patientId}/start-visit`, {
+      method: 'POST',
+    }),
+
+  // Mark Arrived
+  markArrived: (patientId: string) =>
+    apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/mark-arrived`, {
+      method: 'POST',
+    }),
+
+  // End Visit
+  endVisit: (patientId: string) =>
+    apiFetch<{ message: string }>(`/mbbs/patients/${patientId}/end-visit`, {
+      method: 'POST',
+    }),
+
+  // Generate Clinical Report PDF
+  generateReport: (patientId: string) =>
+    apiFetch<DiagnosisReport>(`/mbbs/patients/${patientId}/generate-report`, {
       method: 'POST',
     }),
 

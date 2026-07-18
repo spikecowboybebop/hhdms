@@ -28,7 +28,7 @@ const tiers: Tier[] = [
     features: [
       "6 consultations per month (any service)",
       "Priority dispatch within 30 min",
-      "Specialist teleconsultation referrals",
+      "Specialist referral coordination",
       "Nutritionist diet planning",
       "Up to 4 family members covered",
     ],

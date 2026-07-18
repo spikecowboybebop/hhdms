@@ -10,7 +10,6 @@ import {
 // Ensure the local file structure has a matching enum block for the controller's direct import
 export enum ConsultationType {
   HOME_VISIT = 'HOME_VISIT',
-  TELECONSULTATION = 'TELECONSULTATION',
 }
 
 export class BookConsultationDto {

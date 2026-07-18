@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateReferralDto {
   @IsString()
@@ -16,4 +22,8 @@ export class CreateReferralDto {
   @IsOptional()
   @IsBoolean()
   is_emergency?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  specialist_id?: string;
 }

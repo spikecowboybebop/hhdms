@@ -324,7 +324,14 @@ export default function CallCenterDashboardPage() {
 
     try {
       // 1. Gain local authorization to capture the browser microphone stream
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
       localStream.current = stream;
 
       // 2. Setup standard Google RTC Peer connection architecture configuration
@@ -332,18 +339,30 @@ export default function CallCenterDashboardPage() {
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
 
-      // Auto-cleanup when the remote peer drops abruptly (app close, network loss)
+      let disconnectTimer: ReturnType<typeof setTimeout> | null = null;
       peerConnection.current.onconnectionstatechange = () => {
         const state = peerConnection.current?.connectionState;
-        if (state === "disconnected" || state === "failed") {
+        if (state === "disconnected") {
+          disconnectTimer = setTimeout(() => {
+            if (peerConnection.current?.connectionState === "disconnected") {
+              console.log(`📞 [WEBRTC] Connection state still disconnected after 10s — cleaning up`);
+              cleanupCall(false);
+            }
+          }, 10000);
+        } else if (state === "failed" || state === "closed") {
+          if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
           console.log(`📞 [WEBRTC] Connection state changed to "${state}" — cleaning up`);
           cleanupCall(false);
+        } else if (state === "connected") {
+          if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
         }
       };
       peerConnection.current.oniceconnectionstatechange = () => {
         const state = peerConnection.current?.iceConnectionState;
-        if (state === "disconnected" || state === "failed") {
-          console.log(`📞 [ICE] ICE connection state changed to "${state}" — cleaning up`);
+        if (state === "disconnected") {
+          // ICE can recover from transient disconnection — wait before cleanup
+        } else if (state === "failed") {
+          console.log(`📞 [ICE] ICE connection failed — cleaning up`);
           cleanupCall(false);
         }
       };

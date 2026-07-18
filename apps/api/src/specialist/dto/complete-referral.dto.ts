@@ -8,8 +8,4 @@ export class CompleteReferralDto {
   @IsString()
   @IsNotEmpty()
   responseNotes!: string;
-
-  @IsUUID()
-  @IsNotEmpty()
-  specialistId!: string;
 }

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteReferralDto } from './dto/complete-referral.dto';
+import { CreateAdditionalTestOrderDto } from './dto/create-additional-test-order.dto';
 
 @Injectable()
 export class SpecialistService {
@@ -50,6 +51,177 @@ export class SpecialistService {
     }));
   }
 
+  async getSpecialistsBySpecialty(specialtyCode: string) {
+    const profiles = await this.prisma.specialist_profiles.findMany({
+      where: { specialty_code: specialtyCode, is_available: true },
+      include: {
+        user: {
+          select: {
+            firstNameEn: true,
+            lastNameEn: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return profiles.map((p) => ({
+      user_id: p.user_id,
+      first_name_en: p.user.firstNameEn,
+      last_name_en: p.user.lastNameEn,
+      email: p.user.email,
+      specialty_code: p.specialty_code,
+      qualification: p.qualification,
+      years_of_experience: p.years_of_experience,
+      consultation_fee: p.consultation_fee,
+      is_available: p.is_available,
+    }));
+  }
+
+  async getTestCatalog(category?: string) {
+    const where = category
+      ? { category, is_active: true }
+      : { is_active: true };
+    return this.prisma.diagnostic_test_catalog.findMany({
+      where,
+      orderBy: { category: 'asc' },
+    });
+  }
+
+  async orderAdditionalTests(
+    specialistUserId: string,
+    dto: CreateAdditionalTestOrderDto,
+  ) {
+    const referral = await this.prisma.specialist_referrals.findUnique({
+      where: { id: dto.referralId },
+      select: { patient_id: true, specialty_code: true },
+    });
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    const specialist = await this.prisma.specialist_profiles.findUnique({
+      where: { user_id: specialistUserId },
+      include: { user: true },
+    });
+    if (!specialist)
+      throw new NotFoundException('Specialist profile not found');
+
+    const tests = await this.prisma.diagnostic_test_catalog.findMany({
+      where: { id: { in: dto.test_ids } },
+    });
+    if (tests.length !== dto.test_ids.length) {
+      throw new BadRequestException('One or more test IDs are invalid.');
+    }
+
+    const orders = await Promise.all(
+      dto.test_ids.map((testId) =>
+        this.prisma.diagnostic_test_orders.create({
+          data: {
+            patient_id: referral.patient_id,
+            test_id: testId,
+            specialist_id: specialistUserId,
+            provider_type: 'SPECIALIST',
+            clinical_notes: dto.clinical_notes,
+            status: 'ORDERED',
+          },
+          include: { test: true },
+        }),
+      ),
+    );
+
+    const actorName = specialist.user
+      ? `Dr. ${specialist.user.firstNameEn} ${specialist.user.lastNameEn}`.trim()
+      : `Specialist ${specialistUserId}`;
+
+    await this.prisma.referral_chain.create({
+      data: {
+        patient_id: referral.patient_id,
+        step_type: 'TEST_ORDER',
+        step_id: orders.map((o) => o.id).join(','),
+        step_label: `Additional Tests Ordered (${tests.length})`,
+        actor_role: 'SPECIALIST',
+        actor_name: actorName,
+        notes: tests.map((t) => t.test_name).join('; '),
+      },
+    });
+
+    return {
+      orders,
+      test_catalog: tests,
+    };
+  }
+
+  async getTestOrdersByReferral(referralId: string) {
+    const referral = await this.prisma.specialist_referrals.findUnique({
+      where: { id: referralId },
+      select: { patient_id: true },
+    });
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    return this.prisma.diagnostic_test_orders.findMany({
+      where: { patient_id: referral.patient_id },
+      orderBy: { ordered_at: 'desc' },
+      include: { test: true, results: true },
+    });
+  }
+
+  async getReferralPatientHistory(referralId: string) {
+    const referral = await this.prisma.specialist_referrals.findUnique({
+      where: { id: referralId },
+      select: { patient_id: true },
+    });
+    if (!referral) throw new NotFoundException('Referral not found');
+
+    const patientId = referral.patient_id;
+
+    const [
+      vitals,
+      diagnoses,
+      prescriptions,
+      testOrders,
+      chainEvents,
+      diagnosisReports,
+    ] = await Promise.all([
+      this.prisma.patient_vital_signs.findMany({
+        where: { patient_id: patientId },
+        orderBy: { recorded_at: 'desc' },
+        take: 20,
+      }),
+      this.prisma.patient_diagnoses.findMany({
+        where: { patient_id: patientId },
+        orderBy: { diagnosed_at: 'desc' },
+        include: { icd10: true },
+      }),
+      this.prisma.prescriptions.findMany({
+        where: { patient_id: patientId },
+        orderBy: { issued_at: 'desc' },
+        include: { medications: true },
+      }),
+      this.prisma.diagnostic_test_orders.findMany({
+        where: { patient_id: patientId },
+        orderBy: { ordered_at: 'desc' },
+        include: { test: true, results: true },
+      }),
+      this.prisma.referral_chain.findMany({
+        where: { patient_id: patientId },
+        orderBy: { created_at: 'asc' },
+      }),
+      this.prisma.patient_diagnosis_reports.findMany({
+        where: { patient_id: patientId },
+        orderBy: { generated_at: 'desc' },
+      }),
+    ]);
+
+    return {
+      vitals,
+      diagnoses,
+      prescriptions,
+      test_orders: testOrders,
+      referral_chain: chainEvents,
+      diagnosis_reports: diagnosisReports,
+    };
+  }
+
   async getMyIncomingReferrals(userId: string) {
     const specialist = await this.resolveSpecialistProfile(userId);
     if (!specialist)
@@ -58,6 +230,7 @@ export class SpecialistService {
     const referrals = await this.prisma.specialist_referrals.findMany({
       where: {
         status: 'PENDING',
+        specialty_code: specialist.specialty_code,
       },
       include: {
         patient: {
@@ -93,36 +266,6 @@ export class SpecialistService {
           }>,
         ),
       },
-    }));
-  }
-
-  async getSpecialistDicomStudies(userId: string) {
-    const specialist = await this.resolveSpecialistProfile(userId);
-    if (!specialist)
-      throw new NotFoundException('Specialist profile not encountered.');
-
-    const referrals = await this.prisma.specialist_referrals.findMany({
-      include: {
-        patient: {
-          select: {
-            mrn: true,
-            first_name_en: true,
-            last_name_en: true,
-          },
-        },
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    return referrals.map((referral) => ({
-      id: referral.id,
-      patient: `${referral.patient.first_name_en} ${referral.patient.last_name_en}`,
-      mrn: referral.patient.mrn,
-      modality: this.getModalityForReferral(referral.specialty_code),
-      instances: referral.status === 'COMPLETED' ? 96 : 12,
-      size: referral.status === 'COMPLETED' ? '182.4 MB' : '41.8 MB',
-      date: referral.created_at?.toISOString().split('T')[0] ?? '',
-      imageUrl: this.getImageUrl(referral.specialty_code),
     }));
   }
 
@@ -168,8 +311,8 @@ export class SpecialistService {
     }));
   }
 
-  async completeReferral(dto: CompleteReferralDto) {
-    const specialist = await this.resolveSpecialistProfile(dto.specialistId);
+  async completeReferral(specialistUserId: string, dto: CompleteReferralDto) {
+    const specialist = await this.resolveSpecialistProfile(specialistUserId);
     if (!specialist)
       throw new NotFoundException('Specialist validation credential failure.');
 
@@ -211,28 +354,5 @@ export class SpecialistService {
         referral: updatedReferral,
       };
     });
-  }
-
-  private getModalityForReferral(specialtyCode: string) {
-    const normalized = specialtyCode.toUpperCase();
-    if (normalized.includes('CARD') || normalized.includes('DERM'))
-      return 'X-RAY';
-    if (normalized.includes('NEURO') || normalized.includes('ONC'))
-      return 'CT SCAN';
-    return 'ULTRASOUND';
-  }
-
-  private getImageUrl(specialtyCode: string) {
-    const modality = this.getModalityForReferral(specialtyCode);
-    const imageMap: Record<string, string> = {
-      'X-RAY':
-        'https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=600&auto=format&fit=crop',
-      'CT SCAN':
-        'https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?q=80&w=600&auto=format&fit=crop',
-      ULTRASOUND:
-        'https://images.unsplash.com/photo-1516062423079-7ca13cca99a8?q=80&w=600&auto=format&fit=crop',
-    };
-
-    return imageMap[modality] ?? imageMap['X-RAY'];
   }
 }

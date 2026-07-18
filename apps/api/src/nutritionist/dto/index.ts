@@ -3,7 +3,6 @@
 // 1. Export core shared enums explicitly for the Service and Controller layers
 export enum ConsultationType {
   HOME_VISIT = 'HOME_VISIT',
-  TELECONSULTATION = 'TELECONSULTATION',
 }
 
 export enum FollowUpInterval {

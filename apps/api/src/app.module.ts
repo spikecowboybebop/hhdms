@@ -13,6 +13,8 @@ import { NutritionistModule } from './nutritionist/nutritionist.module';
 import { SonologistModule } from './sonologist/sonologist.module';
 import { ProvidersModule } from './providers/providers.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     SonologistModule,
     ProvidersModule,
     NotificationsModule,
+    PaymentsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService, CallGateway],
