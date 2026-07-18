@@ -226,7 +226,7 @@ export default function CallCenterDashboardPage() {
       return;
     }
 
-    const socketClient = io("http://localhost:3001");
+    const socketClient = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001");
 
     socketClient.on("connect", () => {
       console.log("⚡ Agent Dashboard successfully connected to NestJS signaling gateway!");

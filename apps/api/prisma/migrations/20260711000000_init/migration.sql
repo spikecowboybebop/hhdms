@@ -13,6 +13,9 @@ CREATE TYPE "prescription_status_enum" AS ENUM ('ACTIVE', 'COMPLETED', 'DISCONTI
 -- CreateEnum
 CREATE TYPE "account_status_enum" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
 
+-- CreateEnum
+CREATE TYPE "provider_type_enum" AS ENUM ('MBBS', 'SPECIALIST');
+
 -- CreateTable
 CREATE TABLE "roles" (
     "id" SERIAL NOT NULL,

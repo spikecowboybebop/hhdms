@@ -504,7 +504,7 @@ model patients {
   sonologist_reports           sonologist_reports[]
   sonologist_studies           sonologist_studies[]
   referrals                    specialist_referrals[]
-  dicom_studies                specialist_dicom_studies[]
+   dicom_studies                specialist_dicom_studies[]
 
   @@map("patients")
 }

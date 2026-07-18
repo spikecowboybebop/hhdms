@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@repo/ui": "*",
+    "agora-rtc-sdk-ng": "^4.24.6",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "next": "^16.2.9",

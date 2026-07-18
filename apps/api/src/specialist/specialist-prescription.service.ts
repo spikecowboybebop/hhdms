@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateSpecialistPrescriptionDto, MedicationDto } from './dto/create-specialist-prescription.dto';
+import {
+  CreateSpecialistPrescriptionDto,
+  MedicationDto,
+} from './dto/create-specialist-prescription.dto';
 import { checkInteractions, InteractionWarning } from './drug-interactions';
 
 @Injectable()
@@ -35,7 +38,9 @@ export class SpecialistPrescriptionService {
     }
 
     if (referral.status === 'COMPLETED') {
-      throw new BadRequestException('Cannot prescribe for a completed referral.');
+      throw new BadRequestException(
+        'Cannot prescribe for a completed referral.',
+      );
     }
 
     const specialistProfile = await this.prisma.specialist_profiles.findUnique({
@@ -138,10 +143,14 @@ export class SpecialistPrescriptionService {
       include: {
         medications: true,
         doctor: {
-          include: { user: { select: { firstNameEn: true, lastNameEn: true } } },
+          include: {
+            user: { select: { firstNameEn: true, lastNameEn: true } },
+          },
         },
         specialist: {
-          include: { user: { select: { firstNameEn: true, lastNameEn: true } } },
+          include: {
+            user: { select: { firstNameEn: true, lastNameEn: true } },
+          },
         },
       },
     });
@@ -161,8 +170,7 @@ export class SpecialistPrescriptionService {
     const drugName = med.drug_name;
     const parts = drugName.split('(');
     const generic_name = parts[0]?.trim() || drugName;
-    const brand_name =
-      parts[1]?.replace(')', '').trim() || null;
+    const brand_name = parts[1]?.replace(')', '').trim() || null;
 
     const durationDays = this.parseDuration(med.duration);
 

@@ -5,22 +5,102 @@ export interface InteractionWarning {
   description: string;
 }
 
-const INTERACTION_DB: [string, string, string, 'major' | 'moderate' | 'minor'][] = [
-  ['Amlodipine', 'Simvastatin', 'Increased risk of myopathy/rhabdomyolysis. Limit simvastatin to 20mg daily.', 'major'],
-  ['Warfarin', 'Aspirin', 'Increased bleeding risk. Monitor INR closely.', 'major'],
-  ['Warfarin', 'Ibuprofen', 'Increased bleeding risk. Consider alternative NSAID.', 'major'],
-  ['Metformin', 'Iodinated Contrast', 'Risk of lactic acidosis. Hold metformin 48h before procedure.', 'major'],
-  ['ACE Inhibitors', 'Potassium Supplements', 'Risk of hyperkalemia. Monitor serum potassium.', 'moderate'],
-  ['ACE Inhibitors', 'Spironolactone', 'Risk of hyperkalemia. Monitor serum potassium.', 'moderate'],
-  ['Ciprofloxacin', 'Tizanidine', 'Increased tizanidine concentration. Avoid concurrent use.', 'major'],
-  ['Clarithromycin', 'Simvastatin', 'Increased statin concentration. Risk of rhabdomyolysis.', 'major'],
-  ['Lithium', 'NSAIDs', 'Increased lithium levels. Monitor lithium concentration.', 'moderate'],
-  ['Methotrexate', 'Trimethoprim', 'Increased methotrexate toxicity. Avoid combination.', 'major'],
-  ['Theophylline', 'Ciprofloxacin', 'Increased theophylline levels. Monitor levels.', 'moderate'],
-  ['Digoxin', 'Amiodarone', 'Increased digoxin levels. Reduce digoxin dose by 50%.', 'major'],
-  ['SSRIs', 'MAOIs', 'Risk of serotonin syndrome. Allow 14-day washout.', 'major'],
-  ['Clopidogrel', 'Omeprazole', 'Reduced clopidogrel effectiveness. Use pantoprazole instead.', 'moderate'],
-  ['Levofloxacin', 'QT-prolonging agents', 'Increased risk of QT prolongation. Monitor ECG.', 'moderate'],
+const INTERACTION_DB: [
+  string,
+  string,
+  string,
+  'major' | 'moderate' | 'minor',
+][] = [
+  [
+    'Amlodipine',
+    'Simvastatin',
+    'Increased risk of myopathy/rhabdomyolysis. Limit simvastatin to 20mg daily.',
+    'major',
+  ],
+  [
+    'Warfarin',
+    'Aspirin',
+    'Increased bleeding risk. Monitor INR closely.',
+    'major',
+  ],
+  [
+    'Warfarin',
+    'Ibuprofen',
+    'Increased bleeding risk. Consider alternative NSAID.',
+    'major',
+  ],
+  [
+    'Metformin',
+    'Iodinated Contrast',
+    'Risk of lactic acidosis. Hold metformin 48h before procedure.',
+    'major',
+  ],
+  [
+    'ACE Inhibitors',
+    'Potassium Supplements',
+    'Risk of hyperkalemia. Monitor serum potassium.',
+    'moderate',
+  ],
+  [
+    'ACE Inhibitors',
+    'Spironolactone',
+    'Risk of hyperkalemia. Monitor serum potassium.',
+    'moderate',
+  ],
+  [
+    'Ciprofloxacin',
+    'Tizanidine',
+    'Increased tizanidine concentration. Avoid concurrent use.',
+    'major',
+  ],
+  [
+    'Clarithromycin',
+    'Simvastatin',
+    'Increased statin concentration. Risk of rhabdomyolysis.',
+    'major',
+  ],
+  [
+    'Lithium',
+    'NSAIDs',
+    'Increased lithium levels. Monitor lithium concentration.',
+    'moderate',
+  ],
+  [
+    'Methotrexate',
+    'Trimethoprim',
+    'Increased methotrexate toxicity. Avoid combination.',
+    'major',
+  ],
+  [
+    'Theophylline',
+    'Ciprofloxacin',
+    'Increased theophylline levels. Monitor levels.',
+    'moderate',
+  ],
+  [
+    'Digoxin',
+    'Amiodarone',
+    'Increased digoxin levels. Reduce digoxin dose by 50%.',
+    'major',
+  ],
+  [
+    'SSRIs',
+    'MAOIs',
+    'Risk of serotonin syndrome. Allow 14-day washout.',
+    'major',
+  ],
+  [
+    'Clopidogrel',
+    'Omeprazole',
+    'Reduced clopidogrel effectiveness. Use pantoprazole instead.',
+    'moderate',
+  ],
+  [
+    'Levofloxacin',
+    'QT-prolonging agents',
+    'Increased risk of QT prolongation. Monitor ECG.',
+    'moderate',
+  ],
 ];
 
 function normalize(name: string): string {
@@ -28,22 +108,22 @@ function normalize(name: string): string {
 }
 
 const BRAND_ALIASES: Record<string, string[]> = {
-  'atorvastatin': ['lipitor'],
-  'simvastatin': ['zocor'],
-  'amlodipine': ['norvasc'],
-  'metformin': ['glucophage', 'glumetza'],
-  'warfarin': ['coumadin', 'jantoven'],
-  'ibuprofen': ['advil', 'motrin'],
-  'ciprofloxacin': ['cipro'],
-  'clarithromycin': ['biaxin'],
-  'omeprazole': ['prilosec'],
-  'pantoprazole': ['protonix'],
-  'digoxin': ['lanoxin'],
-  'amiodarone': ['cordarone', 'pacerone'],
-  'spironolactone': ['aldactone'],
-  'furosemide': ['lasix'],
-  'lisinopril': ['zestril', 'prinivil'],
-  'enalapril': ['vasotec'],
+  atorvastatin: ['lipitor'],
+  simvastatin: ['zocor'],
+  amlodipine: ['norvasc'],
+  metformin: ['glucophage', 'glumetza'],
+  warfarin: ['coumadin', 'jantoven'],
+  ibuprofen: ['advil', 'motrin'],
+  ciprofloxacin: ['cipro'],
+  clarithromycin: ['biaxin'],
+  omeprazole: ['prilosec'],
+  pantoprazole: ['protonix'],
+  digoxin: ['lanoxin'],
+  amiodarone: ['cordarone', 'pacerone'],
+  spironolactone: ['aldactone'],
+  furosemide: ['lasix'],
+  lisinopril: ['zestril', 'prinivil'],
+  enalapril: ['vasotec'],
 };
 
 function resolveAliases(name: string): string[] {
@@ -61,8 +141,10 @@ export function checkInteractions(
   newMeds: { drug_name?: string; generic_name?: string }[],
   activeMeds: { drug_name?: string; generic_name?: string }[],
 ): InteractionWarning[] {
-  const allNames = (med: { drug_name?: string; generic_name?: string }): string[] =>
-    resolveAliases(med.drug_name || med.generic_name || '');
+  const allNames = (med: {
+    drug_name?: string;
+    generic_name?: string;
+  }): string[] => resolveAliases(med.drug_name || med.generic_name || '');
 
   const existingNames = activeMeds.flatMap(allNames);
   const newNames = newMeds.flatMap(allNames);
@@ -70,7 +152,12 @@ export function checkInteractions(
   const warnings: InteractionWarning[] = [];
   const seen = new Set<string>();
 
-  const addWarning = (a: string, b: string, severity: 'major' | 'moderate' | 'minor', description: string) => {
+  const addWarning = (
+    a: string,
+    b: string,
+    severity: 'major' | 'moderate' | 'minor',
+    description: string,
+  ) => {
     const key = [normalize(a), normalize(b)].sort().join('||');
     if (!seen.has(key)) {
       seen.add(key);

@@ -36,6 +36,11 @@ import {
 import { DynamicTemplateForm } from "@/components/specialist/dynamic-template-form";
 import dynamic from "next/dynamic";
 
+const VideoCallButton = dynamic(
+  () => import("@/components/specialist/video-call-button").then((m) => m.VideoCallButton),
+  { ssr: false },
+);
+
 const DicomViewer = dynamic(
   () => import("@/components/specialist/dicom-viewer").then((m) => m.DicomViewer),
   { ssr: false },
@@ -564,6 +569,12 @@ export default function ConsultationPage() {
                 }`}>
                   {referral.status}
                 </span>
+                <VideoCallButton
+                  referralId={referralId}
+                  patientId={referral.patient_id}
+                  patientName={`${referral.patient.first_name_en} ${referral.patient.last_name_en}`}
+                  specialistName={`Dr. ${session.user.first_name_en || ""} ${session.user.last_name_en || ""}`}
+                />
               </div>
             }
           >
