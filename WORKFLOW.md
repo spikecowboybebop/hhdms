@@ -296,7 +296,7 @@ This method is called by `MbbsService` whenever:
 │  Retrofit (REST client)                                 │
 │  socket.io-client (signaling)                           │
 │  Firebase Cloud Messaging                               │
-│  Stream WebRTC (voice calls)                            │
+│  Agora RTC (voice/video calls)                          │
 │                                                          │
 │  Package: com.example.hhdmspatientapp                   │
 │  Min SDK: 24, Target: 36                                │

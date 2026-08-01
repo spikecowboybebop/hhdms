@@ -61,7 +61,9 @@ export class SpecialistDicomService {
 
     const response = await fetch(fileUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch DICOM from ${fileUrl}: ${response.status}`);
+      throw new Error(
+        `Failed to fetch DICOM from ${fileUrl}: ${response.status}`,
+      );
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -71,7 +73,7 @@ export class SpecialistDicomService {
 
   private setCache(studyId: string, buffer: Buffer) {
     if (this.cache.size >= this.maxCacheSize) {
-      const oldest = this.cache.keys().next().value as string | undefined;
+      const oldest = this.cache.keys().next().value;
       if (oldest) this.cache.delete(oldest);
     }
     this.cache.set(studyId, { buffer, expiresAt: Date.now() + this.ttlMs });

@@ -32,7 +32,7 @@ graph TB
         SMS[SMS Gateway<br/>SSL Wireless/Twilio]
         WA[WhatsApp<br/>Business API]
         SOCK[Socket.IO<br/>Real-Time]
-        WRT[WebRTC<br/>Voice/Video]
+        WRT[Agora RTC<br/>Voice/Video]
         DICOM[DICOM Viewer<br/>Orthanc]
         GPS[GPS Tracking<br/>Google Maps API]
         PAY[Payment Gateway<br/>SSLCommerz/bKash]

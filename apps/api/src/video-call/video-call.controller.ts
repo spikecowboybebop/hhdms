@@ -21,7 +21,9 @@ export class VideoCallController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   getToken(@Body() dto: TokenRequestDto) {
-    this.logger.log(`Token requested for channel=${dto.channelName} uid=${dto.uid}`);
+    this.logger.log(
+      `Token requested for channel=${dto.channelName} uid=${dto.uid}`,
+    );
     const token = this.videoCallService.generateRtcToken(
       dto.channelName,
       dto.uid,

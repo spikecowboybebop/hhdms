@@ -229,9 +229,7 @@ export class CaregiverService {
         },
       });
     if (!assignment) {
-      throw new ForbiddenException(
-        'You are not assigned to this patient.',
-      );
+      throw new ForbiddenException('You are not assigned to this patient.');
     }
 
     // Check for existing open check-in
@@ -299,11 +297,7 @@ export class CaregiverService {
     };
   }
 
-  async checkOut(
-    userId: string,
-    recordId: string,
-    dto: CreateCheckOutDto,
-  ) {
+  async checkOut(userId: string, recordId: string, dto: CreateCheckOutDto) {
     await this.verifyCaregiver(userId);
 
     const record = await this.prisma.caregiver_check_in_out.findUnique({
@@ -313,14 +307,16 @@ export class CaregiverService {
       throw new NotFoundException('Check-in record not found.');
     }
     if (record.caregiver_id !== userId) {
-      throw new ForbiddenException('You can only check out for your own shift.');
+      throw new ForbiddenException(
+        'You can only check out for your own shift.',
+      );
     }
     if (record.check_out_time) {
       throw new BadRequestException('Already checked out.');
     }
 
     // Calculate distance for check-out
-    let distanceMeters: number | null = record.distance_meters
+    const distanceMeters: number | null = record.distance_meters
       ? Number(record.distance_meters)
       : null;
 
@@ -356,14 +352,15 @@ export class CaregiverService {
     return {
       message: 'Checked out successfully.',
       record: updated,
-      total_hours: updated.check_out_time && checkInTime
-        ? Math.round(
-            (new Date(updated.check_out_time).getTime() -
-              new Date(checkInTime).getTime()) /
-              (1000 * 60 * 60) *
-              100,
-          ) / 100
-        : null,
+      total_hours:
+        updated.check_out_time && checkInTime
+          ? Math.round(
+              ((new Date(updated.check_out_time).getTime() -
+                new Date(checkInTime).getTime()) /
+                (1000 * 60 * 60)) *
+                100,
+            ) / 100
+          : null,
     };
   }
 

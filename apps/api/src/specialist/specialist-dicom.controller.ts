@@ -46,7 +46,10 @@ export class SpecialistDicomController {
     const fileUrl = study.file_path;
     if (!fileUrl) throw new NotFoundException('No file associated with study');
 
-    const buffer = await this.specialistDicomService.getCachedBuffer(id, fileUrl);
+    const buffer = await this.specialistDicomService.getCachedBuffer(
+      id,
+      fileUrl,
+    );
 
     res.set({
       'Content-Type': 'application/dicom',

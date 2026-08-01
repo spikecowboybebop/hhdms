@@ -21,7 +21,9 @@ export class VideoCallService {
       privilegeExpire,
     );
 
-    this.logger.log(`Generated Agora token for channel=${channelName} uid=${uid}`);
+    this.logger.log(
+      `Generated Agora token for channel=${channelName} uid=${uid}`,
+    );
     return token;
   }
 

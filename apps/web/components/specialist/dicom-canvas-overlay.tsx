@@ -441,8 +441,10 @@ export function DicomCanvasOverlay({
       );
       annotationManager.add(finalAnn);
       setArrowLabelModal(null);
+      markDirty();
+      renderRef.current();
     },
-    [arrowLabelModal, annotationManager],
+    [arrowLabelModal, annotationManager, markDirty],
   );
 
   const handleArrowLabelCancel = useCallback(() => {

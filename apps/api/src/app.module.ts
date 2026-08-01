@@ -4,7 +4,6 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { MbbsModule } from './mbbs/mbbs.module';
-import { CallGateway } from './gateway/call.gateway';
 import { SpecialistModule } from './specialist/specialist.module';
 import { CaregiverModule } from './caregiver/caregiver.module';
 import { PatientsModule } from './patients/patients.module';
@@ -31,8 +30,10 @@ import { VideoCallModule } from './video-call/video-call.module';
     ProvidersModule,
     NotificationsModule,
     PaymentsModule,
+    ChatModule,
+    VideoCallModule,
   ],
   controllers: [AppController],
-  providers: [AppService, CallGateway],
+  providers: [AppService],
 })
 export class AppModule {}

@@ -69,14 +69,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.content,
     );
 
-    this.server
-      .to(`chat:${data.conversationId}`)
-      .emit('new_message', message);
+    this.server.to(`chat:${data.conversationId}`).emit('new_message', message);
 
-    const recipientId = await this.chatService.getRecipientUserId(
-      data.conversationId,
-      userId,
-    ).catch(() => null);
+    const recipientId = await this.chatService
+      .getRecipientUserId(data.conversationId, userId)
+      .catch(() => null);
 
     if (recipientId) {
       this.server.to(`user:${recipientId}`).emit('new_message_notification', {

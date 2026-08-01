@@ -19,7 +19,8 @@ export class ChatService {
       },
       orderBy: { assigned_at: 'desc' },
     });
-    if (!assignment) throw new NotFoundException('No active appointment to chat about.');
+    if (!assignment)
+      throw new NotFoundException('No active appointment to chat about.');
 
     let conversation = await this.prisma.chat_conversations.findUnique({
       where: { assignment_id: assignment.id },
@@ -192,7 +193,10 @@ export class ChatService {
     return conversation;
   }
 
-  private async isConversationParticipant(conversationId: string, userId: string) {
+  private async isConversationParticipant(
+    conversationId: string,
+    userId: string,
+  ) {
     const conversation = await this.prisma.chat_conversations.findUnique({
       where: { id: conversationId },
       select: { doctor_id: true, patient_id: true },
@@ -211,8 +215,12 @@ export class ChatService {
   }
 
   async getMessages(conversationId: string, userId: string) {
-    const conversation = await this.isConversationParticipant(conversationId, userId);
-    if (!conversation) throw new NotFoundException('Conversation not found or access denied.');
+    const conversation = await this.isConversationParticipant(
+      conversationId,
+      userId,
+    );
+    if (!conversation)
+      throw new NotFoundException('Conversation not found or access denied.');
 
     const messages = await this.prisma.chat_messages.findMany({
       where: { conversation_id: conversationId },
@@ -233,8 +241,12 @@ export class ChatService {
   }
 
   async sendMessage(conversationId: string, senderId: string, content: string) {
-    const conversation = await this.isConversationParticipant(conversationId, senderId);
-    if (!conversation) throw new NotFoundException('Conversation not found or access denied.');
+    const conversation = await this.isConversationParticipant(
+      conversationId,
+      senderId,
+    );
+    if (!conversation)
+      throw new NotFoundException('Conversation not found or access denied.');
 
     const message = await this.prisma.chat_messages.create({
       data: {
@@ -252,7 +264,10 @@ export class ChatService {
     return message;
   }
 
-  async getRecipientUserId(conversationId: string, senderUserId: string): Promise<string | null> {
+  async getRecipientUserId(
+    conversationId: string,
+    senderUserId: string,
+  ): Promise<string | null> {
     const conversation = await this.prisma.chat_conversations.findUnique({
       where: { id: conversationId },
       select: { doctor_id: true, patient_id: true },

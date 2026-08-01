@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
+import type { IAgoraRTCClient, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import {
   DashboardShell,
   type DashboardNavItem,
@@ -94,15 +95,16 @@ export default function CallCenterDashboardPage() {
   const [hydrated, setHydrated] = useState(false);
   const [filter, setFilter] = useState<"ALL" | CallTicket["urgency"]>("ALL");
 
-  // WebRTC State Containers
+  // Agora Voice Call State Containers
   const [socket, setSocket] = useState<Socket | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const [callConnected, setCallConnected] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{
+    sessionId: string;
+    patientId: string;
     patientEmail: string;
-    patientSocketId: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sdpOffer: any;
+    patientName: string;
+    channelName: string;
   } | null>(null);
   const [patientPhone, setPatientPhone] = useState<string>("");
   const [callerName, setCallerName] = useState<string>("Mobile User");
@@ -113,17 +115,10 @@ export default function CallCenterDashboardPage() {
   const callStartTimeRef = useRef<number | null>(null);
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const peerConnection = useRef<RTCPeerConnection | null>(null);
-  const localStream = useRef<MediaStream | null>(null);
-  const patientSocketIdRef = useRef<string | null>(null);
+  const agoraClientRef = useRef<IAgoraRTCClient | null>(null);
+  const micTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
-  
-  // Track dynamic current call state across async triggers inside a clean React ref
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentIncomingCallRef = useRef<any>(null);
-  useEffect(() => {
-    currentIncomingCallRef.current = incomingCall;
-  }, [incomingCall]);
 
   // Play ringtone when a call comes in, stop when dismissed
   useEffect(() => {
@@ -183,34 +178,77 @@ export default function CallCenterDashboardPage() {
   // Shared cleanup used by hangup, peer-disconnect, and connection-failure paths.
   // Reads socket from a ref to avoid stale closures in async event handlers.
   const cleanupCall = useCallback((emitHangup: boolean = false) => {
-    const socketId = patientSocketIdRef.current;
+    const sessionId = activeSessionIdRef.current;
 
-    if (emitHangup && socketId && socketRef.current) {
-      socketRef.current.emit("end-call", { targetSocketId: socketId });
+    if (emitHangup && sessionId && socketRef.current) {
+      socketRef.current.emit("voice-call:end", { sessionId });
     }
 
-    if (peerConnection.current) {
-      peerConnection.current.close();
-      peerConnection.current = null;
+    if (micTrackRef.current) {
+      micTrackRef.current.stop();
+      micTrackRef.current.close();
+      micTrackRef.current = null;
     }
-    if (localStream.current) {
-      localStream.current.getTracks().forEach((t) => t.stop());
-      localStream.current = null;
-    }
-
-    const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
-    if (audioNode) {
-      audioNode.pause();
-      audioNode.srcObject = null;
+    if (agoraClientRef.current) {
+      agoraClientRef.current.leave();
+      agoraClientRef.current = null;
     }
 
-    patientSocketIdRef.current = null;
+    activeSessionIdRef.current = null;
     setIncomingCall(null);
     setCallConnected(false);
     setPatientPhone("");
     setCallerName("Mobile User");
     setCallerEmail("");
   }, []);
+
+  // Agora join + audio subscription, driven by the server's `voice-call:ready`
+  const joinAgoraVoiceCall = useCallback(async (data: {
+    sessionId: string;
+    token: string;
+    appId: string;
+    channelName: string;
+    uid: number;
+  }) => {
+    try {
+      activeSessionIdRef.current = data.sessionId;
+
+      // Loaded lazily so the SDK (which touches `window` at import time) never
+      // runs during server-side rendering.
+      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+
+      const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      agoraClientRef.current = client;
+
+      const micTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      // Boost the agent's mic so the patient hears them clearly
+      micTrack.setVolume(300);
+      micTrackRef.current = micTrack;
+
+      await client.join(data.appId, data.channelName, data.token, data.uid);
+      await client.publish(micTrack);
+
+      client.on("user-published", async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+        if (mediaType === "audio" && user.audioTrack) {
+          user.audioTrack.setVolume(100);
+          user.audioTrack.setAmplifiedVolume(200);
+          user.audioTrack.play();
+        }
+      });
+
+      client.on("user-unpublished", (user, mediaType) => {
+        if (mediaType === "audio" && user.audioTrack) {
+          user.audioTrack.stop();
+        }
+      });
+
+      setCallConnected(true);
+    } catch (err) {
+      console.error("Failed to join Agora voice channel:", err);
+      cleanupCall(true);
+    }
+  }, [cleanupCall]);
 
   useEffect(() => {
     const s = loadSession();
@@ -226,217 +264,76 @@ export default function CallCenterDashboardPage() {
       return;
     }
 
-    const socketClient = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001");
+    const socketClient = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001", {
+      query: { role: "agent" },
+    });
 
     socketClient.on("connect", () => {
-      console.log("⚡ Agent Dashboard successfully connected to NestJS signaling gateway!");
+      console.log("⚡ Agent Dashboard successfully connected to NestJS voice signaling gateway!");
     });
 
-    socketClient.on("call-center-dial", (data) => {
+    socketClient.on("voice-call:ringing", (data) => {
       if (!data) return;
-      console.log("📞 Raw Incoming WebRTC payload arriving on browser via [call-center-dial]:", data);
-      
-      const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
-      if (!resolvedSocketId) {
-        console.error("⚠️ CRITICAL: Call packet received but missing identifier tracking properties!", data);
-      }
+      console.log("📞 Incoming Agora voice call:", data);
 
       const email: string = String(data.patientEmail || "Unknown Patient");
-      const [localPart1] = email.split("@");
-      const name: string = (localPart1 || "").split(".").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-      patientSocketIdRef.current = resolvedSocketId;
-      setPatientPhone(data.patientPhone || data.phone || "");
+      const localPart = email.split("@")[0];
+      const name: string = String(data.patientName || "")
+        .trim() || (localPart || "").split(".").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+
+      activeSessionIdRef.current = data.sessionId;
+      setPatientPhone(data.patientPhone || "");
       setCallerName(name);
       setCallerEmail(email);
       setIncomingCall({
+        sessionId: data.sessionId,
+        patientId: data.patientId,
         patientEmail: email,
-        patientSocketId: resolvedSocketId,
-        sdpOffer: data.sdpOffer
-      });
-    });
-
-    socketClient.on("agent-incoming-call", (data) => {
-      if (!data) return;
-      console.log("📞 Alternate event channel caught incoming request [agent-incoming-call]:", data);
-      const resolvedSocketId = data.patientSocketId || data.socketId || data.from;
-      const email: string = String(data.patientEmail || "Unknown Patient");
-      const [localPart2] = email.split("@");
-      const name: string = (localPart2 || "").split(".").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-      patientSocketIdRef.current = resolvedSocketId;
-      setPatientPhone(data.patientPhone || data.phone || "");
-      setCallerName(name);
-      setCallerEmail(email);
-      setIncomingCall({
-        patientEmail: email,
-        patientSocketId: resolvedSocketId,
-        sdpOffer: data.sdpOffer
+        patientName: name,
+        channelName: data.channelName,
       });
     });
 
     // When the remote peer hangs up or disconnects, clean up locally
-    socketClient.on("call-ended", (data: { reason: string }) => {
-      console.log(`📞 [CALL-ENDED] Remote peer ended the call. Reason: ${data.reason}`);
+    socketClient.on("voice-call:end", (data: { sessionId: string; reason?: string }) => {
+      console.log(`📞 [VOICE-CALL-ENDED] Remote peer ended the call. Reason: ${data?.reason || "peer-hung-up"}`);
       cleanupCall(false);
     });
 
-    // Robust ICE payload parser matching the nested structure from Android
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleIncomingIce = async (data: any) => {
-      if (peerConnection.current) {
-        try {
-          const rawCandidate = data?.candidate?.candidate || data?.candidate;
-          const sdpMid = data?.candidate?.sdpMid ?? data?.sdpMid;
-          const sdpMLineIndex = data?.candidate?.sdpMLineIndex ?? data?.sdpMLineIndex;
-
-          if (rawCandidate) {
-            console.log("🛰️ Appending remote framework ICE candidate pathway...");
-            await peerConnection.current.addIceCandidate(
-              new RTCIceCandidate({
-                candidate: rawCandidate,
-                sdpMid: sdpMid,
-                sdpMLineIndex: sdpMLineIndex,
-              })
-            );
-          }
-        } catch (e) {
-          console.error("Error setting incoming candidate:", e);
-        }
-      }
-    };
-
-    // Subscribing to all possible signaling server event name variants
-    socketClient.on("remote-ice-candidate", handleIncomingIce);
-    socketClient.on("ice-candidate", handleIncomingIce);
-    socketClient.on("relay-ice-candidate", handleIncomingIce);
+    // Agora credentials handed back after the agent accepts the call
+    socketClient.on("voice-call:ready", (data) => {
+      if (!data) return;
+      console.log("🎙️ Agora voice call ready:", data);
+      void joinAgoraVoiceCall(data);
+    });
 
     socketRef.current = socketClient;
     setSocket(socketClient);
 
     return () => {
+      cleanupCall(false);
       socketClient.disconnect();
       socketRef.current = null;
     };
-  }, [router, cleanupCall]);
+  }, [router, cleanupCall, joinAgoraVoiceCall]);
 
   // ACTION: Click "Pick Up / Answer" on Modal Trigger
   const handleAnswerCall = async () => {
     if (!incomingCall || !socket) return;
 
     try {
-      // 1. Gain local authorization to capture the browser microphone stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
-      localStream.current = stream;
-
-      // 2. Setup standard Google RTC Peer connection architecture configuration
-      peerConnection.current = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      });
-
-      let disconnectTimer: ReturnType<typeof setTimeout> | null = null;
-      peerConnection.current.onconnectionstatechange = () => {
-        const state = peerConnection.current?.connectionState;
-        if (state === "disconnected") {
-          disconnectTimer = setTimeout(() => {
-            if (peerConnection.current?.connectionState === "disconnected") {
-              console.log(`📞 [WEBRTC] Connection state still disconnected after 10s — cleaning up`);
-              cleanupCall(false);
-            }
-          }, 10000);
-        } else if (state === "failed" || state === "closed") {
-          if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
-          console.log(`📞 [WEBRTC] Connection state changed to "${state}" — cleaning up`);
-          cleanupCall(false);
-        } else if (state === "connected") {
-          if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
-        }
-      };
-      peerConnection.current.oniceconnectionstatechange = () => {
-        const state = peerConnection.current?.iceConnectionState;
-        if (state === "disconnected") {
-          // ICE can recover from transient disconnection — wait before cleanup
-        } else if (state === "failed") {
-          console.log(`📞 [ICE] ICE connection failed — cleaning up`);
-          cleanupCall(false);
-        }
-      };
-
-      // 3. Mount the hardware microphone stream tracks straight inside the connection line
-      stream.getTracks().forEach((track) => {
-        peerConnection.current?.addTrack(track, stream);
-      });
-      
-      // 4. Fixed: Explicit un-muting of audio engine target nodes
-      peerConnection.current.ontrack = (event) => {
-        console.log("🎵 Remote network audio track captured successfully!", event);
-        const audioNode = document.getElementById("patientAudioDriver") as HTMLAudioElement;
-        if (audioNode) {
-          audioNode.muted = false; 
-          audioNode.volume = 1.0;
-
-          if (event.streams && event.streams[0]) {
-            audioNode.srcObject = event.streams[0];
-          } else {
-            console.log("⚙️ Stream wrapper absent. Bundling dynamic tracking stream wrapper container...");
-            audioNode.srcObject = new MediaStream([event.track]);
-          }
-
-          audioNode.load(); // Forces media pipeline thread reconfiguration
-          const playPromise = audioNode.play();
-          if (playPromise !== undefined) {
-            playPromise.catch((error) => {
-              console.warn("⚠️ Browser blocked immediate autoplay! Attaching tap-to-listen user listener fallback.", error);
-              window.addEventListener('click', () => {
-                audioNode.play().catch(e => console.error("Final audio unblock attempt failed:", e));
-              }, { once: true });
-            });
-          }
-        }
-      };
-
-      // 5. Build framework callback to intercept and relay local ICE connection channels
-      peerConnection.current.onicecandidate = (event) => {
-        const activeCall = currentIncomingCallRef.current;
-        if (event.candidate && activeCall) {
-          socket.emit("relay-ice-candidate", {
-            targetSocketId: activeCall.patientSocketId,
-            candidate: event.candidate,
-          });
-        }
-      };
-
-      // 6. Process and accept the phone's cryptographic SDP incoming Offer
-      await peerConnection.current.setRemoteDescription(
-        new RTCSessionDescription(incomingCall.sdpOffer)
-      );
-
-      // 7. 🔥 FIXED: Explicitly declare inbound channels are active during negotiation response
-      const answer = await peerConnection.current.createAnswer({
-        offerToReceiveAudio: true
-      });
-      await peerConnection.current.setLocalDescription(answer);
-
-      // 8. Fire the acceptance payload across the line wire to answer the phone
-      socket.emit("agent-accept-call", {
-        patientSocketId: incomingCall.patientSocketId,
-        sdpAnswer: answer,
-      });
-
+      // 1. Notify the server the agent is accepting; it will reply with Agora
+      //    credentials via the `voice-call:ready` event on this socket.
+      socket.emit("voice-call:accept", { sessionId: incomingCall.sessionId });
       setCallConnected(true);
       setIncomingCall(null);
     } catch (err) {
-      console.error("WebRTC pipeline crash:", err);
-      alert("Failed to initialize system microphone hardware. Confirm localhost or SSL rules apply.");
+      console.error("Failed to accept voice call:", err);
+      alert("Failed to accept the call. Please try again.");
     }
   };
 
-  // 🔥 FIXED: Complete clean reset across native browser components & audio components
+  // 🔥 Complete clean reset across native browser components & audio components
   const handleHangUp = () => {
     cleanupCall(true);
   };
@@ -469,8 +366,6 @@ export default function CallCenterDashboardPage() {
       pageTitle="Call Intake & Routing Hub"
       pageSubtitle="Real-time emergency triage queue and clinician dispatch console"
     >
-      <audio id="patientAudioDriver" autoPlay />
-
       {callConnected && (
         <div className="mb-6 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-6 py-4 animate-bounce">
           <div className="flex items-center gap-3">
@@ -479,7 +374,7 @@ export default function CallCenterDashboardPage() {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
             <p className="text-sm font-bold text-emerald-900">
-              🎙️ Live Audio Peer-to-Peer Connection Stream Active with Patient
+              🎙️ Live Agora Voice Call Active with Patient
             </p>
           </div>
           <div className="flex items-center gap-2">

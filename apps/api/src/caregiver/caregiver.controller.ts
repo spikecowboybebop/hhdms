@@ -127,10 +127,7 @@ export class CaregiverController {
     @Req() req: any,
     @Query('patient_id') patientId?: string,
   ) {
-    return this.caregiverService.getCheckInOuts(
-      this.getUserId(req),
-      patientId,
-    );
+    return this.caregiverService.getCheckInOuts(this.getUserId(req), patientId);
   }
 
   @Get('check-in-out/today')
@@ -143,10 +140,7 @@ export class CaregiverController {
   // ══════════════════════════════════════════════════════════════════════════
 
   @Get('timesheets')
-  async getTimesheets(
-    @Req() req: any,
-    @Query('month') month?: string,
-  ) {
+  async getTimesheets(@Req() req: any, @Query('month') month?: string) {
     return this.caregiverService.getTimesheets(this.getUserId(req), month);
   }
 }

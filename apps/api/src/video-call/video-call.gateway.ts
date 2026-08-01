@@ -26,7 +26,9 @@ interface VideoCallSession {
   cors: { origin: '*' },
   allowEIO3: true,
 })
-export class VideoCallGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class VideoCallGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(VideoCallGateway.name);
 
   @WebSocketServer()
@@ -34,28 +36,36 @@ export class VideoCallGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   private sessions = new Map<string, VideoCallSession>();
   private socketToSession = new Map<string, string>();
-  private connectedSockets = new Map<string, { patientId?: string; connectedAt: Date }>();
+  private connectedSockets = new Map<
+    string,
+    { patientId?: string; connectedAt: Date }
+  >();
 
   constructor(private readonly videoCallService: VideoCallService) {}
 
   handleConnection(client: Socket) {
-    this.logger.log(`Video call socket connected: ${client.id} (total connected: ${this.connectedSockets.size + 1})`);
+    this.logger.log(
+      `Video call socket connected: ${client.id} (total connected: ${this.connectedSockets.size + 1})`,
+    );
     this.connectedSockets.set(client.id, { connectedAt: new Date() });
 
     const patientId = client.handshake.query.patientId as string;
     if (patientId) {
       void client.join(`patient:${patientId}`);
       this.connectedSockets.get(client.id)!.patientId = patientId;
-      this.logger.log(`Socket ${client.id} auto-joined room patient:${patientId}`);
+      this.logger.log(
+        `Socket ${client.id} auto-joined room patient:${patientId}`,
+      );
     }
 
     // Log all connected sockets for debugging
-    this.logger.log(`All connected video-call sockets: ${Array.from(this.connectedSockets.keys()).join(', ')}`);
+    this.logger.log(
+      `All connected video-call sockets: ${Array.from(this.connectedSockets.keys()).join(', ')}`,
+    );
   }
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Video call socket disconnected: ${client.id}`);
-    const info = this.connectedSockets.get(client.id);
     this.connectedSockets.delete(client.id);
     const sessionId = this.socketToSession.get(client.id);
     if (sessionId) {
@@ -79,11 +89,15 @@ export class VideoCallGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { patientId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`Socket ${client.id} registering as patient ${data.patientId}`);
+    this.logger.log(
+      `Socket ${client.id} registering as patient ${data.patientId}`,
+    );
     void client.join(`patient:${data.patientId}`);
     const info = this.connectedSockets.get(client.id);
     if (info) info.patientId = data.patientId;
-    this.logger.log(`Socket ${client.id} joined room patient:${data.patientId}. All rooms: ${Array.from(this.server.sockets.adapter.rooms.keys()).join(', ')}`);
+    this.logger.log(
+      `Socket ${client.id} joined room patient:${data.patientId}. All rooms: ${Array.from(this.server.sockets.adapter.rooms.keys()).join(', ')}`,
+    );
   }
 
   @SubscribeMessage('video-call:start')
@@ -112,7 +126,9 @@ export class VideoCallGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.sessions.set(sessionId, session);
     this.socketToSession.set(client.id, sessionId);
 
-    this.logger.log(`Video call started: session=${sessionId} channel=${channelName} patientId=${data.patientId}`);
+    this.logger.log(
+      `Video call started: session=${sessionId} channel=${channelName} patientId=${data.patientId}`,
+    );
 
     const ringingPayload = {
       sessionId,
@@ -121,14 +137,40 @@ export class VideoCallGateway implements OnGatewayConnection, OnGatewayDisconnec
       referralId: data.referralId,
     };
 
-    // Send to the specific patient's room
+    // Route the ring only to sockets that have registered as this patient.
     const patientRoom = `patient:${data.patientId}`;
-    this.logger.log(`Emitting video-call:ringing to room ${patientRoom}`);
-    this.server.to(patientRoom).emit('video-call:ringing', ringingPayload);
+    const roomSockets = this.server.sockets.adapter.rooms.get(patientRoom);
+    const registeredPatientSockets: string[] = [];
 
-    // Also broadcast as fallback (in case patient hasn't registered a room yet)
-    this.logger.log(`Broadcasting video-call:ringing to all sockets as fallback`);
-    this.server.emit('video-call:ringing', ringingPayload);
+    if (roomSockets) {
+      roomSockets.forEach((socketId) =>
+        registeredPatientSockets.push(socketId),
+      );
+    }
+
+    // Fallback: any socket that connected with this patientId in the query param.
+    for (const [socketId, info] of this.connectedSockets.entries()) {
+      if (
+        info.patientId === data.patientId &&
+        !registeredPatientSockets.includes(socketId)
+      ) {
+        registeredPatientSockets.push(socketId);
+      }
+    }
+
+    this.logger.log(
+      `Emitting video-call:ringing to ${registeredPatientSockets.length} socket(s) for patient ${data.patientId}`,
+    );
+
+    for (const socketId of registeredPatientSockets) {
+      this.server.to(socketId).emit('video-call:ringing', ringingPayload);
+    }
+
+    if (registeredPatientSockets.length === 0) {
+      this.logger.warn(
+        `No online socket registered for patient ${data.patientId} — ringing will not be delivered.`,
+      );
+    }
   }
 
   @SubscribeMessage('video-call:accept')
@@ -139,6 +181,20 @@ export class VideoCallGateway implements OnGatewayConnection, OnGatewayDisconnec
     const session = this.sessions.get(data.sessionId);
     if (!session || session.status === 'ended') {
       this.logger.warn(`Accept for unknown/ended session: ${data.sessionId}`);
+      return;
+    }
+
+    // Only the patient the call is intended for may accept it. Verify the
+    // accepting socket has registered under the session's patientId.
+    const socketInfo = this.connectedSockets.get(client.id);
+    const isRegisteredPatient =
+      socketInfo?.patientId === session.patientId ||
+      client.rooms.has(`patient:${session.patientId}`);
+
+    if (!isRegisteredPatient) {
+      this.logger.warn(
+        `Rejecting accept from unverified socket ${client.id} for session ${data.sessionId} (expected patient ${session.patientId})`,
+      );
       return;
     }
 
