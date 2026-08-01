@@ -8,7 +8,6 @@ import {
   type DashboardNavItem,
 } from "@/components/dashboard/dashboard-shell";
 import {
-  dashboardPathForRole,
   loadSession,
   type StoredSession,
 } from "@/lib/auth";
@@ -30,12 +29,12 @@ const navItems: DashboardNavItem[] = [
   },
   {
     label: "Diet Plans",
-    href: "/dashboard/nutritionist",
+    href: "/dashboard/nutritionist/diet-plans",
     icon: <Apple size={18} />,
   },
   {
     label: "Patients",
-    href: "/dashboard/nutritionist",
+    href: "/dashboard/nutritionist/patients",
     icon: <Users size={18} />,
   },
 ];
@@ -120,10 +119,10 @@ export default function NutritionistDashboard() {
       ) : loading ? (
         <div className="text-slate-500 animate-pulse">Loading Clinical Workspace...</div>
       ) : (
-        <>
+        <div className="space-y-8">
           {/* Metric Cards Grid */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
               <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Apple size={24} /></div>
               <div>
                 <p className="text-xs font-medium text-slate-400 uppercase">Active Diet Plans</p>
@@ -131,7 +130,7 @@ export default function NutritionistDashboard() {
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
               <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><Calendar size={24} /></div>
               <div>
                 <p className="text-xs font-medium text-slate-400 uppercase">Follow-ups Pending</p>
@@ -139,7 +138,7 @@ export default function NutritionistDashboard() {
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><Users size={24} /></div>
               <div>
                 <p className="text-xs font-medium text-slate-400 uppercase">Verified Foods DB</p>
@@ -147,7 +146,7 @@ export default function NutritionistDashboard() {
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
               <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><FileText size={24} /></div>
               <div>
                 <p className="text-xs font-medium text-slate-400 uppercase">Diet Templates</p>
@@ -157,10 +156,10 @@ export default function NutritionistDashboard() {
           </div>
 
           {/* Main Panel Content Split */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Active Patients Roster */}
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm lg:col-span-2 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+              <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
                 <h3 className="font-semibold text-slate-800">Assigned Case Load</h3>
                 <button className="text-xs font-medium text-blue-600 flex items-center hover:underline">View All Patients <ArrowUpRight size={14} className="ml-0.5" /></button>
               </div>
@@ -169,7 +168,7 @@ export default function NutritionistDashboard() {
                   <div className="p-8 text-center text-sm text-slate-400">No patients assigned yet. Create a diet plan to get started.</div>
                 )}
                 {patients.map((patient: any) => (
-                  <div key={patient.id} className="p-4 hover:bg-slate-50/70 transition flex justify-between items-center">
+                  <div key={patient.id} className="px-6 py-5 hover:bg-slate-50/70 transition flex justify-between items-center">
                     <div className="space-y-0.5">
                       <p className="font-medium text-slate-800 text-sm">{patient.name}</p>
                       <p className="text-xs text-slate-400 font-mono">{patient.mrn} • <span className="text-slate-500 font-sans">{patient.condition}</span></p>
@@ -193,17 +192,17 @@ export default function NutritionistDashboard() {
             </div>
 
             {/* Quick Follow-up Action List */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
               <h3 className="font-semibold text-slate-800">Today&apos;s Reminders</h3>
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3 p-3 bg-amber-50/50 border border-amber-100 rounded-lg">
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3 p-4 bg-amber-50/50 border border-amber-100 rounded-lg">
                   <Clock size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
                   <div className="text-xs">
                     <p className="font-semibold text-amber-800">Review Rahima Begum (2 Weeks)</p>
                     <p className="text-amber-600 mt-0.5">Bi-weekly weight update due for macro assessment adjustments.</p>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                <div className="flex items-start space-x-3 p-4 bg-slate-50 border border-slate-100 rounded-lg">
                   <CheckCircle size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
                   <div className="text-xs">
                     <p className="font-semibold text-slate-700">Adherence Log Logged</p>
@@ -213,7 +212,7 @@ export default function NutritionistDashboard() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </DashboardShell>
   );
