@@ -40,6 +40,14 @@ export class NurseService {
     return p ? `${p.first_name_en} ${p.last_name_en}`.trim() : 'Unknown';
   }
 
+  private async getUserName(userId: string) {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstNameEn: true, lastNameEn: true },
+    });
+    return u ? `${u.firstNameEn} ${u.lastNameEn}`.trim() : 'Unknown';
+  }
+
   // ══════════════════════════════════════════════════════════════
   // Profile
   // ══════════════════════════════════════════════════════════════
@@ -234,7 +242,7 @@ export class NurseService {
     dto: CreateMedicationAdminDto,
   ) {
     await this.verifyNurse(userId);
-    const nurseName = await this.getPatientName(userId);
+    const nurseName = await this.getUserName(userId);
     const record = await this.prisma.nurse_medication_administrations.create({
       data: {
         patient_id: dto.patient_id,
