@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -53,6 +54,24 @@ export class NurseController {
   @Get('patients')
   async getMyPatients(@Req() req: any) {
     return this.nurseService.getMyPatients(this.getUserId(req));
+  }
+
+  @Post('patients/assign')
+  @HttpCode(HttpStatus.CREATED)
+  async assignPatient(
+    @Req() req: any,
+    @Body('patient_id') patientId: string,
+  ) {
+    return this.nurseService.assignPatient(this.getUserId(req), patientId);
+  }
+
+  @Delete('patients/:id/unassign')
+  @HttpCode(HttpStatus.OK)
+  async unassignPatient(
+    @Req() req: any,
+    @Param('id') patientId: string,
+  ) {
+    return this.nurseService.unassignPatient(this.getUserId(req), patientId);
   }
 
   // ═══════════════ Schedule ═══════════════

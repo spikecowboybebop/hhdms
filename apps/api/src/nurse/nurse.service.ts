@@ -127,6 +127,42 @@ export class NurseService {
   }
 
   // ══════════════════════════════════════════════════════════════
+  // Patient Assignment Management
+  // ══════════════════════════════════════════════════════════════
+
+  async assignPatient(userId: string, patientId: string) {
+    await this.verifyNurse(userId);
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: patientId },
+    });
+    if (!patient) throw new NotFoundException('Patient not found.');
+    const assignment = await this.prisma.nurse_patient_assignments.upsert({
+      where: {
+        nurse_id_patient_id: { nurse_id: userId, patient_id: patientId },
+      },
+      update: { status: 'ACTIVE' },
+      create: { nurse_id: userId, patient_id: patientId },
+    });
+    return { id: assignment.id, status: assignment.status };
+  }
+
+  async unassignPatient(userId: string, patientId: string) {
+    await this.verifyNurse(userId);
+    const existing = await this.prisma.nurse_patient_assignments.findUnique({
+      where: {
+        nurse_id_patient_id: { nurse_id: userId, patient_id: patientId },
+      },
+    });
+    if (!existing) throw new NotFoundException('Assignment not found.');
+    await this.prisma.nurse_patient_assignments.delete({
+      where: {
+        nurse_id_patient_id: { nurse_id: userId, patient_id: patientId },
+      },
+    });
+    return { success: true };
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // Schedule
   // ══════════════════════════════════════════════════════════════
 
