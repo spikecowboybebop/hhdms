@@ -260,7 +260,11 @@ export class VideoCallGateway
     @MessageBody() data: { sessionId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const session = this.sessions.get(data.sessionId);
+    // Fall back to the session associated with this socket when the caller
+    // does not know the sessionId (e.g. the specialist cancels while ringing).
+    let session =
+      this.sessions.get(data.sessionId) ??
+      this.sessions.get(this.socketToSession.get(client.id) ?? '');
     if (!session || session.status === 'ended') return;
 
     const otherSocket =
@@ -270,15 +274,15 @@ export class VideoCallGateway
 
     if (otherSocket) {
       this.server.to(otherSocket).emit('video-call:end', {
-        sessionId: data.sessionId,
+        sessionId: session.id,
       });
     }
 
-    this.logger.log(`Video call ended: session=${data.sessionId}`);
+    this.logger.log(`Video call ended: session=${session.id}`);
 
     session.status = 'ended';
     this.socketToSession.delete(client.id);
     if (otherSocket) this.socketToSession.delete(otherSocket);
-    this.sessions.delete(data.sessionId);
+    this.sessions.delete(session.id);
   }
 }

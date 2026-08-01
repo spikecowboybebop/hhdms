@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useVideoCall } from '@/hooks/use-video-call';
 import { VideoCallPanel } from './video-call-panel';
 
@@ -14,6 +14,13 @@ interface VideoCallButtonProps {
 export function VideoCallButton({ referralId, patientId, patientName, specialistName }: VideoCallButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { status, localVideoTrack, remoteUsers, startCall, endCall } = useVideoCall();
+
+  // Close the panel automatically when the remote side ends the call.
+  useEffect(() => {
+    if (status === 'ended') {
+      setIsOpen(false);
+    }
+  }, [status]);
 
   const handleStart = async () => {
     setIsOpen(true);

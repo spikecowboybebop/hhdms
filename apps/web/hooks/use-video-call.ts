@@ -81,6 +81,7 @@ export function useVideoCall() {
 
     socket.on('video-call:ready', async (data: { sessionId: string; token: string; appId: string; channelName: string; uid: number }) => {
       console.log('[VideoCall] Ready:', data);
+      setSessionId(data.sessionId);
       setStatus('active');
 
       try {
