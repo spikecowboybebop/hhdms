@@ -38,6 +38,10 @@ export class MbbsService implements OnModuleInit {
 
   onModuleInit() {
     const candidates = [
+      // From dist/mbbs up to the monorepo root (both local and Render).
+      path.resolve(__dirname, '../../../../icd10_codes.json'),
+      // When the process runs with the repo root as cwd (Render default).
+      path.resolve(process.cwd(), 'icd10_codes.json'),
       path.resolve(__dirname, '../../../../../icd10_codes.json'),
       path.resolve(process.cwd(), '../../icd10_codes.json'),
     ];
