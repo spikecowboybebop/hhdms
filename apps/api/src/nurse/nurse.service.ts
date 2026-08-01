@@ -95,7 +95,6 @@ export class NurseService {
             date_of_birth: true,
             sex: true,
             blood_group: true,
-            patient_type: true,
             address_line1: true,
             district: true,
           },
