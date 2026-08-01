@@ -37,6 +37,7 @@ model User {
   caregiver_profiles      caregiver_profiles?
   fcm_tokens              fcm_tokens[]
   mbbs_doctor_profiles    mbbs_doctor_profiles?
+  nurse_profiles          nurse_profiles?
   nutritionist_profiles   nutritionist_profiles?
   patients                patients[]
   server_notifications    server_notifications[]
@@ -555,6 +556,19 @@ model patients {
   chat_patient_conversations   chat_conversations[]
   caregiver_check_in_outs      caregiver_check_in_out[]
   caregiver_timesheets         caregiver_timesheets[]
+  nurse_assignments            nurse_patient_assignments[]
+  nurse_schedule_entries       nurse_schedule_entries[]
+  nurse_vital_signs            nurse_vital_signs[]
+  nurse_medication_admins      nurse_medication_administrations[]
+  nurse_iv_fluid_records       nurse_iv_fluid_records[]
+  nurse_wound_care_records     nurse_wound_care_records[]
+  nurse_care_reports           nurse_care_reports[]
+  nurse_handovers              nurse_handovers[]
+  nurse_consultation_requests  nurse_consultation_requests[]
+  nurse_supply_usage           nurse_supply_usage[]
+  nurse_feeding_logs           nurse_feeding_logs[]
+  nurse_growth_records         nurse_growth_records[]
+  nurse_vaccination_records    nurse_vaccination_records[]
 
   @@map("patients")
 }
@@ -952,4 +966,251 @@ enum AccountStatusEnum {
   SUSPENDED
 
   @@map("account_status_enum")
+}
+
+// ══════════════════════════════════════════════════════════════
+// Nurse Module
+// ══════════════════════════════════════════════════════════════
+
+model nurse_profiles {
+  user_id         String  @id @map("user_id") @db.Uuid
+  nurse_type      String? @map("nurse_type") @db.VarChar(50)
+  specialization  String? @map("specialization") @db.VarChar(100)
+  license_number  String? @map("license_number") @db.VarChar(50)
+  created_at      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user            User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  patient_assignments         nurse_patient_assignments[]
+  schedule_entries            nurse_schedule_entries[]
+  vital_signs                 nurse_vital_signs[]
+  medication_administrations  nurse_medication_administrations[]
+  iv_fluid_records            nurse_iv_fluid_records[]
+  wound_care_records          nurse_wound_care_records[]
+  care_reports                nurse_care_reports[]
+  handovers                   nurse_handovers[]
+  consultation_requests       nurse_consultation_requests[]
+  supply_usage                nurse_supply_usage[]
+  feeding_logs                nurse_feeding_logs[]
+  growth_records              nurse_growth_records[]
+  vaccination_records         nurse_vaccination_records[]
+
+  @@map("nurse_profiles")
+}
+
+model nurse_patient_assignments {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id     String          @map("nurse_id") @db.Uuid
+  patient_id   String          @map("patient_id") @db.Uuid
+  assigned_at  DateTime?       @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  status       String          @default("ACTIVE") @map("status") @db.VarChar(20)
+  nurse        nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient      patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([nurse_id, patient_id])
+  @@map("nurse_patient_assignments")
+}
+
+model nurse_schedule_entries {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id              String          @map("nurse_id") @db.Uuid
+  patient_id            String          @map("patient_id") @db.Uuid
+  scheduled_date        DateTime?       @map("scheduled_date") @db.Date
+  scheduled_time_slot   String?         @map("scheduled_time_slot") @db.VarChar(20)
+  service_requirements  String?         @map("service_requirements")
+  status                String          @default("PENDING") @map("status") @db.VarChar(20)
+  created_at            DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  nurse                 nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient               patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_schedule_entries")
+}
+
+model nurse_vital_signs {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id       String          @map("patient_id") @db.Uuid
+  nurse_id         String          @map("nurse_id") @db.Uuid
+  recorded_at      DateTime?       @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  systolic_bp      Int?            @map("systolic_bp")
+  diastolic_bp     Int?            @map("diastolic_bp")
+  pulse_bpm        Int?            @map("pulse_bpm")
+  temperature_c    Decimal?        @map("temperature_c") @db.Decimal(4, 1)
+  spo2_pct         Int?            @map("spo2_pct")
+  respiratory_rate Int?            @map("respiratory_rate")
+  blood_glucose    Decimal?        @map("blood_glucose") @db.Decimal(5, 1)
+  notes            String?         @map("notes")
+  is_abnormal      Boolean         @default(false) @map("is_abnormal")
+  nurse            nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient          patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_vital_signs")
+}
+
+model nurse_medication_administrations {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id       String          @map("patient_id") @db.Uuid
+  nurse_id         String          @map("nurse_id") @db.Uuid
+  drug_name        String          @map("drug_name") @db.VarChar(200)
+  dosage           String?         @map("dosage") @db.VarChar(100)
+  route            String?         @map("route") @db.VarChar(50)
+  administered_at  DateTime?       @default(now()) @map("administered_at") @db.Timestamptz(6)
+  notes            String?         @map("notes")
+  nurse_name       String?         @map("nurse_name") @db.VarChar(200)
+  nurse            nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient          patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_medication_administrations")
+}
+
+model nurse_iv_fluid_records {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id       String          @map("patient_id") @db.Uuid
+  nurse_id         String          @map("nurse_id") @db.Uuid
+  fluid_type       String?         @map("fluid_type") @db.VarChar(100)
+  rate_ml_hr       Decimal?        @map("rate_ml_hr") @db.Decimal(6, 1)
+  volume_given_ml  Decimal?        @map("volume_given_ml") @db.Decimal(8, 1)
+  site_condition   String?         @map("site_condition") @db.VarChar(200)
+  started_at       DateTime?       @default(now()) @map("started_at") @db.Timestamptz(6)
+  stopped_at       DateTime?       @map("stopped_at") @db.Timestamptz(6)
+  status           String          @default("ACTIVE") @map("status") @db.VarChar(20)
+  nurse            nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient          patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_iv_fluid_records")
+}
+
+model nurse_wound_care_records {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id          String          @map("patient_id") @db.Uuid
+  nurse_id            String          @map("nurse_id") @db.Uuid
+  wound_location      String?         @map("wound_location") @db.VarChar(200)
+  wound_measurements  String?         @map("wound_measurements")
+  wound_condition     String?         @map("wound_condition")
+  dressing_applied    String?         @map("dressing_applied")
+  healing_progress    String?         @map("healing_progress")
+  photo_url           String?         @map("photo_url") @db.VarChar(2000)
+  latitude            Decimal?        @map("latitude") @db.Decimal(10, 7)
+  longitude           Decimal?        @map("longitude") @db.Decimal(10, 7)
+  recorded_at         DateTime?       @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  nurse               nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient             patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_wound_care_records")
+}
+
+model nurse_care_reports {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id             String          @map("patient_id") @db.Uuid
+  nurse_id               String          @map("nurse_id") @db.Uuid
+  visit_date             DateTime?       @default(now()) @map("visit_date") @db.Date
+  vitals_summary         String?         @map("vitals_summary")
+  medications_summary    String?         @map("medications_summary")
+  procedures_performed   String?         @map("procedures_performed")
+  patient_response       String?         @map("patient_response")
+  handover_notes         String?         @map("handover_notes")
+  generated_at           DateTime?       @default(now()) @map("generated_at") @db.Timestamptz(6)
+  pdf_url                String?         @map("pdf_url") @db.VarChar(2000)
+  nurse                  nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient                patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_care_reports")
+}
+
+model nurse_handovers {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id             String          @map("nurse_id") @db.Uuid
+  patient_id           String          @map("patient_id") @db.Uuid
+  shift_date           DateTime?       @default(now()) @map("shift_date") @db.Date
+  current_status       String?         @map("current_status")
+  active_concerns      String?         @map("active_concerns")
+  medications_due      String?         @map("medications_due")
+  physician_orders     String?         @map("physician_orders")
+  patient_instructions String?         @map("patient_instructions")
+  handed_over_by       String?         @map("handed_over_by") @db.VarChar(200)
+  handed_over_to       String?         @map("handed_over_to") @db.VarChar(200)
+  signed_at            DateTime?       @map("signed_at") @db.Timestamptz(6)
+  status               String          @default("DRAFT") @map("status") @db.VarChar(20)
+  created_at           DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  nurse                nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient              patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_handovers")
+}
+
+model nurse_consultation_requests {
+  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id                 String          @map("nurse_id") @db.Uuid
+  patient_id               String          @map("patient_id") @db.Uuid
+  concern_summary          String?         @map("concern_summary")
+  current_vitals_snapshot  String?         @map("current_vitals_snapshot")
+  urgency_level            String          @default("NORMAL") @map("urgency_level") @db.VarChar(20)
+  status                   String          @default("PENDING") @map("status") @db.VarChar(20)
+  created_at               DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  doctor_response          String?         @map("doctor_response")
+  responded_at             DateTime?       @map("responded_at") @db.Timestamptz(6)
+  nurse                    nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient                  patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_consultation_requests")
+}
+
+model nurse_supply_usage {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id      String          @map("nurse_id") @db.Uuid
+  patient_id    String          @map("patient_id") @db.Uuid
+  supply_name   String          @map("supply_name") @db.VarChar(200)
+  quantity_used Int             @default(1) @map("quantity_used")
+  unit          String?         @map("unit") @db.VarChar(50)
+  recorded_at   DateTime?       @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  nurse         nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient       patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_supply_usage")
+}
+
+model nurse_feeding_logs {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id      String          @map("nurse_id") @db.Uuid
+  patient_id    String          @map("patient_id") @db.Uuid
+  feeding_type  String?         @map("feeding_type") @db.VarChar(100)
+  volume_ml     Decimal?        @map("volume_ml") @db.Decimal(6, 1)
+  frequency     String?         @map("frequency") @db.VarChar(100)
+  recorded_at   DateTime?       @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  nurse         nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient       patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_feeding_logs")
+}
+
+model nurse_growth_records {
+  id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id                  String          @map("nurse_id") @db.Uuid
+  patient_id                String          @map("patient_id") @db.Uuid
+  weight_kg                 Decimal?        @map("weight_kg") @db.Decimal(5, 2)
+  height_cm                 Decimal?        @map("height_cm") @db.Decimal(5, 1)
+  head_circumference_cm     Decimal?        @map("head_circumference_cm") @db.Decimal(4, 1)
+  recorded_at               DateTime?       @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  percentile_weight         Decimal?        @map("percentile_weight") @db.Decimal(5, 2)
+  percentile_height         Decimal?        @map("percentile_height") @db.Decimal(5, 2)
+  percentile_head           Decimal?        @map("percentile_head") @db.Decimal(5, 2)
+  nurse                     nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient                   patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_growth_records")
+}
+
+model nurse_vaccination_records {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nurse_id          String          @map("nurse_id") @db.Uuid
+  patient_id        String          @map("patient_id") @db.Uuid
+  vaccine_name      String?         @map("vaccine_name") @db.VarChar(200)
+  dose_number       Int?            @map("dose_number")
+  administered_date DateTime?       @map("administered_date") @db.Date
+  next_due_date     DateTime?       @map("next_due_date") @db.Date
+  status            String          @default("COMPLETED") @map("status") @db.VarChar(20)
+  created_at        DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  nurse             nurse_profiles  @relation(fields: [nurse_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient           patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("nurse_vaccination_records")
 }
