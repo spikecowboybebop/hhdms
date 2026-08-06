@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { CreateAdherenceLogDto } from './dto/create-adherence-log.dto';
 import { CreateAnthropometricRecordDto } from './dto/create-anthropometric-record.dto';
 import { CreateDietPlanDto } from './dto/create-diet-plan.dto';
@@ -33,7 +34,10 @@ type NutrientBreakdownItem = {
 
 @Injectable()
 export class NutritionistService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly billing: BillingService,
+  ) {}
 
   // ─── Dashboard ────────────────────────────────────────────────────────────
 
@@ -312,11 +316,13 @@ export class NutritionistService {
       ? new Date(dto.preferred_at)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+    const price = await this.billing.resolveServicePrice('NUTRITIONIST');
+
     const session = await this.prisma.booking_sessions.create({
       data: {
         patient_id: patient.id,
         booked_by: null,
-        total_amount: 0,
+        total_amount: price,
         status: 'ACTIVE',
       },
     });
@@ -329,7 +335,7 @@ export class NutritionistService {
         scheduled_date: bookedAt,
         scheduled_time_slot: 'HOME_VISIT',
         assigned_provider_id: nutritionistId,
-        price: 0,
+        price,
         status: 'ASSIGNED',
       },
     });

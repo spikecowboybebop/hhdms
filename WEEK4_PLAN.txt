@@ -1,0 +1,168 @@
+========================================================================
+HHDMS — WEEK 1 IMPLEMENTATION PLAN (4 PARALLEL TRACKS)
+========================================================================
+Team   : 4 people (one track each)
+Source : Based on SRS audit — see SRS_IMPLEMENTATION_STATUS.txt
+Goal   : Close the biggest gaps in parallel; no hard deadline, so balance
+         coverage + quality. Track A also closes the buggy payment surface.
+
+Legend: D1..D5 = work days. Build/lint gates at end of each day.
+
+
+------------------------------------------------------------------------
+DAY 0 — HOUSEKEEPING (all, ~1h)
+------------------------------------------------------------------------
+[ ] Commit outstanding fixes:
+      - Payment banner: DashboardScreen.kt (~line 422) adds
+        `&& latestSession != null` to the banner condition.
+      - Logout: MainActivity.kt clears VisitStorage.clearVisit(),
+        clearVisitingPatientId(), clearAppointmentDone().
+      - Doctor chat: MbbsDoctorDashboardScreen.kt — when id starts with
+        "assignment:", call getOrCreateConversation(assignment_id) first,
+        then navigate to ChatScreen.
+[ ] Build a fresh APK (Android Studio JBR JAVA_HOME).
+[ ] Sync branches from main; confirm hhdms API + web build green.
+[ ] Regenerate notes/credentials if any role changes this week.
+
+
+------------------------------------------------------------------------
+TRACK A — BILLING & PAYMENTS  (person A)
+Closes the buggy payment surface. Owner of BP module (BP-001..BP-010).
+------------------------------------------------------------------------
+D1
+  [ ] Prisma `Invoice` model + `invoices` endpoints (create/list/get).
+  [ ] Auto price rule engine: service type -> price. REMOVE hardcoded
+      800 BDT fallback.
+  [ ] Generate invoice number INV-YYYY-XXXXX.
+D2
+  [ ] Stripe polish: PaymentIntent per invoice, idempotent webhook -> paid.
+  [ ] Manual "cash / mark paid" path.
+  [ ] bKash / Nagad / Rocket field stubs + payment-method enum.
+D3
+  [ ] Invoice PDF generation (pdfkit — reuse nutritionist bilingual PDF
+      pattern) + digital receipt (BP-005).
+D4
+  [ ] Web billing UI: invoice list, pay button, status, receipts.
+  [ ] Fix call-center/provider price fallbacks (nutritionist 0, etc.).
+D5
+  [ ] Android: invoice/receipt view; payment banner clears only on true
+      paid + latest session.
+  [ ] End-to-end: booking -> invoice -> Stripe test card -> receipt ->
+      banner clears.
+
+Done when: no hardcoded price anywhere; full payment loop works in demo.
+Stretch : BP-007 commission tracking, BP-010 discount/promo stub.
+
+
+------------------------------------------------------------------------
+TRACK B — X-RAY MODULE  (person B)
+Biggest SRS gap (0/10). Builds XR-001..XR-011. Reuses specialist DICOM.
+------------------------------------------------------------------------
+D1
+  [ ] Prisma models: xray_booking, xray_exam, xray_technician,
+      xray_exposure, xray_report, DICOM linkage.
+  [ ] Migration + seed technician users.
+D2
+  [ ] X-Ray booking + technician auto-assignment endpoints.
+  [ ] Add X-Ray to providers/available + call-center CC-003 flow.
+  [ ] Safety / precaution checklist (pregnancy, pregnancy age, implant,
+      contrast, etc.) — required before exam.
+D3
+  [ ] Technician workflow: exposure params (kVp, mAs, distance,
+      projections), technical report.
+  [ ] X-Ray web pages (technician dashboard + exam entry).
+D4
+  [ ] DICOM upload/storage (reuse specialist UploadCare/DICOM infra).
+  [ ] Radiologist / specialist interpretation (reuse SP-005 annotation
+      viewer).
+D5
+  [ ] Report generation + delivery notification (FCM now, SMS stub).
+  [ ] Patient view in Android app; wire X-Ray into referral flow.
+
+Done when: call-center -> technician -> radiologist -> patient loop works.
+Cut line : if slipping, defer D4 interpretation to next week; keep
+booking -> technician -> report.
+
+
+------------------------------------------------------------------------
+TRACK C — ADMIN DASHBOARD + REPORTING + SCHEDULING  (person C)
+Unblocks ADMIN route (currently 404s). Owner of RA + SD modules.
+------------------------------------------------------------------------
+D1
+  [ ] Fix ADMIN route 404; admin layout + role guard.
+  [ ] Stats aggregation API endpoint(s).
+D2
+  [ ] KPIs: daily bookings, revenue, active providers, call queue
+      (replace mockTickets with real data).
+  [ ] Revenue analytics from Payments (RA-007); daily operational summary
+      (RA-001).
+D3
+  [ ] Attendance reports: caregiver timesheets, nurse schedule (RA-003).
+  [ ] Provider / patient listings + detail pages.
+D4
+  [ ] Scheduling dashboard: bookings calendar.
+  [ ] Cancel / reschedule endpoints + UI (SD-005).
+  [ ] Provider reminder stub via FCM (SD-004).
+D5
+  [ ] Live-map placeholder wired for LT-002 hook; navigation polish.
+  [ ] Report exports (CSV) for the demo.
+
+Done when: ADMIN role lands on a real dashboard with KPI + revenue +
+reschedule working.
+Stretch : route optimization stub (SD-003), recurring appointments (SD-007).
+
+
+------------------------------------------------------------------------
+TRACK D — SECURITY + NOTIFICATIONS + SMS  (person D)
+Owner of NFRs + notification engine (NF-001..NF-012).
+------------------------------------------------------------------------
+D1
+  [ ] Lock unauthenticated endpoints with JWT AuthGuard:
+      - GET /patients/:id, /patients/by-phone/:phone, /by-email/:email
+      - PATCH /patients/:id
+      - GET /providers/available
+      - POST /bookings/create-session
+      - GET /api/specialist/dicom/:id/frame/:instance
+D2
+  [ ] RBAC RolesGuard + role constants; fix hardcoded roleId 7 in
+      patient signup.
+  [ ] Per-specialist report filtering (any specialist must NOT see all
+      referrals).
+D3
+  [ ] Audit logging: audit_logs model + middleware (who / when / what).
+D4
+  [ ] SMS gateway behind an interface + .env keys (Twilio or BongoSMS).
+      Wire triggers: NF-001 appointment confirmed, NF-004 report
+      finalized, NF-010 prescription, NF-011 diet plan.
+  [ ] Real alerts for caregiver condition reports + nurse consultation
+      requests (currently flag-only).
+D5
+  [ ] Email-OTP MFA on login (optional toggle).
+  [ ] WhatsApp / message-template service stub (NF-006/NF-011b).
+
+Done when: all PII endpoints return 401 unauth; every trigger sends real
+SMS/push; audit log populated.
+Blocked-by : SMS provider API key (.env, gitignored). If unavailable,
+ship interface + push-only wiring and flag as blocked.
+
+
+------------------------------------------------------------------------
+END OF WEEK — INTEGRATION (all)
+------------------------------------------------------------------------
+[ ] Regenerate GAP_ANALYSIS.md + SRS_IMPLEMENTATION_STATUS.txt with new
+    coverage numbers.
+[ ] Update test_credentials.txt if Track B adds technician role.
+[ ] Cross-track demo walkthrough:
+      call-center -> X-Ray -> specialist -> billing -> admin reports.
+[ ] Build APK + API/web build green; commit per track (small commits).
+
+
+------------------------------------------------------------------------
+RISKS / NOTES
+------------------------------------------------------------------------
+- Track B is the biggest lift. Use the cut line on D4 if needed.
+- SMS needs a real provider account. Ship the interface regardless.
+- Stripe stays in test mode.
+- Android server URL is hardcoded to http://10.158.181.213:3001 — change
+  it before testing on a different network.
+- Keep .env gitignored; never commit secrets.

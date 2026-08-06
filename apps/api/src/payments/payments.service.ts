@@ -5,13 +5,17 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import Stripe from 'stripe';
 
 @Injectable()
 export class PaymentsService {
   private stripe: Stripe | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly billing: BillingService,
+  ) {
     const key = process.env.STRIPE_SECRET_KEY;
     if (key) {
       this.stripe = new Stripe(key);
@@ -50,7 +54,8 @@ export class PaymentsService {
     const mbbsTicket = session.tickets.find((t) => t.service_type === 'MBBS');
     if (!mbbsTicket) throw new NotFoundException('No MBBS ticket found.');
 
-    const amount = mbbsTicket.price ?? 800;
+    const price = await this.billing.resolveServicePrice('MBBS');
+    const amount = mbbsTicket.price ?? price;
 
     const paymentIntent = await this.requireStripe().paymentIntents.create({
       amount: Math.round(Number(amount) * 100),

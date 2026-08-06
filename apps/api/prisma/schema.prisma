@@ -25,6 +25,8 @@ model User {
   lastNameEn              String                 @map("last_name_en") @db.VarChar(100)
   firstNameBn             String?                @map("first_name_bn") @db.VarChar(100)
   lastNameBn              String?                @map("last_name_bn") @db.VarChar(100)
+  nid                     String?                @map("nid") @db.VarChar(50)
+  photoUrl                String?                @map("photo_url") @db.VarChar(512)
   roleId                  Int                    @map("role_id")
   status                  AccountStatusEnum      @default(ACTIVE)
   mfaEnabled              Boolean                @default(false) @map("mfa_enabled")
@@ -60,6 +62,7 @@ model mbbs_doctor_profiles {
   signature_url       String?                      @map("signature_url") @db.VarChar(512)
   district            String?                      @map("district") @db.VarChar(100)
   thana               String?                      @map("thana") @db.VarChar(100)
+  service_area        String?                      @map("service_area") @db.VarChar(255)
   is_available        Boolean                      @default(true) @map("is_available")
   created_at          DateTime?                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at          DateTime?                    @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -124,6 +127,11 @@ model server_notifications {
 model nutritionist_profiles {
   id                     String                                @id @default(uuid())
   user_id                String                                @unique @db.Uuid
+  qualifications         String?                               @db.VarChar(255)
+  specializations        String?                               @db.VarChar(255)
+  service_area           String?                               @db.VarChar(255)
+  consultation_fee       Decimal?                              @db.Decimal(10, 2)
+  is_available           Boolean                               @default(true)
   created_at             DateTime                              @default(now())
   updated_at             DateTime                              @updatedAt
   adherence_logs         nutritionist_adherence_logs[]
@@ -255,6 +263,8 @@ model specialist_profiles {
   years_of_experience Int?                     @map("years_of_experience")
   consultation_fee    Decimal?                 @map("consultation_fee") @db.Decimal(10, 2)
   signature_url       String?                  @map("signature_url") @db.VarChar(512)
+  sub_specialties     String?                  @map("sub_specialties") @db.VarChar(255)
+  service_area        String?                  @map("service_area") @db.VarChar(255)
   is_available        Boolean                  @default(true) @map("is_available")
   created_at          DateTime?                @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at          DateTime?                @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -447,6 +457,7 @@ model booking_sessions {
   patient      patients          @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   payments     payments[]
   tickets      service_tickets[]
+  invoices     invoices[]
 
   @@map("booking_sessions")
 }
@@ -465,8 +476,43 @@ model payments {
   completed_at             DateTime?        @map("completed_at") @db.Timestamptz(6)
   booking_session          booking_sessions @relation(fields: [booking_session_id], references: [id], onUpdate: NoAction)
   patient                  patients         @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+  invoice                  invoices?
 
   @@map("payments")
+}
+
+model invoices {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_no         String           @unique @map("invoice_no") @db.VarChar(50)
+  booking_session_id String?          @map("booking_session_id") @db.Uuid
+  payment_id         String?          @unique @map("payment_id") @db.Uuid
+  patient_id         String           @map("patient_id") @db.Uuid
+  service_type       String           @map("service_type") @db.VarChar(30)
+  amount             Decimal          @map("amount") @db.Decimal(10, 2)
+  currency           String           @default("BDT") @map("currency") @db.VarChar(10)
+  status             String           @default("issued") @map("status") @db.VarChar(20)
+  issued_at          DateTime         @default(now()) @map("issued_at") @db.Timestamptz(6)
+  paid_at            DateTime?        @map("paid_at") @db.Timestamptz(6)
+  file_url           String?          @map("file_url") @db.Text
+  file_name          String?          @map("file_name") @db.VarChar(255)
+  file_size          Int?             @map("file_size")
+  created_at         DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at         DateTime?        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  payment            payments?        @relation(fields: [payment_id], references: [id], onUpdate: NoAction)
+  booking_session    booking_sessions? @relation(fields: [booking_session_id], references: [id], onUpdate: NoAction)
+  patient            patients         @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+
+  @@map("invoices")
+}
+
+model service_prices {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  service_type String     @unique @map("service_type") @db.VarChar(30)
+  price        Decimal    @map("price") @db.Decimal(10, 2)
+  currency     String     @default("BDT") @map("currency") @db.VarChar(10)
+  updated_at   DateTime?  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("service_prices")
 }
 
 model service_tickets {
@@ -546,6 +592,7 @@ model patients {
   vital_signs                  patient_vital_signs[]
   user                         User?                                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
   payments                     payments[]
+  invoices                     invoices[]
   prescriptions                prescriptions[]
   referral_chain_events        referral_chain[]
   sonologist_reports           sonologist_reports[]
@@ -973,13 +1020,18 @@ enum AccountStatusEnum {
 // ══════════════════════════════════════════════════════════════
 
 model nurse_profiles {
-  user_id         String  @id @map("user_id") @db.Uuid
-  nurse_type      String? @map("nurse_type") @db.VarChar(50)
-  specialization  String? @map("specialization") @db.VarChar(100)
-  license_number  String? @map("license_number") @db.VarChar(50)
-  created_at      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at      DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-  user            User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_id           String  @id @map("user_id") @db.Uuid
+  nurse_type        String? @map("nurse_type") @db.VarChar(50)
+  specialization    String? @map("specialization") @db.VarChar(100)
+  license_number    String? @map("license_number") @db.VarChar(50)
+  bnmc_registration String? @unique @map("bnmc_registration") @db.VarChar(50)
+  qualifications    String? @map("qualifications") @db.VarChar(255)
+  skills            String? @map("skills") @db.VarChar(255)
+  shift_preference  String? @map("shift_preference") @db.VarChar(50)
+  gps_device_id     String? @map("gps_device_id") @db.VarChar(100)
+  created_at        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user              User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   patient_assignments         nurse_patient_assignments[]
   schedule_entries            nurse_schedule_entries[]
@@ -1213,4 +1265,25 @@ model nurse_vaccination_records {
   patient           patients        @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("nurse_vaccination_records")
+}
+
+// SRS 4.2 — Immutable Audit Logging (admin module operations)
+// Append-only: rows are inserted only, never updated or deleted. Each row is
+// chained to the previous row's content_hash via SHA-256 so that any deletion
+// or modification breaks the chain and is detectable by the verify endpoint.
+model system_audit_logs {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId  String   @map("actor_user_id") @db.Uuid
+  actorRole    String?  @map("actor_role") @db.VarChar(50)
+  action       String   @map("action") @db.VarChar(50)
+  entityType   String   @map("entity_type") @db.VarChar(50)
+  entityId     String?  @map("entity_id") @db.Uuid
+  changes      Json?    @map("changes")
+  ipAddress    String?  @map("ip_address") @db.VarChar(64)
+  userAgent    String?  @map("user_agent") @db.VarChar(512)
+  prevHash     String   @default("") @map("prev_hash") @db.VarChar(64)
+  contentHash  String   @map("content_hash") @db.VarChar(64)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("system_audit_logs")
 }

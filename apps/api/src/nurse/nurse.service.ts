@@ -225,7 +225,10 @@ export class NurseService {
     if (dto.pulse_bpm && (dto.pulse_bpm > 100 || dto.pulse_bpm < 60))
       isAbnormal = true;
     if (dto.spo2_pct && dto.spo2_pct < 90) isAbnormal = true;
-    if (dto.temperature_c && (dto.temperature_c > 38.0 || dto.temperature_c < 35.0))
+    if (
+      dto.temperature_c &&
+      (dto.temperature_c > 38.0 || dto.temperature_c < 35.0)
+    )
       isAbnormal = true;
 
     const record = await this.prisma.nurse_vital_signs.create({
@@ -256,10 +259,12 @@ export class NurseService {
 
   async getMedicationAdministrations(userId: string, patientId: string) {
     await this.verifyNurse(userId);
-    const entries = await this.prisma.nurse_medication_administrations.findMany({
-      where: { patient_id: patientId, nurse_id: userId },
-      orderBy: { administered_at: 'desc' },
-    });
+    const entries = await this.prisma.nurse_medication_administrations.findMany(
+      {
+        where: { patient_id: patientId, nurse_id: userId },
+        orderBy: { administered_at: 'desc' },
+      },
+    );
     const patientName = await this.getPatientName(patientId);
     return {
       patient_id: patientId,
@@ -474,7 +479,10 @@ export class NurseService {
       take: 10,
     });
     const procedures = wounds
-      .map((w) => `Wound: ${w.wound_location ?? '-'} — ${w.dressing_applied ?? '-'} (Healing: ${w.healing_progress ?? '-'})`)
+      .map(
+        (w) =>
+          `Wound: ${w.wound_location ?? '-'} — ${w.dressing_applied ?? '-'} (Healing: ${w.healing_progress ?? '-'})`,
+      )
       .join('\n');
 
     const patientName = await this.getPatientName(patientId);
@@ -750,9 +758,7 @@ export class NurseService {
         patient_id: dto.patient_id,
         vaccine_name: dto.vaccine_name,
         dose_number: dto.dose_number,
-        administered_date: dto.next_due_date
-          ? new Date()
-          : undefined,
+        administered_date: dto.next_due_date ? new Date() : undefined,
         next_due_date: dto.next_due_date
           ? new Date(dto.next_due_date)
           : undefined,

@@ -16,6 +16,8 @@ import { PaymentsModule } from './payments/payments.module';
 import { ChatModule } from './chat/chat.module';
 import { VideoCallModule } from './video-call/video-call.module';
 import { NurseModule } from './nurse/nurse.module';
+import { BillingModule } from './billing/billing.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { NurseModule } from './nurse/nurse.module';
     ChatModule,
     VideoCallModule,
     NurseModule,
+    BillingModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

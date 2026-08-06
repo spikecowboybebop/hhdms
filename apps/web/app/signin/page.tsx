@@ -45,6 +45,8 @@ export default function SignInPage() {
       const userEmail: string | undefined = data?.user?.email;
       const userId: string | undefined = data?.user?.id;
       const firstNameEn: string | undefined = data?.user?.first_name_en;
+      const requirePasswordChange: boolean =
+        data?.require_password_change === true;
 
       if (!accessToken) {
         throw new Error("Authentication server returned no access token.");
@@ -70,12 +72,18 @@ export default function SignInPage() {
           email: userEmail ?? email,
           first_name_en: firstNameEn,
           role: effectiveRole,
+          require_password_change: requirePasswordChange,
         },
       };
       persistSession(session);
 
-      // 5. Route the user to the dashboard that matches their role.
-      router.replace(dashboardPathForRole(effectiveRole));
+      // 5. Route the user to the dashboard that matches their role, or force a
+      //    password change first when they are still on a temporary password.
+      router.replace(
+        requirePasswordChange
+          ? "/dashboard/change-password"
+          : dashboardPathForRole(effectiveRole),
+      );
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to connect to the server.";

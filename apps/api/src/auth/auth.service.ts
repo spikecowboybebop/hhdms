@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { MobileSignupDto } from './dto/mobile-signup.dto'; // Import your signup DTO
 import * as bcrypt from 'bcrypt';
 
@@ -66,10 +67,63 @@ export class AuthService {
     return {
       access_token: accessToken,
       user: {
+        id: user.id,
         email: user.email,
         first_name_en: user.firstNameEn,
         role: user.role.name,
       },
+      require_password_change: user.passwordChangedAt === null,
+    };
+  }
+
+  /**
+   * Force-change the password for accounts still on a temporary password.
+   * Requires the current password and writes passwordChangedAt so the
+   * "change on first login" prompt is cleared.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true, passwordChangedAt: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password credentials.');
+    }
+
+    const isCurrentPasswordMatching = await bcrypt.compare(
+      dto.current_password,
+      user.passwordHash,
+    );
+    if (!isCurrentPasswordMatching) {
+      throw new UnauthorizedException(
+        'Current password is incorrect. Please try again.',
+      );
+    }
+
+    const isSameAsCurrent = await bcrypt.compare(
+      dto.new_password,
+      user.passwordHash,
+    );
+    if (isSameAsCurrent) {
+      throw new ConflictException(
+        'New password must be different from the current password.',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.new_password, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: hashedPassword,
+        passwordChangedAt: new Date(),
+      },
+    });
+
+    return {
+      message: 'Password updated successfully.',
+      require_password_change: false,
     };
   }
 

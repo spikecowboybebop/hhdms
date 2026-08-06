@@ -27,6 +27,8 @@ export interface StoredSession {
     first_name_en?: string;
     last_name_en?: string;
     role: AppRole | string;
+    /** True while the account is still on a temporary password. */
+    require_password_change?: boolean;
   };
 }
 

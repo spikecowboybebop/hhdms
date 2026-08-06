@@ -134,9 +134,18 @@ export function DashboardShell({
 
   // Hydrate the session from localStorage on mount.
   useEffect(() => {
-    setSession(loadSession());
+    const stored = loadSession();
+    setSession(stored);
     setHydrated(true);
-  }, []);
+    // Force first-login users (still on a temporary password) to set a new one.
+    if (
+      stored &&
+      stored.user.require_password_change === true &&
+      pathname !== "/dashboard/change-password"
+    ) {
+      router.replace("/dashboard/change-password");
+    }
+  }, [pathname, router]);
 
   const handleLogout = () => {
     clearSession();

@@ -1,0 +1,477 @@
+========================================================================
+HHDMS — SRS IMPLEMENTATION STATUS
+========================================================================
+Source document : Home Healthcare System.docx.pdf (SRS v1.0, June 5, 2026)
+Code audited    : hhdms/ (NestJS API + Next.js web) and android_app/
+Date            : August 2026
+Method          : Manual code audit (API controllers/services, web pages,
+                  Android screens, Prisma schema, existing GAP_ANALYSIS.md)
+
+Legend
+  [DONE]   Fully / functionally implemented
+  [PART]   Partially implemented (present but stubbed, mocked, or incomplete)
+  [GAP]    Not implemented anywhere in the codebase
+
+Overall summary
+  Total SRS features audited  : ~159
+  Implemented                 : ~70
+  Partially implemented       : ~45
+  Not implemented             : ~45
+  Estimated coverage          : ~44%
+
+  Strongest areas : MBBS Doctor, Nutritionist, Nurse (backend + standalone app)
+  Weakest areas   : X-Ray (0%), Reporting/Analytics (0%), Billing (partial),
+                    GPS Tracking, Scheduling & Dispatch, Admin dashboard
+
+NOTE: This report supersedes the older hhdms/GAP_ANALYSIS.md, which was
+written before the Nurse backend module, Chat, and Video/Voice calls were
+implemented.
+
+
+------------------------------------------------------------------------
+3.1  CALL CENTER MODULE (CC-001 .. CC-012)   —  12 features
+------------------------------------------------------------------------
+[DONE] CC-001  Incoming Call Popup / patient lookup (call-center page)
+[DONE] CC-002  New Patient Registration (multi-step, demographics, MRN)
+[DONE] CC-003  Multi-Service Booking (MBBS, Specialist, Nurse, Nutritionist,
+               Caregiver, USG, X-Ray selectable from one interface)
+[DONE] CC-006  Unique Service Ticket (TKT-YYYY-#####)
+[PART] CC-008  Provider availability — provider list exists; no real-time
+               slot availability engine; only MBBS supported in /providers
+[PART] CC-009  Call queue management — UI with mock/hardcoded ticket array,
+               no live queue engine
+[GAP]  CC-004  Call log management (no CDR, no call log model/endpoints)
+[GAP]  CC-005  Urgent call forward to MBBS doctor (no call transfer)
+[GAP]  CC-007  SMS confirmation (no SMS gateway)
+[GAP]  CC-010  Emergency alert protocol (no emergency symptom detection)
+[GAP]  CC-011  WhatsApp integration (none)
+[GAP]  CC-012  Call recording & playback (no telecom integration)
+
+Module: 5 done / 2 partial / 5 gap
+
+
+------------------------------------------------------------------------
+3.2  MBBS DOCTOR MODULE (MB-001 .. MB-014)   —  14 features
+------------------------------------------------------------------------
+[DONE] MB-001  Assignment notification (FCM push + in-app)
+[DONE] MB-002  Patient information view (full profile, history, meds,
+               allergies, documents incl. OCR/text extraction)
+[DONE] MB-003  Vital signs recording (BP, pulse, temp, SpO2, RR, wt, ht,
+               auto abnormal-flag + BMI)
+[DONE] MB-004  Preliminary diagnosis (ICD-10 search + entry)
+[DONE] MB-005  Diagnostic test ordering (catalog + ordering)
+[PART] MB-006  Lab requisition slip — order data exists; NO PDF generation
+               or barcode/QR slip
+[GAP]  MB-007  Lab notification (no SMS/WhatsApp to patient/lab team)
+[PART] MB-008  Test results view — test orders exist; NO results entry/view
+               with reference ranges or trend graphs
+[DONE] MB-009  Specialist referral (11 specialties, referral package)
+[DONE] MB-010  Referral chain tracking (referral_chain model/timeline)
+[DONE] MB-011  Prescription generation (medications, dose, frequency, etc.)
+[DONE] MB-012  Digital signature (signature upload + on prescriptions/reports)
+[GAP]  MB-013  AI differential diagnosis tool (stub only — returns empty)
+[DONE] MB-014  Emergency case flag (one-click flag; but specialist dispatch
+               still a TODO placeholder)
+
+Module: 11 done / 2 partial / 1 gap
+
+
+------------------------------------------------------------------------
+3.3  SPECIALIST DOCTOR MODULE (SP-001 .. SP-014)   —  14 features
+------------------------------------------------------------------------
+[DONE] SP-001  Referral notification (new referral pushed to specialist)
+[DONE] SP-002  Complete referral view (chain, vitals, DICOM viewer)
+[PART] SP-003  Visit or teleconsultation — video call works (Agora);
+               no visit-vs-tele toggle/booking calendar integration
+[DONE] SP-004  Medical history view (in consultation page)
+[DONE] SP-005  Imaging annotation (CornerstoneJS DICOM viewer, pan/WL,
+               measurements, text labels)
+[DONE] SP-006  Specialist diagnosis & plan (11 specialties, dynamic
+               templates)
+[DONE] SP-007  Specialist prescription with drug-interaction check
+               (hardcoded 15-pair checker)
+[PART] SP-008  Consultation report — saved to DB; NO PDF export
+[GAP]  SP-009  Follow-up scheduling (none)
+[DONE] SP-010  Additional test request (from consultation page)
+[DONE] SP-011  Specialty templates (16 templates across 11 specialties)
+[GAP]  SP-012  Availability calendar (none)
+[GAP]  SP-013  Geographic service area (none)
+[GAP]  SP-014  Consultation fee display/calculation (none)
+
+Module: 8 done / 2 partial / 4 gap
+Security note: /api/specialist/dicom/:id/frame/:instance is UNAUTHENTICATED
+(leaks patient imaging). Specialist reports are not filtered per doctor
+(any specialist sees all completed referrals).
+
+
+------------------------------------------------------------------------
+3.4  NURSE MODULE (NS-001 .. NS-014)   —  12 features
+------------------------------------------------------------------------
+[PART] NS-001  Nurse booking & assignment — patient assignment endpoints
+               exist (assign/unassign), admin booking flow is limited
+[DONE] NS-003  Assigned patient schedule (GET /nurse/schedule?date=,
+               Android screen)
+[DONE] NS-004  Vital signs recording (BP/pulse/temp/SpO2/RR/glucose,
+               abnormal flag; previous-visit comparison is stubbed)
+[DONE] NS-005  Medication administration / MAR (endpoints + Android screen)
+[DONE] NS-006  IV fluid monitoring (start/update/complete; hourly balance
+               is a stub returning [])
+[DONE] NS-007  Wound care documentation (geo-tagged record + photo upload
+               via UploadCare)
+[DONE] NS-008  Nursing care report (auto-generated aggregate + Android view;
+               PDF link only)
+[DONE] NS-010  Shift handover notes (create + digital sign-off endpoint)
+[GAP]  NS-011  Live GPS tracking for nurses (none — covered by GPS module)
+[DONE] NS-012  Doctor consultation request (endpoints + Android screen;
+               NO alert actually sent to the doctor)
+[DONE] NS-013  Nursing supply tracking (usage records; inventory/replenish
+               alert is stubbed)
+[DONE] NS-014  Pediatric specific care (feeding logs, growth records,
+               vaccination tracking — endpoints + Android tabs)
+
+Module: 11 done / 1 partial / 0 gap (all main features functional)
+Standalone nurse Android app (android_app/nurse) mirrors the in-app module.
+
+
+------------------------------------------------------------------------
+3.5  NUTRITIONIST MODULE (NU-001 .. NU-010)   —  10 features
+------------------------------------------------------------------------
+[PART] NU-001  Consultation booking — endpoint exists but hardcodes
+               price=0, HOME_VISIT, +24h slot; no real availability check
+[DONE] NU-002  Medical context review (history, diagnoses, labs filtered)
+[DONE] NU-003  Anthropometric recording (BMI, IBW, Mifflin-St Jeor calories)
+[DONE] NU-004  Customized diet chart (meal-slot diet plans)
+[DONE] NU-005  Condition-specific templates (seeded)
+[DONE] NU-006  Bilingual diet plan PDF (Bengali + English via pdfkit)
+[DONE] NU-007  Follow-up scheduling (interval auto-dates)
+[DONE] NU-008  Dietary adherence tracking (score logs)
+[DONE] NU-009  Nutrient calculation tools (food DB + macro calculator)
+[PART] NU-010  Patient education materials (rows saved but file_size=0,
+               no real upload/share)
+
+Module: 8 done / 2 partial / 0 gap  —  nearest to 100%
+
+
+------------------------------------------------------------------------
+3.6  CAREGIVER MODULE (CG-001 .. CG-011)   —  9 features
+------------------------------------------------------------------------
+[PART] CG-001  Caregiver booking — generic booking; no dedicated caregiver
+               booking flow (gender/type/duration/skills)
+[PART] CG-003  Service type management — service_type field exists; no
+               dedicated management UI
+[DONE] CG-005  Daily activity logging (CRUD + Android + web)
+[DONE] CG-006  GPS shift check-in/out (Haversine ~100m; web UI missing,
+               distance can be null if patient lacks lat/lng)
+[DONE] CG-007  Condition change reporting (report + escalate to nurse/doctor
+               — BUT alert only flips a flag, no real notification)
+[DONE] CG-008  Attendance & timesheets (auto-generated from check-in/out;
+               web UI missing)
+[GAP]  CG-009  Caregiver rating & feedback (field exists, no API/UI)
+[GAP]  CG-010  Training records (field exists, no management API)
+[GAP]  CG-011  Specialized caregiver booking (no specialization matching)
+
+Module: 4 done / 3 partial / 3 gap
+
+
+------------------------------------------------------------------------
+3.7.1  USG / SONOLOGY MODULE (US-001 .. US-010)   —  9 features
+------------------------------------------------------------------------
+[PART] US-001  USG booking — generic booking; no dedicated USG booking
+[PART] US-002  Sonologist assignment — studies link to sonologist; no
+               auto-assignment workflow
+[GAP]  US-003  Referral details view for sonologist (none)
+[DONE] US-005  Scan findings & measurements (structured findings/impression)
+[DONE] US-006  USG report generation (report records)
+[PART] US-007  DICOM image storage — specialist DICOM exists; no
+               sonologist-specific upload pipeline
+[PART] US-008  Specialist image annotation — annotated_images field exists;
+               no interactive annotation from USG workflow
+[GAP]  US-009  Report delivery notification (none)
+[GAP]  US-010  Equipment maintenance log (none)
+
+Module: 2 done / 4 partial / 3 gap
+
+
+------------------------------------------------------------------------
+3.7.2  PORTABLE X-RAY MODULE (XR-001 .. XR-011)   —  10 features
+------------------------------------------------------------------------
+[GAP]  XR-001 through XR-011 — ENTIRE MODULE MISSING.
+       No X-Ray booking, no technician assignment, no precaution checks,
+       no exposure parameter recording, no technical report, no DICOM
+       storage, no radiologist interpretation, no delivery notification,
+       no radiation safety, no machine maintenance.
+
+Module: 0 done / 0 partial / 10 gap  —  largest single gap
+
+
+------------------------------------------------------------------------
+3.8  LIVE GPS TRACKING & DISPATCH (LT-001 .. LT-024)   —  21 features
+------------------------------------------------------------------------
+[PART] LT-001  GPS location capture — captured on events; NO periodic
+               30-second streaming
+[GAP]  LT-002  Admin live map dashboard (no admin dashboard exists)
+[PART] LT-004  ETA calculation — animated fixed 60s countdown, not real
+               distance-based ETA
+[GAP]  LT-005  Patient tracking link (no unique web URL generation)
+[GAP]  LT-006  Route history log (none)
+[GAP]  LT-007  Route deviation alert (none)
+[PART] LT-008  Geofence auto check-in — Haversine distance used in
+               caregiver check-in; auto-trigger incomplete (TODO)
+[GAP]  LT-009  Near-arrival alert (none)
+[PART] LT-010  Manual location confirmation — mark-arrived endpoint exists
+[PART] LT-011  Service start/complete timestamps — visit states tracked;
+               no dedicated GPS-verified start/complete
+[PART] LT-012  Visit status timeline — referral_chain exists; no dedicated
+               lifecycle timeline UI
+[GAP]  LT-013  Stationary alert (none)
+[GAP]  LT-014  SOS emergency button (none)
+[PART] LT-015  Location history for payroll — caregiver timesheets exist
+[GAP]  LT-016  Offline GPS caching (none)
+[GAP]  LT-017  All-staff live map (no admin)
+[GAP]  LT-018  Distance-based reimbursement (none)
+[GAP]  LT-020  Auto-stop tracking on logout (no continuous tracking)
+[GAP]  LT-021  ETA delay notification (none)
+[DONE] LT-022  Map integration — osmdroid + OSRM routing (doctor tracking
+               screen uses a SIMULATED route, not live backend feed)
+[GAP]  LT-023  Privacy control (none)
+[GAP]  LT-024  Daily movement report (none)
+
+Module: 1 done / 6 partial / 14 gap  —  second-largest gap
+
+
+------------------------------------------------------------------------
+3.9  PATIENT MANAGEMENT (PM-001 .. PM-010)   —  9 features
+------------------------------------------------------------------------
+[DONE] PM-001  Centralized patient database (patients model, CRUD API)
+[PART] PM-002  Unique MRN — generated (HHDMS-YYYYMMDD-#####), format does
+               NOT match SRS MRN-YYYY-XXXXXX
+[DONE] PM-003  Demographics & contacts (incl. Bengali names)
+[DONE] PM-004  Medical history (allergies, meds, diagnoses, vitals)
+[PART] PM-005  Service history — appointments exist; no comprehensive
+               filterable service-history timeline
+[PART] PM-006  Patient portal — Android app serves as portal; NO web
+               patient portal
+[GAP]  PM-007  Family/guardian account (no multi-member accounts)
+[DONE] PM-009  Digital consent forms (full consent flow, Socket.IO +
+               Android dialog)
+[GAP]  PM-010  Feedback & complaints (none)
+
+Module: 4 done / 3 partial / 2 gap
+Security note: GET /patients/:id, /patients/by-phone/:phone,
+/by-email/:email, PATCH /patients/:id are UNAUTHENTICATED (PII exposure).
+
+
+------------------------------------------------------------------------
+3.10  SCHEDULING & DISPATCH (SD-001 .. SD-008)   —  7 features
+------------------------------------------------------------------------
+[PART] SD-001  Centralized scheduling dashboard — call-center booking
+               exists; no dedicated calendar/scheduling view
+[GAP]  SD-003  Route optimization (doctor assignment is weighted-random)
+[GAP]  SD-004  Provider reminders 2h/1h (planned in docs, TODO in code)
+[GAP]  SD-005  Cancellation & rescheduling (no logic/UI)
+[PART] SD-006  Real-time status tracking — Socket.IO state changes; no
+               comprehensive status dashboard
+[GAP]  SD-007  Recurring appointments (none)
+[DONE] SD-008  Manual admin override — /dashboard/admin/scheduling lists all
+               service_tickets (patient + provider + schedule), filters
+               PENDING/ASSIGNED/service, and reassigns the provider for MBBS,
+               Specialist, Caregiver, Nutritionist, Nurse (Sonologist
+               excluded). Reassign is audited (REASSIGN_TICKET) and flips
+               status PENDING→ASSIGNED.
+
+Module: 1 done / 2 partial / 4 gap
+
+
+------------------------------------------------------------------------
+3.11  BILLING & PAYMENT (BP-001 .. BP-010)   —  10 features
+------------------------------------------------------------------------
+[PART] BP-001  Auto-charge calculation — service_prices table drives the
+                auto price-rule engine (billing.service.ts resolveServicePrice);
+                hardcoded 800 BDT MBBS fallback removed (payments.service.ts)
+                and nutritionist price-0 removed (nutritionist.service.ts)
+[DONE] BP-002  Itemized invoice (INV-YYYY-XXXXX) — invoices model + billing
+                service; generated lazily per payment; admin
+                GET /admin/payments/:id/invoice (+ /pdf)
+[GAP]  BP-003  Multiple payment methods — Stripe card only; no
+                bKash/Nagad/Rocket/cash
+[DONE] BP-004  Payment status tracking (payments model, Stripe flow)
+[DONE] BP-005  Digital receipt — pdfkit A4 invoice PDF uploaded to UploadCare
+                (file_url stored on invoice); "Download PDF Receipt" from
+                Payments page + ticket-detail drawer; generation audited
+                INVOICE_GENERATED
+[GAP]  BP-006  Insurance documentation (none)
+[GAP]  BP-007  Provider commission tracking (none)
+[DONE] BP-008  Financial reports — admin Payments & Finance page
+                (/dashboard/admin/payments): KPI cards (total collected,
+                collected this month, pending charges, failed count),
+                revenue-by-service mix, status/service/date/search filters,
+                paginated list, and manual status override (Mark Complete,
+                audited UPDATE_PAYMENT)
+[GAP]  BP-009  Package pricing (none)
+[GAP]  BP-010  Discounts & promotions (none)
+
+Module: 4 done / 1 partial / 5 gap
+Note: Stripe integration covers ONLY the MBBS ticket; in-app booking UI
+lives on the web call-center. Invoices/receipts are admin-facing; patient
+invoice view in the Android app is not yet wired.
+
+------------------------------------------------------------------------
+3.12  REPORTING & ANALYTICS (RA-001 .. RA-008)   —  8 features
+------------------------------------------------------------------------
+[PART] RA-001  Daily operational summary — live admin dashboard shows
+                bookings today, dispatch queue, service mix, on-duty staff
+                (needs PDF/export + historical day rollup)
+[GAP]  RA-002  Doctor performance metrics
+[PART] RA-003  Nurse/Caregiver attendance — caregiver timesheets exist;
+                no reporting UI
+[GAP]  RA-004  Call center KPIs
+[GAP]  RA-005  Patient satisfaction
+[GAP]  RA-006  Inventory usage
+[DONE] RA-007  Revenue analytics — collected-payment KPIs (total/month,
+                pending, failed), revenue-by-service in the Payments page;
+                last-7-day revenue chart + service mix on the Overview
+                dashboard
+[GAP]  RA-008  Custom report builder
+
+Module: 1 done / 2 partial / 5 gap
+Admin dashboard /dashboard/admin is now live: /admin/dashboard/stats
+returns real KPIs (bookings today, pending/assigned dispatch, revenue
+collected, active providers), last-7-day revenue series, service mix,
+recent tickets and on-duty staff — replacing the previous static mock
+KPIs. Staff Profile Provisioning (/admin/staff) fully implemented:
+create/edit/suspend staff for MBBS, Specialist, Nurse, Caregiver,
+Nutritionist with SRS §5.1 fields, auto-generated temporary credentials,
+reset-password. Scheduling Oversight (/dashboard/admin/scheduling) lists
+service tickets and lets admin manually reassign providers (SD-008), each
+reassign audited via REASSIGN_TICKET. Payments & Finance
+(/dashboard/admin/payments) now shows real collected revenue KPIs,
+revenue-by-service, filters, pagination and a manual Mark Complete override
+(audited UPDATE_PAYMENT), covering SD-008 payment override, BP-008 and
+RA-007. Billing (BP-002/BP-005): invoices generated lazily per payment with
+INV-YYYY-XXXXX numbering, an auto price-rule engine seeded via
+prisma/seed-billing.ts (service_prices table replaces the hardcoded 800 BDT
+MBBS fallback and the nutritionist 0-price), and pdfkit PDF receipts
+uploaded to UploadCare — "Download PDF Receipt" available from the Payments
+table and the Scheduling ticket-detail drawer, each generation audited as
+INVOICE_GENERATED.
+
+
+------------------------------------------------------------------------
+3.13  NOTIFICATION ENGINE (NF-001 .. NF-012)   —  12 triggers
+------------------------------------------------------------------------
+[PART] NF-003  New assignment — FCM push works; no SMS
+[PART] NF-007  Emergency flag — FCM push only; no SMS/email
+[GAP]  NF-001  Appointment confirmed (SMS)
+[GAP]  NF-002  / NF-002b  24h and 1h appointment reminders (none scheduled)
+[GAP]  NF-004  Lab/imaging report finalized (push+SMS+WhatsApp)
+[GAP]  NF-005  Invoice generated (SMS+WhatsApp)
+[GAP]  NF-005b Invoice overdue reminder
+[GAP]  NF-006  WhatsApp message received (in-app alert)
+[GAP]  NF-008  Provider dispatched (tracking link)
+[GAP]  NF-009  Provider arrives
+[GAP]  NF-010  Prescription generated (WhatsApp+portal)
+[GAP]  NF-011  Diet plan generated (WhatsApp+portal)
+[GAP]  NF-012  Follow-up due reminder
+
+Module: 0 fully done / 2 partial / 10 gap  —  FCM works, SMS/WhatsApp absent
+
+
+------------------------------------------------------------------------
+NON-FUNCTIONAL REQUIREMENTS (SRS section 4)
+------------------------------------------------------------------------
+[PART] Authentication          — email/password + JWT; NO OTP/MFA flow
+[PART] RBAC                    — role-based routing; NO endpoint-level
+                                 RolesGuard, roleId 7 hardcoded for patients.
+                                 Admin module adds /admin/* AdminGuard
+                                 (all other modules remain unguarded by role)
+[PART] Audit logging           — admin module only: append-only
+                                 system_audit_logs table, SHA-256 hash chain
+                                 (prev_hash+content_hash) with verify endpoint
+                                 /admin/audit-logs/verify detecting tamper/
+                                 deletion. Logs actor/role/IP/action/changes.
+                                 Covers staff CRUD + manual ticket reassignment
+                                 (REASSIGN_TICKET). NOT system-wide (PHI access
+                                 by other modules still unlogged). 5-yr
+                                 retention (no auto-delete).
+[GAP]  AES-256 encryption at rest — none
+[PART] TLS / HTTPS             — Render serves HTTPS in prod; local dev is
+                                 cleartext (usesCleartextTraffic=true)
+[GAP]  Session mgmt            — no 15-min idle auto-logout, no single-active
+[PART] Bengali + English       — Bengali name fields + bilingual diet PDF;
+                                 no full i18n framework
+[GAP]  Offline caching         — none (mobile)
+[GAP]  Redis / cache layer     — none
+[GAP]  Docker / Kubernetes     — none
+[GAP]  CI/CD pipeline          — none (deploys via Render dashboard)
+[GAP]  Monitoring              — none (no Datadog/New Relic/Sentry)
+[GAP]  Penetration testing     — none
+
+SECURITY WARNINGS (verified):
+  - GET /patients/:id, /by-phone, /by-email, PATCH /patients/:id (no auth)
+  - GET /providers/available (no auth)
+  - POST /bookings/create-session (no auth)
+  - GET /api/specialist/dicom/:id/frame/:instance (no auth — imaging leak)
+  - JWT secret has hardcoded fallback 'fallback_secret_key_anchor'
+
+
+------------------------------------------------------------------------
+SUMMARY TABLE
+------------------------------------------------------------------------
+Module                         Total   Done   Part   Gap   Coverage
+------------------------------ ------  -----  -----  ----  ---------
+Call Center (CC)                 12      5      2     5      42%
+MBBS Doctor (MB)                 14     11      2     1      79%
+Specialist (SP)                  14      8      2     4      64%
+Nurse (NS)                       12     11      1     0      92%
+Nutritionist (NU)                10      8      2     0      80%
+Caregiver (CG)                    9      4      3     3      50%
+USG / Sonology (US)               9      2      4     3      33%
+X-Ray (XR)                       10      0      0    10       0%
+GPS Tracking (LT)                21      1      6    14      19%
+Patient Mgmt (PM)                 9      4      3     2      56%
+Scheduling & Dispatch (SD)        7      1      2     4      43%
+Billing & Payment (BP)           10      1      1     8      15%
+Reporting & Analytics (RA)        8      0      1     7       6%
+Notification Engine (NF)         12      0      2    10       8%
+------------------------------ ------  -----  -----  ----  ---------
+TOTAL                           ~159    ~70    ~45   ~45    ~44%
+
+
+------------------------------------------------------------------------
+PRIORITY LIST — What to build next
+------------------------------------------------------------------------
+Tier 1 (Critical, blocks core scope)
+  1. X-Ray module (0/10) — booking, technician assignment, safety checks,
+     exposure params, DICOM, interpretation, delivery.
+  2. SMS gateway + email — unblocks ~12 notification triggers and CC-007.
+  3. Invoice / billing system — invoice, receipt, multi-payment, financial
+     reports, commission (BP module).
+4. Admin dashboard + Reporting — live KPIs, revenue analytics
+      (RA module; admin dashboard now live with real stats + staff
+      provisioning done, deeper reporting/export UI pending).
+  5. Cancellation / rescheduling (SD-005).
+
+Tier 2 (High priority)
+  6. GPS tracking engine — periodic capture, geofence auto check-in, live
+     admin map, patient tracking link, SOS, offline caching (LT module).
+  7. Scheduling engine — route optimization, provider reminders, recurring
+      appointments (SD module; manual admin override SD-008 now done).
+  8. Web patient portal (PM-006) + family accounts (PM-007).
+  9. Fix unauthenticated/PII endpoints + per-specialist report filtering.
+  10. Nutritionist/Caregiver/Specialist real billing amounts (replace 0/800).
+
+Tier 3 (Medium)
+  11. MFA/OTP auth, endpoint RBAC guards, system-wide PHI audit expansion.
+  12. AI differential diagnosis (MB-013), lab results view (MB-008),
+      PDF requisition slip + barcode (MB-006).
+  13. Caregiver rating/feedback, training records, specialized booking.
+  14. Specialist availability calendar, geographic areas, fee display.
+  15. Notification wiring for real alerts (caregiver condition reports,
+      nurse consultation requests).
+
+Tier 4 (Lower priority / nice-to-have)
+  16. USG DICOM pipeline + annotation, equipment logs.
+  17. WhatsApp Business integration.
+  18. Redis, Docker/Kubernetes, CI/CD, monitoring.
+  19. Insurance documentation, packages/discounts.
+  20. Custom report builder, patient education sharing.

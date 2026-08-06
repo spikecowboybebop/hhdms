@@ -262,7 +262,7 @@ export class VideoCallGateway
   ) {
     // Fall back to the session associated with this socket when the caller
     // does not know the sessionId (e.g. the specialist cancels while ringing).
-    let session =
+    const session =
       this.sessions.get(data.sessionId) ??
       this.sessions.get(this.socketToSession.get(client.id) ?? '');
     if (!session || session.status === 'ended') return;
