@@ -186,7 +186,10 @@ export class AdminController {
     @Param('paymentId') paymentId: string,
     @Req() req: Request,
   ) {
-    return this.adminService.getInvoiceForPayment(paymentId, this.actorFrom(req));
+    return this.adminService.getInvoiceForPayment(
+      paymentId,
+      this.actorFrom(req),
+    );
   }
 
   @Get('payments/:paymentId/invoice/pdf')

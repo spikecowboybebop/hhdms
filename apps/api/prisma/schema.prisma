@@ -1291,3 +1291,4 @@ model system_audit_logs {
 
   @@map("system_audit_logs")
 }
+

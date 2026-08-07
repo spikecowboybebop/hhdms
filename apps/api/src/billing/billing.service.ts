@@ -258,8 +258,7 @@ export class BillingService {
     const patient = invoice.patient;
     const amount = Number(invoice.amount);
     const paidAt = invoice.paid_at;
-    const ticketNo =
-      invoice.booking_session?.tickets?.[0]?.ticket_no ?? '—';
+    const ticketNo = invoice.booking_session?.tickets?.[0]?.ticket_no ?? '—';
 
     const headerColor = '#0A2540';
     const teal = '#00D4B2';
@@ -311,7 +310,11 @@ export class BillingService {
     doc.moveDown(1);
 
     // Patient block
-    doc.fontSize(11).font('Helvetica-Bold').fillColor(headerColor).text('Billed To');
+    doc
+      .fontSize(11)
+      .font('Helvetica-Bold')
+      .fillColor(headerColor)
+      .text('Billed To');
     doc.moveDown(0.3);
     doc
       .fontSize(10)
@@ -356,10 +359,7 @@ export class BillingService {
     doc.text(`${amount.toFixed(2)}`, 400, rowY, { align: 'right', width: 160 });
     doc.y = rowY + 14;
 
-    doc
-      .fontSize(9)
-      .fillColor(muted)
-      .text(`Ticket: ${ticketNo}`, 50, doc.y);
+    doc.fontSize(9).fillColor(muted).text(`Ticket: ${ticketNo}`, 50, doc.y);
 
     doc.moveDown(1);
     doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#cbd5e1').stroke();
@@ -372,11 +372,15 @@ export class BillingService {
       .font('Helvetica-Bold')
       .fillColor(headerColor)
       .text('Total', 50, totalY, { width: 330 });
-    doc.text(`${amount.toFixed(2)} BDT`, 400, totalY, { align: 'right', width: 160 });
+    doc.text(`${amount.toFixed(2)} BDT`, 400, totalY, {
+      align: 'right',
+      width: 160,
+    });
     doc.y = totalY + 18;
 
     // Footer — pinned to page bottom
-    const footerText = 'Thank you for choosing HHDMS. This is a computer-generated receipt.';
+    const footerText =
+      'Thank you for choosing HHDMS. This is a computer-generated receipt.';
     const footerLineHeight = 12;
     const footerY = doc.page.height - doc.options.margin - footerLineHeight - 4;
     doc
@@ -455,8 +459,7 @@ export class BillingService {
         last_name_en: invoice.patient.last_name_en,
         phone_number: invoice.patient.phone_number,
       },
-      ticket_no:
-        invoice.booking_session?.tickets?.[0]?.ticket_no ?? null,
+      ticket_no: invoice.booking_session?.tickets?.[0]?.ticket_no ?? null,
       payment: invoice.payment
         ? {
             id: invoice.payment.id,
