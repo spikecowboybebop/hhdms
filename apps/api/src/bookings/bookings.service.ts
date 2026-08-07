@@ -244,6 +244,26 @@ export class BookingsService {
     return false;
   }
 
+  async getSessionReports(sessionId: string) {
+    const session = await this.prisma.booking_sessions.findUnique({
+      where: { id: sessionId },
+      select: { id: true, patient_id: true },
+    });
+    if (!session) return null;
+    return this.prisma.patient_diagnosis_reports.findMany({
+      where: { booking_session_id: session.id },
+      orderBy: { generated_at: 'desc' },
+      select: {
+        id: true,
+        report_type: true,
+        file_url: true,
+        file_name: true,
+        file_size: true,
+        generated_at: true,
+      },
+    });
+  }
+
   async debugAccess(userId: string, patientId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

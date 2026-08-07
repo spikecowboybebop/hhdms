@@ -296,8 +296,16 @@ export class MbbsController {
 
   @Post('patients/:id/generate-report')
   @HttpCode(HttpStatus.CREATED)
-  async generateReport(@Param('id') patientId: string, @Req() req: any) {
+  async generateReport(
+    @Param('id') patientId: string,
+    @Body() body?: { session_id?: string },
+    @Req() req: any,
+  ) {
     const doctorUserId = this.getDoctorUserId(req);
-    return this.mbbsService.generateClinicalReport(patientId, doctorUserId);
+    return this.mbbsService.generateClinicalReport(
+      patientId,
+      doctorUserId,
+      body?.session_id,
+    );
   }
 }

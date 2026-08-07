@@ -458,6 +458,7 @@ model booking_sessions {
   payments     payments[]
   tickets      service_tickets[]
   invoices     invoices[]
+  diagnosis_reports patient_diagnosis_reports[]
 
   @@map("booking_sessions")
 }
@@ -634,20 +635,23 @@ model patient_documents {
 }
 
 model patient_diagnosis_reports {
-  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id   String               @map("patient_id") @db.Uuid
-  doctor_id    String               @map("doctor_id") @db.Uuid
-  report_type  String               @default("CLINICAL_CONSULTATION") @map("report_type") @db.VarChar(50)
-  report_data  Json?                @map("report_data")
-  file_url     String               @map("file_url") @db.VarChar(2000)
-  file_name    String               @map("file_name") @db.VarChar(500)
-  file_size    Int?                 @map("file_size")
-  generated_at DateTime             @default(now()) @map("generated_at") @db.Timestamptz(6)
-  doctor       mbbs_doctor_profiles @relation(fields: [doctor_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
-  patient      patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id         String               @map("patient_id") @db.Uuid
+  doctor_id          String               @map("doctor_id") @db.Uuid
+  booking_session_id String?              @map("booking_session_id") @db.Uuid
+  report_type        String               @default("CLINICAL_CONSULTATION") @map("report_type") @db.VarChar(50)
+  report_data        Json?                @map("report_data")
+  file_url           String               @map("file_url") @db.VarChar(2000)
+  file_name          String               @map("file_name") @db.VarChar(500)
+  file_size          Int?                 @map("file_size")
+  generated_at       DateTime             @default(now()) @map("generated_at") @db.Timestamptz(6)
+  doctor             mbbs_doctor_profiles @relation(fields: [doctor_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  patient            patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  booking_session    booking_sessions?    @relation(fields: [booking_session_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([patient_id])
   @@index([doctor_id])
+  @@index([booking_session_id])
   @@map("patient_diagnosis_reports")
 }
 

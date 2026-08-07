@@ -55,7 +55,11 @@ Module: 5 done / 2 partial / 5 gap
 ------------------------------------------------------------------------
 [DONE] MB-001  Assignment notification (FCM push + in-app)
 [DONE] MB-002  Patient information view (full profile, history, meds,
-               allergies, documents incl. OCR/text extraction)
+                allergies, documents incl. OCR/text extraction); clinical
+                reports now session-scoped — patient_diagnosis_reports gained
+                booking_session_id, GET /bookings/session/:id/reports (JWT,
+                scoped) returns an appointment's reports; MBBS generate-report
+                auto-links to the patient's latest MBBS ticket
 [DONE] MB-003  Vital signs recording (BP, pulse, temp, SpO2, RR, wt, ht,
                auto abnormal-flag + BMI)
 [DONE] MB-004  Preliminary diagnosis (ICD-10 search + entry)
@@ -298,7 +302,9 @@ Module: 1 done / 2 partial / 4 gap
 [DONE] BP-005  Digital receipt — pdfkit A4 invoice PDF uploaded to UploadCare
                 (file_url stored on invoice); "Download PDF Receipt" from
                 Payments page + ticket-detail drawer; generation audited
-                INVOICE_GENERATED
+                INVOICE_GENERATED; patient-facing GET
+                /payments/session/:sessionId/invoice (JWT, scoped) returns the
+                invoice + PDF lazily (Android BookingDetail shows it)
 [GAP]  BP-006  Insurance documentation (none)
 [GAP]  BP-007  Provider commission tracking (none)
 [DONE] BP-008  Financial reports — admin Payments & Finance page

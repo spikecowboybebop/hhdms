@@ -53,4 +53,16 @@ export class PaymentsController {
   ) {
     return this.paymentsService.getPaymentStatus(req.user.sub, sessionId);
   }
+
+  @Get('session/:sessionId/invoice')
+  @UseGuards(JwtAuthGuard)
+  async getSessionInvoice(
+    @Req() req: any,
+    @Param('sessionId') sessionId: string,
+  ) {
+    return this.paymentsService.getPatientSessionInvoice(
+      req.user.sub,
+      sessionId,
+    );
+  }
 }

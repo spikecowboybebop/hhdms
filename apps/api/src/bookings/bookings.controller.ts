@@ -60,4 +60,30 @@ export class BookingsController {
       'You do not have access to this booking session',
     );
   }
+
+  @Get('session/:id/reports')
+  @UseGuards(AuthGuard('jwt'))
+  async getSessionReports(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user.sub;
+    const session = await this.bookingsService.getSessionById(id);
+    if (!session) {
+      throw new NotFoundException('Booking session not found');
+    }
+    const ownsSession = await this.bookingsService.userOwnsSession(
+      session.patient_id,
+      userId,
+    );
+    if (!ownsSession) {
+      const isProvider = session.tickets.some(
+        (t) => t.assigned_provider_id === userId,
+      );
+      if (!isProvider) {
+        throw new ForbiddenException(
+          'You do not have access to this booking session',
+        );
+      }
+    }
+    const reports = await this.bookingsService.getSessionReports(id);
+    return reports ?? [];
+  }
 }

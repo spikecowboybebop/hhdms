@@ -1411,7 +1411,11 @@ export class MbbsService implements OnModuleInit {
   // Clinical Report PDF Generation
   // ============================================================
 
-  async generateClinicalReport(patientId: string, doctorUserId: string) {
+  async generateClinicalReport(
+    patientId: string,
+    doctorUserId: string,
+    sessionId?: string,
+  ) {
     const patient = await this.prisma.patients.findUnique({
       where: { id: patientId },
     });
@@ -1570,11 +1574,27 @@ export class MbbsService implements OnModuleInit {
     const ucData = (await ucRes.json()) as { file: string };
     const fileUrl = `${cdnBase}/${ucData.file}/${fileName}`;
 
+    // Resolve the booking session to link this report to the appointment (if not given)
+    let bookingSessionId = sessionId ?? null;
+    if (!bookingSessionId) {
+      const latestTicket = await this.prisma.service_tickets.findFirst({
+        where: {
+          service_type: 'MBBS',
+          assigned_provider_id: doctorUserId,
+          session: { patient_id: patientId },
+        },
+        orderBy: { created_at: 'desc' },
+        select: { session_id: true },
+      });
+      bookingSessionId = latestTicket?.session_id ?? null;
+    }
+
     // Save to patient_diagnosis_reports
     const report = await this.prisma.patient_diagnosis_reports.create({
       data: {
         patient_id: patientId,
         doctor_id: doctorUserId,
+        booking_session_id: bookingSessionId,
         report_type: 'CLINICAL_CONSULTATION',
         report_data: reportSnapshot,
         file_url: fileUrl,

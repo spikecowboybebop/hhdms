@@ -170,4 +170,37 @@ export class PaymentsService {
 
     return { paid: !!payment, paymentId: payment?.id ?? null };
   }
+
+  async getPatientSessionInvoice(userId: string, bookingSessionId: string) {
+    const patient = await this.prisma.patients.findFirst({
+      where: { user_id: userId },
+      select: { id: true },
+    });
+    if (!patient) throw new NotFoundException('Patient record not found.');
+
+    const payment = await this.prisma.payments.findFirst({
+      where: {
+        patient_id: patient.id,
+        booking_session_id: bookingSessionId,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    if (!payment)
+      throw new NotFoundException('No payment found for this appointment.');
+
+    const invoice = await this.billing.getInvoiceForPayment(payment.id);
+    const pdf = await this.billing.generateInvoicePdf(invoice.id);
+
+    return {
+      id: invoice.id,
+      invoice_no: invoice.invoice_no,
+      service_type: invoice.service_type,
+      amount: invoice.amount,
+      currency: invoice.currency,
+      status: invoice.status,
+      issued_at: invoice.issued_at,
+      paid_at: invoice.paid_at,
+      file_url: pdf.file_url,
+    };
+  }
 }
