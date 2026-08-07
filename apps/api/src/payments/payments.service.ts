@@ -172,10 +172,7 @@ export class PaymentsService {
   }
 
   async getPatientSessionInvoice(userId: string, bookingSessionId: string) {
-    const patient = await this.prisma.patients.findFirst({
-      where: { user_id: userId },
-      select: { id: true },
-    });
+    const patient = await this.resolvePatientForUser(userId);
     if (!patient) throw new NotFoundException('Patient record not found.');
 
     const payment = await this.prisma.payments.findFirst({
@@ -202,5 +199,42 @@ export class PaymentsService {
       paid_at: invoice.paid_at,
       file_url: pdf.file_url,
     };
+  }
+
+  /**
+   * Resolve the patient record belonging to a logged-in user.
+   * Falls back to a phone-number match (mirrors bookings.userOwnsSession) so
+   * a patient booked under a different linked user still resolves.
+   */
+  private async resolvePatientForUser(userId: string) {
+    const patient = await this.prisma.patients.findFirst({
+      where: { user_id: userId },
+      select: { id: true },
+    });
+    if (patient) return patient;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phoneNumber: true },
+    });
+    if (!user?.phoneNumber) return null;
+
+    const normalize = (p: string) =>
+      p.replace(/^(\+88|88|0)/, '').replace(/\D/g, '');
+    const userPhone = normalize(user.phoneNumber);
+
+    const all = await this.prisma.patients.findMany({
+      select: {
+        id: true,
+        phone_number: true,
+        alternative_phone: true,
+        emergency_contact: true,
+      },
+    });
+    const match = all.find((p) => {
+      const phones = [p.phone_number, p.alternative_phone, p.emergency_contact];
+      return phones.some((num) => num && normalize(num) === userPhone);
+    });
+    return match ? { id: match.id } : null;
   }
 }
