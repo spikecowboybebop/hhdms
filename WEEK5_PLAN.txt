@@ -1,0 +1,190 @@
+=======================================================================
+HHDMS — WEEK 5 IMPLEMENTATION PLAN (4 PARALLEL TRACKS)
+=======================================================================
+Team   : 4 people (one track each)
+Source : Based on SRS audit — see SRS_IMPLEMENTATION_STATUS.txt
+Goal   : Close the remaining gaps in parallel; no hard deadline, so
+         balance coverage + quality. Follows the WEEK4_PLAN pattern.
+Scope  : SMS / WhatsApp / email / Google Maps are SKIPPED this week.
+         GPS uses the existing osmdroid + OSRM stack. Notifications
+         are FCM push + in-app only.
+
+Legend: D1..D5 = work days. Build/lint gates at end of each day.
+
+
+-----------------------------------------------------------------------
+DAY 0 — HOUSEKEEPING (all, ~1h)
+-----------------------------------------------------------------------
+[ ] Sync both repos to main; confirm API + web build/tests green.
+[ ] Rotate: apply pending migrations; re-run prisma generate.
+[ ] Update .env placeholders for any new Firebase/UploadCare needs.
+[ ] Agree on server URL for Android testing (10.158.181.213:3001 or Render).
+
+
+-----------------------------------------------------------------------
+TRACK A — X-RAY MODULE  (person A)
+Biggest SRS gap (0/10). Builds XR-001..XR-011. Reuses specialist DICOM
+viewer + UploadCare. Delivery via FCM (no SMS).
+-----------------------------------------------------------------------
+D1
+  [ ] Prisma models: xray_bookings (body part, views, referral doctor,
+      precautions), xray_exposure_parameters (kVp/mAs/SID/grid),
+      xray_reports; add XRAY_TECHNICIAN role.
+  [ ] Migration + seed technician users; update test_credentials.txt.
+D2
+  [ ] X-Ray booking endpoint + safety checklist (pregnancy, implants,
+      pacemaker, contrast allergy -> precaution notes).
+  [ ] Auto technician assignment by availability/proximity (XR-002).
+  [ ] Add X-Ray to /providers/available + call-center CC-003 flow +
+      service price.
+D3
+  [ ] Technician workflow: exposure params (kVp/mAs/SID, projections,
+      grid, film size) + technical report (quality/positioning/
+      artifacts/repeat) — XR-005/006.
+  [ ] X-Ray web pages: technician dashboard + study list + exam entry.
+D4
+  [ ] DICOM upload/storage (reuse specialist UploadCare/DICOM infra).
+  [ ] Radiologist / specialist interpretation reusing SP-005 annotation
+      viewer; report finalization + digital signature.
+D5
+  [ ] FCM report-delivery notification (XR-009) + patient/doctor-facing
+      report view.
+  [ ] End-to-end: booking -> technician -> radiologist -> report.
+
+Done when: call-center -> technician -> radiologist -> patient loop works.
+Cut line : if D4 slips, ship booking -> tech -> exposure -> report; defer
+           interpretation to next week.
+
+
+-----------------------------------------------------------------------
+TRACK B — GPS TRACKING & DISPATCH  (person B)
+Owner of LT module. Uses osmdroid + OSRM (no Google Maps).
+-----------------------------------------------------------------------
+D1
+  [ ] Prisma gps_logs (provider, appointment, timestamp, lat/lng,
+      accuracy, speed, duty); POST /tracking/location (JWT, 30s cadence).
+  [ ] Auto-stop tracking on logout / duty-end (LT-020).
+  [ ] Privacy: location only shared during active visit (LT-023).
+D2
+  [ ] Android field-staff location streaming: core module WorkManager /
+      foreground service, 30s capture, active only on duty.
+  [ ] Offline GPS cache + auto-sync on reconnect (LT-016).
+  [ ] SOS button -> GPS + identity -> admin alert + emergency contact
+      (LT-014).
+D3
+  [ ] Web admin live map (OSM tiles, color-coded role pins, click ->
+      name/patient/ETA) — LT-002/017.
+  [ ] Route history replay (LT-006); stationary alert >30 min (LT-013);
+      route deviation alert >500m (LT-007).
+D4
+  [ ] Patient tracking web URL — time-limited, no app required (LT-005).
+  [ ] ETA via OSRM (LT-004); near-arrival alert <=5 min (LT-009);
+      ETA-delay alert >15 min (LT-021).
+D5
+  [ ] Geofence auto check-in — fix caregiver.service.ts geofence TODO
+      (LT-008); GPS-verified service start/complete (LT-011).
+  [ ] Visit lifecycle timeline UI (LT-012); distance-based reimbursement
+      (LT-018); daily movement report (LT-024).
+
+Done when: field staff position visible on admin map live; patient opens
+           a tracking URL and sees the provider.
+Cut line : offline caching + daily movement report defer if tight.
+
+
+-----------------------------------------------------------------------
+TRACK C — CALL CENTER + SCHEDULING + BILLING COMPLETION + ANALYTICS  (person C)
+Owner of CC / SD / BP residuals + RA. FCM/in-app only (no SMS).
+-----------------------------------------------------------------------
+D1
+  [ ] Replace mockTickets with a live queue (CC-009): real tickets,
+      statuses, wait-time estimate.
+  [ ] call_logs model + entry UI + endpoints (CC-004, metadata only).
+D2
+  [ ] Emergency protocol (CC-010): symptom keywords flag ticket
+      EMERGENCY, alert on-duty MBBS (FCM) + priority dispatch.
+  [ ] Urgent call forward (CC-005) to agent/MBBS room via Socket.IO.
+D3
+  [ ] Cancel/reschedule (SD-005): free >4h, fee <4h, reason mandatory,
+      provider + patient notified.
+  [ ] Recurring appointments (SD-007); provider reminders 2h/1h via FCM
+      (SD-004); basic day route ordering (SD-003).
+D4
+  [ ] Itemized invoice line-items + tax/discount/total (BP-002).
+  [ ] Cash/manual payment record + multi-method enum (BP-003);
+      package pricing (BP-009); discounts/promos with audit (BP-010);
+      provider commissions + monthly statement (BP-007).
+D5
+  [ ] Analytics: call-center KPIs (RA-004), doctor performance metrics
+      (RA-002), nurse/caregiver attendance UI (RA-003), satisfaction
+      report (RA-005); CSV/PDF export.
+
+Done when: end-to-end demo booking -> queue -> cancel/reschedule ->
+           invoice -> commission works.
+
+
+-----------------------------------------------------------------------
+TRACK D — PATIENT-FACING + CARE-MODULE GAPS + SECURITY  (person D)
+Owner of PM residuals, CG/SP/US gaps, and NFR security quick wins.
+-----------------------------------------------------------------------
+D1
+  [ ] Lock unauthenticated PII endpoints: patients/by-phone/:phone,
+      by-email/:email, :id, PATCH /patients/:id, /providers/available,
+      /bookings/create-session, /api/specialist/dicom/:id/frame/:instance.
+  [ ] RolesGuard RBAC + per-specialist report filtering + hardcoded
+      roleId-7 fix; normalize MRN to MRN-YYYY-XXXXXX (PM-002).
+D2
+  [ ] Web patient portal (PM-006): patient sign-in, appointments,
+      records, prescriptions, invoices, diet plans, live tracking link.
+  [ ] Filterable service-history timeline (PM-005).
+D3
+  [ ] Feedback & complaints (PM-010): 1-5 stars + comments, complaint
+      ticket routed to admin with 24h SLA.
+  [ ] Caregiver rating/feedback (CG-009) + timesheet web UI (CG-008);
+      patient-side digital consent form render (PM-009).
+D4
+  [ ] Specialist gaps: follow-up scheduling with reminders (SP-009),
+      availability calendar (SP-012), consultation fee display (SP-014).
+  [ ] Sonologist: referral details view (US-003) + report-finalized push
+      (US-009).
+D5
+  [ ] Caregiver training records + expiry alerts (CG-010), specialized
+      caregiver booking match (CG-011).
+  [ ] Cross-track integration pass; regenerate status doc.
+
+Done when: patient can log into web portal, give feedback, view history;
+           security audit of listed endpoints returns 401 unauth.
+
+
+-----------------------------------------------------------------------
+END OF WEEK — INTEGRATION (all)
+-----------------------------------------------------------------------
+[ ] Run lint + check-types + build (hhdms) and gradle build (android_app).
+[ ] Regenerate SRS_IMPLEMENTATION_STATUS.txt with new coverage numbers.
+[ ] Update test_credentials.txt (X-Ray technician, new staff).
+[ ] Demo walkthrough:
+      call-center -> X-Ray -> GPS live map -> patient portal -> billing.
+
+
+-----------------------------------------------------------------------
+EXPLICITLY DEFERRED (this week — per scope choice)
+-----------------------------------------------------------------------
+- SMS / WhatsApp / email channels (NF-001/002/004/005/010/011 stay
+  push-only).
+- Google Maps ETA (OSRM used instead).
+- AI differential diagnosis (MB-013).
+- Lab requisition PDF + barcode/QR (MB-006).
+- Insurance documentation (BP-006).
+- Full i18n / offline-first app.
+- Redis, CI/CD, Docker, monitoring.
+
+
+-----------------------------------------------------------------------
+RISKS / NOTES
+-----------------------------------------------------------------------
+- Track A (X-Ray) and Track B (GPS) are the largest lifts — keep the
+  cut lines; they are the only tracks that could slip.
+- No SMS/WhatsApp — notification delivery is FCM push + in-app only.
+- Stripe stays in test mode.
+- Android server URL is hardcoded to http://10.158.181.213:3001 — change
+  it before testing on a different network.
+- Keep .env gitignored; never commit secrets.
